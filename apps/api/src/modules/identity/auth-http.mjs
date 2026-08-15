@@ -109,7 +109,7 @@ function sessionCookies(session, csrfToken) {
   return [
     `pcx_access=${encodeURIComponent(session.accessCredential)}; Path=/; Expires=${accessExpiry}; Secure; HttpOnly; SameSite=Strict`,
     `pcx_refresh=${encodeURIComponent(session.refreshCredential)}; Path=/api/v1/auth; Expires=${refreshExpiry}; Secure; HttpOnly; SameSite=Strict`,
-    `pcx_csrf=${encodeURIComponent(csrfToken)}; Path=/api/v1/auth; Expires=${refreshExpiry}; Secure; SameSite=Strict`
+    `pcx_csrf=${encodeURIComponent(csrfToken)}; Path=/api/v1; Expires=${refreshExpiry}; Secure; SameSite=Strict`
   ];
 }
 
@@ -117,7 +117,7 @@ function clearCookies() {
   return [
     "pcx_access=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Strict",
     "pcx_refresh=; Path=/api/v1/auth; Max-Age=0; Secure; HttpOnly; SameSite=Strict",
-    "pcx_csrf=; Path=/api/v1/auth; Max-Age=0; Secure; SameSite=Strict"
+    "pcx_csrf=; Path=/api/v1; Max-Age=0; Secure; SameSite=Strict"
   ];
 }
 

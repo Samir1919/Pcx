@@ -47,10 +47,12 @@ test("runtime composition requires PostgreSQL and trusted origins", () => {
     pool,
     allowedOrigins: "https://pcx.example",
     delivery,
+    mfa: { async beginChallenge() { return { id: "mfa", expiresAt: "2026-08-16T00:05:00.000Z" }; } },
     abuseControl: { async check() { return { allowed: true }; } },
     audit: { async record() {} }
   });
   assert.equal(typeof runtime.authService.login, "function");
   assert.equal(typeof runtime.identityActionService.resetPassword, "function");
+  assert.equal(typeof runtime.addressService.create, "function");
   assert.deepEqual([...runtime.allowedOrigins], ["https://pcx.example"]);
 });

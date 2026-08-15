@@ -4,6 +4,8 @@ import { createPostgresAuthAudit } from "./postgres-auth-audit.mjs";
 import { createPostgresIdentityRepository } from "./postgres-identity-repository.mjs";
 import { createPostgresIdentityActionRepository } from "./postgres-identity-action-repository.mjs";
 import { createIdentityActionService } from "./identity-action-service.mjs";
+import { createPostgresAddressRepository } from "./postgres-address-repository.mjs";
+import { createAddressService } from "./address-service.mjs";
 
 export function parseAllowedOrigins(value) {
   if (typeof value !== "string") throw new TypeError("allowed origins are required");
@@ -40,5 +42,6 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
     abuseControl: control,
     audit: auditSink
   });
-  return Object.freeze({ authService, identityActionService, allowedOrigins: origins });
+  const addressService = createAddressService({ authService, repository: createPostgresAddressRepository({ pool }) });
+  return Object.freeze({ authService, identityActionService, addressService, allowedOrigins: origins });
 }
