@@ -2,7 +2,7 @@
 
 - Status: Complete
 - Branch: `agent/stage2-release-discipline`
-- Latest commit: pending (committed with this slice)
+- Latest commit: `0ca5c2e`
 - Date: 2026-08-16
 
 ## Outcome
