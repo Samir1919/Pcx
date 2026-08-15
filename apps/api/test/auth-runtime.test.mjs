@@ -38,8 +38,8 @@ test("trusted origins are exact normalized HTTP(S) origins", () => {
 
 test("runtime composition requires PostgreSQL and trusted origins", () => {
   assert.throws(() => createAuthRuntime(), /PostgreSQL pool/);
-  const pool = { async query() {}, async connect() {} };
-  const delivery = { async send() {} };
+  const pool = { async query() { }, async connect() { } };
+  const delivery = { async send() { } };
   assert.throws(() => createAuthRuntime({ pool, allowedOrigins: "", delivery }), /origin/);
   assert.throws(() => createAuthRuntime({ pool, allowedOrigins: new Set(["https://pcx.example/path"]), delivery }), /origin/);
   assert.throws(() => createAuthRuntime({ pool, allowedOrigins: "https://pcx.example" }), /delivery/);
@@ -49,12 +49,13 @@ test("runtime composition requires PostgreSQL and trusted origins", () => {
     delivery,
     mfa: { async beginChallenge() { return { id: "mfa", expiresAt: "2026-08-16T00:05:00.000Z" }; } },
     abuseControl: { async check() { return { allowed: true }; } },
-    audit: { async record() {} }
+    audit: { async record() { } }
   });
   assert.equal(typeof runtime.authService.login, "function");
   assert.equal(typeof runtime.identityActionService.resetPassword, "function");
   assert.equal(typeof runtime.addressService.create, "function");
   assert.equal(typeof runtime.catalogService.listProductModels, "function");
   assert.equal(typeof runtime.catalogCommandService.createProductModel, "function");
+  assert.equal(typeof runtime.sellRequestService.create, "function");
   assert.deepEqual([...runtime.allowedOrigins], ["https://pcx.example"]);
 });

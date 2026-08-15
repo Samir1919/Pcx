@@ -12,3 +12,4 @@ export { createSecurityAuditEvent } from "./identity/audit-event.mjs";
 export { createCustomerRegistrationCandidate, createOwnAddress } from "./identity/identity-record.mjs";
 export { archiveCatalogRecord, CatalogStatus, createBrand, createCategory, createProductModel } from "./catalog/catalog-records.mjs";
 export { assertUniqueModelSpecificationValues, createModelSpecificationValue, createSpecificationDefinition, SpecificationDataType } from "./catalog/specifications.mjs";
+export { createSellRequest, createSellerDeclaration, FulfilmentPreference, parseSellRequestStatus, SellRequestStatus, submitSellRequest } from "./acquisition/sell-request.mjs";
