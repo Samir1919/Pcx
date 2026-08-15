@@ -21,7 +21,10 @@
     "typecheck": "node scripts/typecheck-check.mjs",
     "build": "node scripts/build-check.mjs",
     "security": "node scripts/security-check.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "db:backup": "sh scripts/db-backup.sh",
+    "db:restore-drill": "sh scripts/db-restore-drill.sh",
     "verify": "npm run verify:e0 && npm run lint && npm run typecheck && npm test && npm run build && npm run security",
-    "verify:ci": "npm run verify && npm run test:integration"
+    "verify:ci": "npm run verify && npm run test:integration && npm run smoke"
   }
 }
