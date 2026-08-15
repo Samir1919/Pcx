@@ -34,15 +34,15 @@ export async function handleCatalogCommandRequest(request,response,{ catalogComm
   const kind=paths.get(parts[0]);
   if(!kind || parts.length>2 || (parts.length===2 && !parts[1])) return false;
   if(!catalogCommandService){send(response,503,failure("CATALOG_ADMIN_UNAVAILABLE","Catalog administration is temporarily unavailable",requestId));return true;}
-  const create=parts.length===1 && request.method==="POST", archive=parts.length===2 && request.method==="DELETE";
-  if(!create&&!archive){send(response,405,failure("METHOD_NOT_ALLOWED","Method not allowed",requestId));return true;}
+  const create=parts.length===1 && request.method==="POST", update=parts.length===2 && request.method==="PATCH", archive=parts.length===2 && request.method==="DELETE";
+  if(!create&&!update&&!archive){send(response,405,failure("METHOD_NOT_ALLOWED","Method not allowed",requestId));return true;}
   if(url.searchParams.size){send(response,400,failure("INVALID_REQUEST","Query parameters are not supported",requestId));return true;}
   const parsed=cookies(request);
   try {
     security(request,allowedOrigins,parsed);
     const context={requestId};
     if(create){ const method=kind==="category"?"createCategory":kind==="brand"?"createBrand":"createProductModel"; send(response,201,{data:await catalogCommandService[method](parsed.pcx_access,await body(request),context)}); }
-    else { let id; try{id=decodeURIComponent(parts[1]);}catch{id=null;} if(!id||id.includes("/")||id.length>128) throw new CatalogCommandError("not_found"); await catalogCommandService.archive(parsed.pcx_access,kind,id,context); send(response,204); }
+    else { let id; try{id=decodeURIComponent(parts[1]);}catch{id=null;} if(!id||id.includes("/")||id.length>128) throw new CatalogCommandError("not_found"); if(update) send(response,200,{data:await catalogCommandService.update(parsed.pcx_access,kind,id,await body(request),context)}); else { await catalogCommandService.archive(parsed.pcx_access,kind,id,context); send(response,204); } }
   } catch(error){const [status,code,message]=mapped(error);send(response,status,failure(code,message,requestId));}
   return true;
 }

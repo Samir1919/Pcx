@@ -11,7 +11,7 @@ const fields = Object.freeze({
 
 export function createCatalogCommandService({ authService, repository, id = randomUUID, clock = () => new Date() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  if (!repository || typeof repository.create !== "function" || typeof repository.archive !== "function") throw new TypeError("catalog command repository is required");
+  if (!repository || ["create","find","update","archive"].some((method) => typeof repository[method] !== "function")) throw new TypeError("catalog command repository is required");
 
   async function actor(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -46,6 +46,28 @@ export function createCatalogCommandService({ authService, repository, id = rand
     createCategory(access, value, context) { return create("category", access, value, context); },
     createBrand(access, value, context) { return create("brand", access, value, context); },
     createProductModel(access, value, context) { return create("product_model", access, value, context); },
+    async update(accessCredential, kind, targetId, patch, context = {}) {
+      if (!fields[kind] || typeof targetId !== "string" || !targetId) throw new CatalogCommandError("not_found");
+      const identity = await actor(accessCredential);
+      const existing = await repository.find(kind, targetId);
+      if (!existing) throw new CatalogCommandError("not_found");
+      const changes = input(kind, patch);
+      if (Object.keys(changes).length === 0) throw new CatalogCommandError("invalid_input");
+      const now = clock().toISOString();
+      try {
+        const source = { ...existing, ...changes, id: existing.id, createdAt: existing.createdAt };
+        const record = kind === "category" ? createCategory(source) : kind === "brand" ? createBrand(source) : createProductModel(source);
+        const updated = await repository.update(record, kind, now, event(identity, kind, targetId, context.requestId, `CATALOG_${kind.toUpperCase()}_UPDATED`, now));
+        if (!updated) throw new CatalogCommandError("not_found");
+        return { ...record, updatedAt: now };
+      } catch (error) {
+        if (error instanceof CatalogCommandError) throw error;
+        if (error?.code === "23503") throw new CatalogCommandError("invalid_reference");
+        if (error?.code === "23505") throw new CatalogCommandError("conflict");
+        if (error instanceof TypeError) throw new CatalogCommandError("invalid_input");
+        throw error;
+      }
+    },
     async archive(accessCredential, kind, targetId, context = {}) {
       if (!fields[kind] || typeof targetId !== "string" || !targetId) throw new CatalogCommandError("not_found");
       const identity = await actor(accessCredential);

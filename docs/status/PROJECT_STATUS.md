@@ -3,7 +3,7 @@
 - Updated: 2026-08-16
 - Current main evidence commit: `d5e89df`
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
-- Current engineering focus: E2 remaining admin updates/specification commands
+- Current engineering focus: E2 specification-definition/value administration
 - Current autonomy maturity: Stage 2 in progress
 - Production deployment: not authorized
 
@@ -15,7 +15,7 @@ This file is the central progress index. Approved specifications define what PCX
 |---|---|---|---|
 | E0 — Repository & engineering foundation | Complete | Monorepo boundaries, Project Brain, portable agent rules, CI skeleton, local service definitions, verification commands | Controls continue evolving under Stage 2 |
 | E1 — Identity, authentication & RBAC | In progress | Identity/RBAC contracts; auth/session and secure browser flows; audit/runtime/local limiter; contact/reset flows; privileged MFA gate; authenticated `/me`; ownership-safe authenticated address CRUD with origin/CSRF | MFA verification/enrollment/provider; production delivery/distributed limits/atomic audit; admin user/role screens |
-| E2 — Catalog & Product Model | In progress | Category/Brand/ProductModel contracts; typed specs; safe public API; PostgreSQL persistence/runtime; audited admin create/archive; launch-aligned seeds and 500-model volume/index validation | Admin updates and specification commands; authorized admin UI |
+| E2 — Catalog & Product Model | In progress | Category/Brand/ProductModel contracts; typed specs; safe public API; PostgreSQL persistence/runtime; audited admin create/update/archive; launch seeds and volume validation | Specification-definition/value admin commands; authorized admin UI |
 | E3 — Sell-to-PCX | Pending | Specifications approved | Implementation and tests |
 | E4 — Physical intake & inventory identity | Pending | Specifications approved | Implementation and duplicate-identity tests |
 | E5 — Inspection & verification | Pending | Specifications approved | Implementation and integrity tests |
@@ -44,11 +44,11 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Current verification baseline
 
-- Root `npm run verify`: 68 unit/application tests pass; 7 PostgreSQL tests skip without `TEST_DATABASE_URL` by design.
-- CI-equivalent `npm run verify:ci`: 76/76 tests pass with PostgreSQL; integration suite 8/8 passes.
+- Root `npm run verify`: 70 unit/application tests pass; 8 PostgreSQL tests skip without `TEST_DATABASE_URL` by design.
+- CI-equivalent `npm run verify:ci`: 78/78 tests pass with PostgreSQL; integration suite 8/8 passes.
 - E0 artifact verification: 36 required artifacts.
 - Locked dependency audit at persistence merge: 0 known vulnerabilities.
-- Latest detailed evidence: `docs/handoffs/E2_CATALOG_SEEDS.md`.
+- Latest detailed evidence: `docs/handoffs/E2_ADMIN_CATALOG_UPDATES.md`.
 
 ## Current decisions and hard stops
 
@@ -60,7 +60,7 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Next dependency-ready work
 
-1. E2 authorized admin update and specification-definition/value commands.
+1. E2 authorized specification-definition/value commands and admin API.
 2. E1 provider-neutral MFA verification/enrollment contract before privileged staging access.
 3. E3 Sell-to-PCX request intake foundation after remaining E1/E2 gates.
 

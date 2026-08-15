@@ -7,7 +7,7 @@ function fixture(roles = ["ADMIN"]) {
   const calls = [];
   const service = createCatalogCommandService({
     authService: { async authenticateAccess() { return { userId: "actor-1", status: "ACTIVE", roles }; } },
-    repository: { async create(...input) { calls.push(["create", ...input]); return input[0]; }, async archive(...input) { calls.push(["archive", ...input]); return true; } },
+    repository: { async create(...input) { calls.push(["create", ...input]); return input[0]; }, async find(kind,id) { calls.push(["find",kind,id]); return kind === "brand" ? { id, name:"Old", slug:"old", status:"ACTIVE", createdAt:"2026-08-15T00:00:00.000Z" } : null; }, async update(...input) { calls.push(["update",...input]); return true; }, async archive(...input) { calls.push(["archive", ...input]); return true; } },
     id: () => `id-${++sequence}`,
     clock: () => new Date("2026-08-16T00:00:00.000Z")
   });
@@ -35,4 +35,12 @@ test("catalog commands deny non-admin roles and mass assignment/physical facts",
   const { service } = fixture();
   await assert.rejects(service.createCategory("access", { id: "client-id", name: "GPU", slug: "gpu" }), (error) => error.code === "invalid_input");
   await assert.rejects(service.createProductModel("access", { categoryId: "c", brandId: "b", name: "Model", slug: "model", acquisitionCost: 1 }), (error) => error.code === "invalid_input");
+});
+
+test("catalog PATCH merges active records while preserving server identity and lifecycle", async()=>{
+  const {service,calls}=fixture();
+  const updated=await service.update("access","brand","brand-1",{name:"New",slug:"new"},{requestId:"patch"});
+  assert.equal(updated.id,"brand-1"); assert.equal(updated.status,"ACTIVE"); assert.equal(updated.name,"New");
+  const update=calls.find(([name])=>name==="update"); assert.equal(update[1].id,"brand-1"); assert.equal(update[4].actorId,"actor-1");
+  await assert.rejects(service.update("access","brand","brand-1",{status:"ARCHIVED"}),error=>error.code==="invalid_input");
 });
