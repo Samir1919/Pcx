@@ -79,3 +79,7 @@ Authentication/RBAC, PII, uploads, inspection evidence, payments/refunds, public
 ## Vendor-neutral principle
 
 No implementation may depend on hidden model memory or a vendor-only planning artifact. Important decisions belong in specs, ADRs, task files, tests, or handoffs committed to the repository.
+
+## Evolution policy
+
+Use `AUTONOMY_EVOLUTION_ROADMAP.md` to decide how much automation and infrastructure the current project stage justifies. Complexity is added by measured triggers and risk, not by aspiration alone.

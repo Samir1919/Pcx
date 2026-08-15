@@ -16,6 +16,8 @@ This contract is tool-neutral. Codex, Claude, Gemini, Copilot, Cursor, VS Code a
 
 For coordinated parallel work, also read `docs/agentic/MULTI_AGENT_SYSTEM.md`. No agent may delegate around a hard stop or grant another agent broader authority than the human provided.
 
+Agentic infrastructure must evolve according to `docs/agentic/AUTONOMY_EVOLUTION_ROADMAP.md`. Do not introduce a heavier orchestration stage before its entry criteria are met; do not skip mandatory controls once their trigger is reached.
+
 ## Mandatory invariants
 
 - A physical used item has one unique lifecycle identity.
