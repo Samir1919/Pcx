@@ -90,6 +90,22 @@ test("refresh requires double-submit CSRF and rotates all cookies", async () => 
   assert.equal(response.headers["set-cookie"].length, 3);
 });
 
+test("mfa verification validates CSRF and issues session cookies", async () => {
+  const missingCsrf = await invoke("/api/v1/auth/verify-mfa", { body: { challengeId: "c1", credential: "123456" } });
+  assert.equal(missingCsrf.status, 403);
+  let presented;
+  const response = await invoke("/api/v1/auth/verify-mfa", {
+    body: { challengeId: "c1", credential: "123456" },
+    headers: { cookie: "pcx_csrf=token", "x-csrf-token": "token" },
+    authService: service({ async verifyMfa(input) { presented = input; return { status: "authenticated", identity: { userId: "admin-1" }, session }; } })
+  });
+  assert.equal(response.status, 200);
+  assert.deepEqual(presented, { challengeId: "c1", credential: "123456" });
+  assert.deepEqual(response.body.data, { status: "authenticated", identity: { userId: "admin-1" } });
+  assert.equal(response.headers["set-cookie"].length, 3);
+  assert.equal(JSON.stringify(response.body).includes("123456"), false);
+});
+
 test("logout validates CSRF, remains body-free, and expires every cookie", async () => {
   let presented;
   const response = await invoke("/api/v1/auth/logout", { headers: { cookie: "pcx_refresh=unknown; pcx_csrf=token", "x-csrf-token": "token" }, authService: service({ async logout(input) { presented = input; } }) });

@@ -21,7 +21,7 @@ function fixture(overrides = {}) {
     clock: () => new Date("2026-08-16T12:00:00.000Z"),
     id: () => `id-${++sequence}`,
     credential: () => `secret-${++sequence}`,
-    passwords: { assert() {}, async hash() { return "$argon2id$hash"; }, async verify() { return true; }, ...overrides.passwords },
+    passwords: { assert() { }, async hash() { return "$argon2id$hash"; }, async verify() { return true; }, ...overrides.passwords },
     mfa: overrides.mfa
   });
   return { service, calls };
@@ -105,6 +105,26 @@ test("privileged login requires a valid MFA challenge and never creates a passwo
   assert.deepEqual(result, { status: "mfa_required", challenge: { id: "mfa-1", expiresAt: "2026-08-16T12:05:00.000Z" } });
   assert.deepEqual(calls, [{ userId: "admin-1", requestId: "mfa-request" }]);
   assert.equal(ready.calls.sessions.length, 0);
+});
+
+test("mfa verification completes with a session and fails closed without provider", async () => {
+  const missing = fixture();
+  await assert.rejects(missing.service.verifyMfa({ challengeId: "c1", credential: "123456" }), (error) => error.code === "invalid_mfa");
+  assert.equal(missing.calls.sessions.length, 0);
+
+  const calls = [];
+  const ready = fixture({
+    mfa: {
+      async beginChallenge() { return { id: "c1", expiresAt: "2026-08-16T12:05:00.000Z" }; },
+      async verifyChallenge(input) { calls.push(input); return { status: "verified", userId: "admin-1" }; }
+    }
+  });
+  const result = await ready.service.verifyMfa({ challengeId: "c1", credential: "123456" }, { requestId: "mfa-verify-1" });
+  assert.equal(result.status, "authenticated");
+  assert.equal(result.identity.userId, "admin-1");
+  assert.equal(ready.calls.sessions.length, 1);
+  assert.deepEqual(calls, [{ challengeId: "c1", credential: "123456", requestId: "mfa-verify-1" }]);
+  assert.equal(JSON.stringify(ready.calls.audits).includes("123456"), false);
 });
 
 test("access authentication hashes credentials and returns a safe immutable identity", async () => {

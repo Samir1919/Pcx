@@ -2,7 +2,7 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { AuthenticationError } from "./auth-service.mjs";
 import { IdentityActionError } from "./identity-action-service.mjs";
 
-const sessionRoutes = new Set(["register", "login", "refresh", "logout"]);
+const sessionRoutes = new Set(["register", "login", "refresh", "logout", "verify-mfa"]);
 const identityActionRoutes = new Set(["verify-contact", "forgot-password", "reset-password"]);
 const routes = new Set([...sessionRoutes, ...identityActionRoutes]);
 const fields = Object.freeze({
@@ -10,6 +10,7 @@ const fields = Object.freeze({
   login: new Set(["contact", "password"]),
   refresh: new Set(),
   logout: new Set(),
+  "verify-mfa": new Set(["challengeId", "credential"]),
   "verify-contact": new Set(["token"]),
   "forgot-password": new Set(["contact"]),
   "reset-password": new Set(["token", "password"])
@@ -88,6 +89,9 @@ function validateFields(action, body) {
   if (action === "login" && (typeof body.contact !== "string" || typeof body.password !== "string")) {
     throw new HttpAuthError("INVALID_REQUEST", 400, "Contact and password are required");
   }
+  if (action === "verify-mfa" && (typeof body.challengeId !== "string" || !body.challengeId || typeof body.credential !== "string" || !body.credential)) {
+    throw new HttpAuthError("INVALID_REQUEST", 400, "Challenge ID and credential are required");
+  }
   if ((action === "refresh" || action === "logout") && Object.keys(body).length > 0) throw new HttpAuthError("INVALID_REQUEST", 400, "Request body must be empty");
   if (action === "verify-contact" && (typeof body.token !== "string" || !body.token)) throw new HttpAuthError("INVALID_REQUEST", 400, "Token is required");
   if (action === "forgot-password" && (typeof body.contact !== "string" || !body.contact.trim())) throw new HttpAuthError("INVALID_REQUEST", 400, "Contact is required");
@@ -132,6 +136,7 @@ function mapped(error) {
   if (error.code === "rate_limited") return new HttpAuthError("RATE_LIMITED", 429, "Too many requests");
   if (error.code === "contact_unavailable") return new HttpAuthError("CONTACT_UNAVAILABLE", 409, "Contact is unavailable");
   if (error.code === "mfa_unavailable") return new HttpAuthError("MFA_UNAVAILABLE", 503, "Multi-factor authentication is unavailable");
+  if (error.code === "invalid_mfa") return new HttpAuthError("MFA_FAILED", 401, "Multi-factor verification failed");
   return new HttpAuthError("UNAUTHENTICATED", 401, "Authentication failed");
 }
 
@@ -154,6 +159,7 @@ export async function handleAuthRequest(request, response, { authService, identi
     requireOrigin(request, allowedOrigins);
     const parsedCookies = cookies(request);
     if (action === "refresh" || action === "logout") requireCsrf(request, parsedCookies);
+    if (action === "verify-mfa") requireCsrf(request, parsedCookies);
     const body = await jsonBody(request);
     validateFields(action, body);
     const authContext = context(request, requestId);
@@ -167,6 +173,10 @@ export async function handleAuthRequest(request, response, { authService, identi
         response.setHeader("set-cookie", sessionCookies(result.session, csrfToken()));
         send(response, 200, { data: { identity: result.identity } });
       }
+    } else if (action === "verify-mfa") {
+      const result = await authService.verifyMfa({ challengeId: body.challengeId, credential: body.credential }, authContext);
+      response.setHeader("set-cookie", sessionCookies(result.session, csrfToken()));
+      send(response, 200, { data: { status: result.status, identity: result.identity } });
     } else if (action === "refresh") {
       const result = await authService.refresh({ refreshCredential: parsedCookies.pcx_refresh }, authContext);
       response.setHeader("set-cookie", sessionCookies(result.session, csrfToken()));
