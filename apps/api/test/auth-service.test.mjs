@@ -106,3 +106,13 @@ test("privileged login requires a valid MFA challenge and never creates a passwo
   assert.deepEqual(calls, [{ userId: "admin-1", requestId: "mfa-request" }]);
   assert.equal(ready.calls.sessions.length, 0);
 });
+
+test("access authentication hashes credentials and returns a safe immutable identity", async () => {
+  let received;
+  const { service } = fixture({ repository: { async findActiveIdentityByAccessHash(hash) { received = hash; return { userId: "u1", status: "ACTIVE", contactVerified: true, roles: ["CUSTOMER"], email: "private@example.com" }; } } });
+  const identity = await service.authenticateAccess({ accessCredential: "raw-access" });
+  assert.ok(Buffer.isBuffer(received));
+  assert.equal(received.length, 32);
+  assert.deepEqual(identity, { userId: "u1", status: "ACTIVE", contactVerified: true, roles: ["CUSTOMER"] });
+  assert.equal(Object.hasOwn(identity, "email"), false);
+});

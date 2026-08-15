@@ -72,6 +72,18 @@ export function createAuthService({
   }
 
   return Object.freeze({
+    async authenticateAccess({ accessCredential }) {
+      if (typeof accessCredential !== "string" || accessCredential.length === 0) throw new AuthenticationError("invalid_access");
+      const identity = await repository.findActiveIdentityByAccessHash(hashOpaqueCredential(accessCredential), clock().toISOString());
+      if (!identity) throw new AuthenticationError("invalid_access");
+      return Object.freeze({
+        userId: identity.userId,
+        status: identity.status,
+        contactVerified: identity.contactVerified === true,
+        roles: Object.freeze([...(identity.roles ?? [])])
+      });
+    },
+
     async register({ email, phone, password }, context = {}) {
       await control("register", context);
       passwords.assert(password);

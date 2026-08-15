@@ -1,5 +1,6 @@
 import { createServer } from "node:http";
 import { handleAuthRequest } from "./modules/identity/auth-http.mjs";
+import { handleSelfRequest } from "./modules/identity/self-http.mjs";
 
 const catalogQueryKeys = new Set(["categoryId", "brandId", "q", "cursor", "limit", "sort"]);
 const catalogSorts = new Set(["name_asc", "name_desc"]);
@@ -59,6 +60,7 @@ export function createRequestHandler({ readiness = () => ({ ok: true }), catalog
     }
 
     if (await handleAuthRequest(request, response, { authService, identityActionService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleSelfRequest(request, response, { authService, requestId: requestId(request) })) return;
 
     const publicCatalogPath = url.pathname === "/api/v1/categories"
       || url.pathname === "/api/v1/brands"
