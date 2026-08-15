@@ -60,6 +60,26 @@ export function createPostgresCatalogRepository({ pool }) {
     async findProductModelById(id) {
       const result = await pool.query("SELECT id,category_id,brand_id,name,slug,model_code,search_aliases,status,created_at,updated_at,archived_at FROM product_models WHERE id::text=$1 AND status='ACTIVE'", [id]);
       return result.rows[0] ? model(result.rows[0]) : null;
+    },
+    async listModelSpecifications(id) {
+      const result = await pool.query(
+        `SELECT v.id,v.spec_definition_id,d.key,d.label,v.data_type,d.unit,v.value_text,v.value_number,v.value_boolean,v.value_json
+         FROM model_spec_values v
+         JOIN spec_definitions d ON d.id=v.spec_definition_id AND d.status='ACTIVE'
+         WHERE v.product_model_id::text=$1
+         ORDER BY d.sort_order,d.label,d.id`, [id]);
+      return result.rows.map((row) => ({
+        id: row.id,
+        specificationDefinitionId: row.spec_definition_id,
+        key: row.key,
+        label: row.label,
+        dataType: row.data_type,
+        unit: row.unit,
+        value: row.data_type === "TEXT" ? row.value_text
+          : row.data_type === "NUMBER" ? Number(row.value_number)
+            : row.data_type === "BOOLEAN" ? row.value_boolean
+              : row.value_json
+      }));
     }
   });
 }

@@ -19,3 +19,13 @@ export function toPublicProductModel(record) {
     searchAliases: Object.freeze([...(record.searchAliases ?? [])])
   });
 }
+
+export function toPublicSpecification(record) {
+  return Object.freeze({
+    key: record.key,
+    label: record.label,
+    dataType: record.dataType,
+    unit: record.unit ?? null,
+    value: record.value
+  });
+}

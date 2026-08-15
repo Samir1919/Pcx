@@ -44,6 +44,9 @@ test("catalog persistence enforces typed category alignment and deterministic pu
     assert.equal((await repository.listProductModels({ q: "%", limit: 20, sort: "name_asc" })).records.length, 0);
     assert.equal((await repository.findProductModelById(archived)), null);
     assert.equal((await repository.findProductModelById(modelA)).searchAliases[0], "first");
+    const specifications = await repository.listModelSpecifications(modelA);
+    assert.deepEqual(specifications.map(({ key, dataType, value }) => [key, dataType, value]), [["memory_gb", "NUMBER", 8]]);
+    assert.deepEqual(await repository.listModelSpecifications(modelB), []);
     await assert.rejects(repository.listProductModels({ cursor: "not+base64", limit: 20, sort: "name_asc" }), /cursor/);
     const tampered = Buffer.from(JSON.stringify(["name_asc", "Alpha", "not-a-uuid"])).toString("base64url");
     await assert.rejects(repository.listProductModels({ cursor: tampered, limit: 20, sort: "name_asc" }), /cursor/);
