@@ -10,9 +10,12 @@
     "dev:worker": "node apps/worker/src/worker.mjs",
     "verify:e0": "node scripts/e0-check.mjs",
     "test": "node --test",
+    "test:integration": "node --test apps/api/test/integration/*.test.mjs",
+    "db:migrate": "node apps/api/src/infrastructure/database/migrate.mjs",
     "lint": "node scripts/lint-check.mjs",
     "typecheck": "node scripts/typecheck-check.mjs",
     "build": "node scripts/build-check.mjs",
-    "verify": "npm run verify:e0 && npm run lint && npm run typecheck && npm test && npm run build"
+    "verify": "npm run verify:e0 && npm run lint && npm run typecheck && npm test && npm run build",
+    "verify:ci": "npm run verify && npm run test:integration"
   }
 }
