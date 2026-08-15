@@ -1,0 +1,25 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "PCX: Verify all",
+      "type": "shell",
+      "command": "npm run verify",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "PCX: E0 artifact check",
+      "type": "shell",
+      "command": "npm run verify:e0",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "PCX: Start local services",
+      "type": "shell",
+      "command": "docker compose -f infra/docker-compose.yml up -d",
+      "problemMatcher": []
+    }
+  ]
+}

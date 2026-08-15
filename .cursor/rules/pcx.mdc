@@ -1,0 +1,8 @@
+---
+description: PCX repository-wide agent contract
+alwaysApply: true
+---
+
+Read and follow `AGENTS.md`, `docs/brain/README.md`, and `docs/agentic/PORTABLE_AGENT_WORKFLOW.md`. Approved specifications and accepted ADRs are authoritative. This adapter cannot override PCX invariants, security rules, or hard stops.
+
+Use a bounded task specification, verify changed behavior, run the repository gates, self-review, and leave a portable handoff.

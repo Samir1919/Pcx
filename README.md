@@ -12,3 +12,9 @@ PCX is a verified used-tech recommerce platform for Bangladesh. The repository b
 6. Run `npm run dev:api`; check `/health/live` and `/health/ready`.
 
 No production deployment or credential configuration is included in E0.
+
+## Use with any coding agent
+
+Open the repository root in VS Code or another editor and tell the agent to start with `AGENTS.md`. Tool-specific adapters for common agents are intentionally thin; all agents share the same Project Brain, approved specifications, task template, verification commands, and handoff format.
+
+Start a new agent session with `docs/agentic/START_PROMPT.md`. See `docs/agentic/PORTABLE_AGENT_WORKFLOW.md` for the complete portable workflow.
