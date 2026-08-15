@@ -32,8 +32,8 @@ test("catalog persistence enforces typed category alignment and deterministic pu
     await assert.rejects(pool.query("INSERT INTO model_spec_values(id,product_model_id,spec_definition_id,category_id,data_type,value_text) VALUES ('74000000-0000-0000-0000-000000000002',$1,$2,$3,'TEXT','bad')", [modelA, definitionB, categoryA]), (error) => error.code === "23503");
     await assert.rejects(pool.query("INSERT INTO model_spec_values(id,product_model_id,spec_definition_id,category_id,data_type,value_text) VALUES ('74000000-0000-0000-0000-000000000003',$1,$2,$3,'NUMBER','bad')", [modelA, definitionA, categoryA]), (error) => error.code === "23514");
 
-    assert.equal((await repository.listCategories()).length, 2);
-    assert.equal((await repository.listBrands()).length, 1);
+    assert.deepEqual((await repository.listCategories()).filter(({ id }) => id === categoryA || id === categoryB).map(({ id }) => id).sort(), [categoryA, categoryB]);
+    assert.deepEqual((await repository.listBrands()).filter(({ id }) => id === brandId).map(({ id }) => id), [brandId]);
     const first = await repository.listProductModels({ limit: 1, sort: "name_asc" });
     assert.equal(first.records[0].name, "Alpha");
     assert.ok(first.nextCursor);

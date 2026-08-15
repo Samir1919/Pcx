@@ -20,6 +20,8 @@ export const Permission = Object.freeze({
   PROFILE_READ_SELF: "profile:read:self",
   PROFILE_UPDATE_SELF: "profile:update:self",
   ADDRESS_MANAGE_SELF: "address:manage:self",
+  CATALOG_READ: "catalog:read",
+  CATALOG_MANAGE: "catalog:manage",
   CUSTOMER_READ_ASSIGNED: "customer:read:assigned",
   INSPECTION_READ: "inspection:read",
   INSPECTION_SUBMIT: "inspection:submit",

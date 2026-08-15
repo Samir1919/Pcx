@@ -18,6 +18,8 @@ test("RBAC matrix separates operational duties", () => {
   assert.equal(hasPermission(identity("finance", [Role.FINANCE]), Permission.INSPECTION_SUBMIT), false);
   assert.equal(hasPermission(identity("inventory", [Role.INVENTORY]), Permission.INSPECTION_OVERRIDE), false);
   assert.equal(hasPermission(identity("supervisor", [Role.SUPERVISOR]), Permission.INSPECTION_OVERRIDE), true);
+  assert.equal(hasPermission(identity("admin", [Role.ADMIN]), Permission.CATALOG_MANAGE), true);
+  for (const role of [Role.CUSTOMER, Role.SUPPORT, Role.TECHNICIAN, Role.SUPERVISOR, Role.INVENTORY, Role.FINANCE]) assert.equal(hasPermission(identity("denied", [role]), Permission.CATALOG_MANAGE), false);
 });
 
 test("authorization defaults to deny and enforces ownership", () => {

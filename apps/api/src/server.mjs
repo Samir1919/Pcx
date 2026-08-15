@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { handleAuthRequest } from "./modules/identity/auth-http.mjs";
 import { handleSelfRequest } from "./modules/identity/self-http.mjs";
 import { handleAddressRequest } from "./modules/identity/address-http.mjs";
+import { handleCatalogCommandRequest } from "./modules/catalog/catalog-command-http.mjs";
 
 const catalogQueryKeys = new Set(["categoryId", "brandId", "q", "cursor", "limit", "sort"]);
 const catalogSorts = new Set(["name_asc", "name_desc"]);
@@ -45,7 +46,7 @@ function catalogFilters(url) {
   });
 }
 
-export function createRequestHandler({ readiness = () => ({ ok: true }), catalogService, authService, identityActionService, addressService, allowedOrigins } = {}) {
+export function createRequestHandler({ readiness = () => ({ ok: true }), catalogService, catalogCommandService, authService, identityActionService, addressService, allowedOrigins } = {}) {
   return async (request, response) => {
     response.setHeader("content-type", "application/json; charset=utf-8");
     const url = new URL(request.url, "http://pcx.local");
@@ -61,6 +62,7 @@ export function createRequestHandler({ readiness = () => ({ ok: true }), catalog
     }
 
     if (await handleAuthRequest(request, response, { authService, identityActionService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleCatalogCommandRequest(request, response, { catalogCommandService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleAddressRequest(request, response, { addressService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleSelfRequest(request, response, { authService, requestId: requestId(request) })) return;
 

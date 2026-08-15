@@ -8,6 +8,8 @@ import { createPostgresAddressRepository } from "./postgres-address-repository.m
 import { createAddressService } from "./address-service.mjs";
 import { createPostgresCatalogRepository } from "../catalog/postgres-catalog-repository.mjs";
 import { createCatalogService } from "../catalog/catalog-service.mjs";
+import { createPostgresCatalogCommandRepository } from "../catalog/postgres-catalog-command-repository.mjs";
+import { createCatalogCommandService } from "../catalog/catalog-command-service.mjs";
 
 export function parseAllowedOrigins(value) {
   if (typeof value !== "string") throw new TypeError("allowed origins are required");
@@ -46,5 +48,6 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   });
   const addressService = createAddressService({ authService, repository: createPostgresAddressRepository({ pool }) });
   const catalogService = createCatalogService({ repository: createPostgresCatalogRepository({ pool }) });
-  return Object.freeze({ authService, identityActionService, addressService, catalogService, allowedOrigins: origins });
+  const catalogCommandService = createCatalogCommandService({ authService, repository: createPostgresCatalogCommandRepository({ pool }) });
+  return Object.freeze({ authService, identityActionService, addressService, catalogService, catalogCommandService, allowedOrigins: origins });
 }
