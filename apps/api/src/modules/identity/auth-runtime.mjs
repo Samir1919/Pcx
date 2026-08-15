@@ -26,6 +26,8 @@ import { createPostgresReservationRepository } from "../commerce/postgres-reserv
 import { createReservationService } from "../commerce/reservation-service.mjs";
 import { createPostgresOrderPaymentRepository } from "../commerce/postgres-order-payment-repository.mjs";
 import { createOrderPaymentService } from "../commerce/order-payment-service.mjs";
+import { createPostgresShipmentRepository } from "../logistics/postgres-shipment-repository.mjs";
+import { createShipmentService } from "../logistics/shipment-service.mjs";
 
 export function parseAllowedOrigins(value) {
   if (typeof value !== "string") throw new TypeError("allowed origins are required");
@@ -74,5 +76,6 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   const listingService = createListingService({ authService, repository: listingRepository });
   const reservationService = createReservationService({ authService, listingRepository, reservationRepository: createPostgresReservationRepository({ pool }) });
   const orderPaymentService = createOrderPaymentService({ authService, repository: createPostgresOrderPaymentRepository({ pool }) });
-  return Object.freeze({ authService, identityActionService, addressService, catalogService, catalogCommandService, catalogSpecCommandService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, listingService, reservationService, orderPaymentService, allowedOrigins: origins });
+  const shipmentService = createShipmentService({ authService, repository: createPostgresShipmentRepository({ pool }) });
+  return Object.freeze({ authService, identityActionService, addressService, catalogService, catalogCommandService, catalogSpecCommandService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, listingService, reservationService, orderPaymentService, shipmentService, allowedOrigins: origins });
 }

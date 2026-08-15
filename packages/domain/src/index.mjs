@@ -19,3 +19,4 @@ export { assertUniqueInspectionTemplateItems, createInspectionTemplate, createIn
 export { createListing, createListingPrice, createPublicListing, createPublicPassport, ListingStatus, publishListing } from "./listing/listing.mjs";
 export { convertReservation, createReservation, isExpiredReservation, ReservationStatus } from "./commerce/reservation.mjs";
 export { confirmPayment, createOrder, createOrderItemSnapshot, createPayment, OrderStatus, PaymentDirection, PaymentStatus } from "./commerce/order-payment.mjs";
+export { createShipment, createShipmentEvent, markDelivered, markShipped, ShipmentStatus } from "./logistics/shipment.mjs";
