@@ -16,7 +16,7 @@ test("spec commands persist typed values and actor audits atomically",{skip:!con
     await pool.query("INSERT INTO brands(id,name,slug,status) VALUES ($1,'Spec Brand','spec-brand','ACTIVE')",[brand]);
     await pool.query("INSERT INTO product_models(id,category_id,brand_id,name,slug,status) VALUES ($1,$2,$3,'Spec Model','spec-model','ACTIVE')",[model,category,brand]);
     const record={id:definition,categoryId:category,key:"capacity_gb",label:"Capacity",dataType:"NUMBER",unit:"GB",filterable:true,required:false,sortOrder:1,status:"ACTIVE",createdAt:now};
-    await repo.createDefinition(record,event("76000000-0000-4000-8000-000000000007","CREATE",definition)); assert.equal((await repo.findDefinition(definition)).dataType,"NUMBER");
+    await repo.createDefinition(record,event("76000000-0000-4000-8000-000000000007","CREATE",definition)); assert.equal((await repo.findDefinition(definition)).dataType,"NUMBER"); assert.deepEqual((await repo.listDefinitions({categoryId:category})).map(({id})=>id),[definition]);
     let saved=await repo.upsertValue({id:value,productModelId:model,specificationDefinitionId:definition,dataType:"NUMBER",value:256,createdAt:now},category,event("76000000-0000-4000-8000-000000000008","UPSERT",value)); assert.equal(saved.value,256);
     saved=await repo.upsertValue({...saved,value:512},category,event("76000000-0000-4000-8000-000000000009","UPSERT",value)); assert.equal(saved.id,value);
     assert.equal(Number((await pool.query("SELECT value_number FROM model_spec_values WHERE id=$1",[value])).rows[0].value_number),512);
