@@ -1,6 +1,6 @@
 # Task: Stage 2 Release Discipline Gates
 
-- Status: In progress
+- Status: Complete
 - Owner/agent: Codex orchestrator
 - Branch: `agent/stage2-release-discipline`
 - Risk: Security-sensitive
@@ -36,9 +36,9 @@ Close the remaining Stage 2 gates recorded in `docs/status/PROJECT_STATUS.md`: s
 - [x] Secret scan is deterministic, fails on committed high-signal secrets, and ignores documented local/test fixtures.
 - [x] Dependency audit blocks high vulnerabilities and reports zero for current deps.
 - [x] `npm run verify` includes the security gate and the full `verify:ci` passes.
-- [ ] Staging overlay boots PostgreSQL/Redis/MinIO with isolated synthetic credentials and an explicit env template.
-- [ ] Smoke path boots the API, runs migrations, and returns the fittest health/catalog read.
-- [ ] Backup script produces a restorable dump and the restore drill recovers a row.
+- [x] Staging overlay boots PostgreSQL/Redis/MinIO with isolated synthetic credentials and an explicit env template.
+- [x] Smoke path boots the API, runs migrations, and returns the fittest health/catalog read.
+- [x] Backup script produces a restorable dump and the restore drill recovers a row.
 
 ## Security and privacy review
 

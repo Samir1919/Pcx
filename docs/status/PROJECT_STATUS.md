@@ -1,7 +1,7 @@
 # PCX Project Status
 
 - Updated: 2026-08-16
-- Current main evidence commit: `3b5d95d`
+- Current main evidence commit: `26a0f57`
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: E2 public ProductModel specification detail
 - Current autonomy maturity: Stage 2 in progress
@@ -38,17 +38,18 @@ This file is the central progress index. Approved specifications define what PCX
 | Stage | Status | Evidence / trigger |
 |---|---|---|
 | Stage 1 — Lean controlled development | Complete | Project Brain, hard stops, bounded branches/tasks, tests, review, handoffs and safe merge flow |
-| Stage 2 — MVP integration/release discipline | In progress | Locked install, PostgreSQL additive migrations, migration ledger/checksums, integration tests, CI PostgreSQL service; staging/security scans/E2E/restore gates remain |
+| Stage 2 — MVP integration/release discipline | In progress | Locked install, additive migrations, migration checksums, integration tests, CI PostgreSQL service, secret/dependency scanning, staging overlay, E2E smoke path, database backup/restore drill; container image scan and sandbox payment/courier/notification adapters remain |
 | Stage 3 — Multi-agent control plane | Not started | Entry criteria not yet evidenced; no custom orchestration platform justified |
 | Stage 4 — Production delivery/operations | Not started | Requires real staging/production operations and explicit production approval |
 
 ## Current verification baseline
 
-- Root `npm run verify`: 92 application/unit tests pass; Next production build passes.
-- CI-equivalent `npm run verify:ci`: 101/101 tests pass (92 application/unit + 9 PostgreSQL integration).
+- Root `npm run verify`: 92 application/unit tests pass; secret scan + dependency audit pass; Next production build passes.
+- CI-equivalent `npm run verify:ci`: 92 application/unit + 9 PostgreSQL integration + 1 E2E smoke, all passing (0 failures).
 - E0 artifact verification: 36 required artifacts.
-- Locked dependency audit at persistence merge: 0 known vulnerabilities.
-- Latest detailed evidence: `docs/handoffs/E2_ADMIN_MODEL_SPEC_VALUES.md`.
+- Dependency audit (`npm audit --omit=dev --audit-level=high`): 0 known vulnerabilities.
+- Backup/restore drill: seed rows recovered to a throwaway database.
+- Latest detailed evidence: `docs/handoffs/E_STAGE2_RELEASE_DISCIPLINE.md`.
 
 ## Current decisions and hard stops
 
