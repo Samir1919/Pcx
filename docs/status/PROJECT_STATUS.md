@@ -1,7 +1,7 @@
 # PCX Project Status
 
 - Updated: 2026-08-16
-- Current main evidence commit: `a6d5f1f`
+- Current main evidence commit: `58406cd`
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: E8 search/discovery storefront
 - Current autonomy maturity: Stage 2 in progress
@@ -19,7 +19,7 @@ This file is the central progress index. Approved specifications define what PCX
 | E3 — Sell-to-PCX | In progress | Owner-scoped authenticated sell-request create/list/get/submit with server-owned DRAFT, ownership declaration, and DRAFT→SUBMITTED transition | Estimated range, admin queue, info/inspection/valuation/offer flows, media, notifications |
 | E4 — Physical intake & inventory identity | In progress | Permission-gated physical intake as server-owned RECEIVED InventoryItem with normalized serial identifiers and database-enforced duplicate-identity rejection | Inspection/lifecycle transitions, PCX ID generation, cost allocation, listing |
 | E5 — Inspection & verification | In progress | Versioned category-scoped inspection templates with typed, unique, canonical-code items created/read under SYSTEM_CONFIGURE | Inspection execution/results, health scores, evidence, immutable submissions, supervisor override |
-| E6 — Acquisition, cost & final offer | Pending | Specifications approved | Implementation and financial idempotency |
+| E6 — Acquisition, cost & final offer | In progress | Server-owned valuation range, final offer lifecycle (ACTIVE→ACCEPTED with expiry), and immutable idempotent acquisition (agreedPrice derived from accepted offer) | Acquisition payment processing, cost allocation, seller accept/reject endpoints |
 | E7 — Listing, pricing & passport | Pending | Specifications approved | Implementation and public-leak tests |
 | E8 — Search, discovery & storefront | Pending | Specifications approved | Implementation and realistic-volume validation |
 | E9 — Cart, reservation & checkout | Pending | Specifications approved | Atomic reservation and double-sell concurrency proof |
@@ -44,12 +44,12 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Current verification baseline
 
-- Root `npm run verify`: 127 application/unit tests pass; secret scan + dependency audit pass; Next production build passes.
-- CI-equivalent `npm run verify:ci`: 127 application/unit + 12 PostgreSQL integration + 1 E2E smoke, all passing (0 failures).
+- Root `npm run verify`: 137 application/unit tests pass; secret scan + dependency audit pass; Next production build passes.
+- CI-equivalent `npm run verify:ci`: 137 application/unit + 13 PostgreSQL integration + 1 E2E smoke, all passing (0 failures).
 - E0 artifact verification: 36 required artifacts.
 - Dependency audit (`npm audit --omit=dev --audit-level=high`): 0 known vulnerabilities.
 - Backup/restore drill: seed rows recovered to a throwaway database.
-- Latest detailed evidence: `docs/handoffs/E5_INSPECTION_TEMPLATES.md`.
+- Latest detailed evidence: `docs/handoffs/E6_ACQUISITION_OFFER.md`.
 
 ## Current decisions and hard stops
 
@@ -62,8 +62,8 @@ This file is the central progress index. Approved specifications define what PCX
 ## Next dependency-ready work
 
 1. E8 search/discovery storefront integration on top of the completed public catalog.
-2. E5 inspection execution/results and E4 inventory lifecycle transitions.
-3. E3 admin sell-request queue/detail and valuation/offer flows.
+2. E6 acquisition payment processing and cost allocation.
+3. E5 inspection execution/results and E4 inventory lifecycle transitions.
 
 ## Update rule
 

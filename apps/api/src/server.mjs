@@ -5,6 +5,7 @@ import { handleAddressRequest } from "./modules/identity/address-http.mjs";
 import { handleCatalogCommandRequest } from "./modules/catalog/catalog-command-http.mjs";
 import { handleCatalogSpecCommandRequest } from "./modules/catalog/catalog-spec-command-http.mjs";
 import { handleSellRequestRequest } from "./modules/acquisition/sell-request-http.mjs";
+import { handleAcquisitionRequest } from "./modules/acquisition/acquisition-http.mjs";
 import { handleInventoryRequest } from "./modules/inventory/inventory-http.mjs";
 import { handleInspectionTemplateRequest } from "./modules/inspection/inspection-template-http.mjs";
 
@@ -50,7 +51,7 @@ function catalogFilters(url) {
   });
 }
 
-export function createRequestHandler({ readiness = () => ({ ok: true }), catalogService, catalogCommandService, catalogSpecCommandService, authService, identityActionService, addressService, sellRequestService, inventoryService, inspectionTemplateService, allowedOrigins } = {}) {
+export function createRequestHandler({ readiness = () => ({ ok: true }), catalogService, catalogCommandService, catalogSpecCommandService, authService, identityActionService, addressService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, allowedOrigins } = {}) {
   return async (request, response) => {
     response.setHeader("content-type", "application/json; charset=utf-8");
     const url = new URL(request.url, "http://pcx.local");
@@ -70,6 +71,7 @@ export function createRequestHandler({ readiness = () => ({ ok: true }), catalog
     if (await handleCatalogCommandRequest(request, response, { catalogCommandService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleAddressRequest(request, response, { addressService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleSellRequestRequest(request, response, { sellRequestService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleAcquisitionRequest(request, response, { acquisitionService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleInventoryRequest(request, response, { inventoryService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleInspectionTemplateRequest(request, response, { inspectionTemplateService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleSelfRequest(request, response, { authService, requestId: requestId(request) })) return;
