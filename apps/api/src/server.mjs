@@ -10,6 +10,7 @@ import { handleInventoryRequest } from "./modules/inventory/inventory-http.mjs";
 import { handleInspectionTemplateRequest } from "./modules/inspection/inspection-template-http.mjs";
 import { handleListingRequest } from "./modules/listing/listing-http.mjs";
 import { handleReservationRequest } from "./modules/commerce/reservation-http.mjs";
+import { handleOrderPaymentRequest } from "./modules/commerce/order-payment-http.mjs";
 
 const catalogQueryKeys = new Set(["categoryId", "brandId", "q", "cursor", "limit", "sort"]);
 const catalogSorts = new Set(["name_asc", "name_desc"]);
@@ -53,7 +54,7 @@ function catalogFilters(url) {
   });
 }
 
-export function createRequestHandler({ readiness = () => ({ ok: true }), catalogService, catalogCommandService, catalogSpecCommandService, authService, identityActionService, addressService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, listingService, reservationService, allowedOrigins } = {}) {
+export function createRequestHandler({ readiness = () => ({ ok: true }), catalogService, catalogCommandService, catalogSpecCommandService, authService, identityActionService, addressService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, listingService, reservationService, orderPaymentService, allowedOrigins } = {}) {
   return async (request, response) => {
     response.setHeader("content-type", "application/json; charset=utf-8");
     const url = new URL(request.url, "http://pcx.local");
@@ -78,6 +79,7 @@ export function createRequestHandler({ readiness = () => ({ ok: true }), catalog
     if (await handleInspectionTemplateRequest(request, response, { inspectionTemplateService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleListingRequest(request, response, { listingService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleReservationRequest(request, response, { reservationService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleOrderPaymentRequest(request, response, { orderPaymentService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleSelfRequest(request, response, { authService, requestId: requestId(request) })) return;
 
     const publicCatalogPath = url.pathname === "/api/v1/categories"

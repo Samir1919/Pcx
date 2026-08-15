@@ -1,7 +1,7 @@
 # PCX Project Status
 
 - Updated: 2026-08-16
-- Current main evidence commit: `16ab8be`
+- Current main evidence commit: `ca266d8`
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: E8 search/discovery storefront
 - Current autonomy maturity: Stage 2 in progress
@@ -23,7 +23,7 @@ This file is the central progress index. Approved specifications define what PCX
 | E7 — Listing, pricing & passport | In progress | Server-owned listing lifecycle (DRAFT→PUBLISHED), versioned asking-price history, one-active-listing-per-item constraint, and safe public passport projection (`GET /passport/:pcxId`) excluding serial/cost/private evidence | Listing media/QR, reservation/sold transitions, disclosure completeness |
 | E8 — Search, discovery & storefront | In progress | Public storefront listing search (`GET /api/v1/listings`) with allow-listed query params, cursor pagination, and safe disclosure-only listing cards (no serial/cost/private evidence) | Storefront UI shell, listing media/QR, recommendation/dedicated search index |
 | E9 — Cart, reservation & checkout | In progress | Bounded reservation with database-enforced one-active-per-item constraint (double-sell guard), customer-gated create/convert/read-active, and concurrency-proof integration | Cart persistence, order/payment allocation, reservation expiry job |
-| E10 — Order & payment | Pending | Specifications approved | Sandbox adapter, webhook verification/replay and reconciliation |
+| E10 — Order & payment | In progress | Customer-gated order creation with server-computed totals and sold-fact snapshots, plus idempotent payments keyed by unique provider transaction id (confirm once from INITIATED) | Payment gateway/webhook integration, refunds, reconciliation |
 | E11 — Fulfilment & shipment | Pending | Specifications approved | Courier sandbox adapter and exception recovery |
 | E12 — Return & refund | Pending | Specifications approved | Eligibility, serial match and refund idempotency |
 | E13 — Warranty & claims | Pending | Specifications approved | Lifecycle and resolution implementation |
@@ -44,12 +44,12 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Current verification baseline
 
-- Root `npm run verify`: 144 application/unit tests pass; 15 PostgreSQL integration tests skip without `TEST_DATABASE_URL` by design; secret scan + dependency audit pass; Next production build passes.
-- CI-equivalent `npm run verify:ci`: 144 application/unit + 15 PostgreSQL integration + 1 E2E smoke, all passing (0 failures).
+- Root `npm run verify`: 152 application/unit tests pass; 16 PostgreSQL integration tests skip without `TEST_DATABASE_URL` by design; secret scan + dependency audit pass; Next production build passes.
+- CI-equivalent `npm run verify:ci`: 152 application/unit + 16 PostgreSQL integration + 1 E2E smoke, all passing (0 failures).
 - E0 artifact verification: 36 required artifacts.
 - Dependency audit (`npm audit --omit=dev --audit-level=high`): 0 known vulnerabilities.
 - Backup/restore drill: seed rows recovered to a throwaway database.
-- Latest detailed evidence: `docs/handoffs/E9_RESERVATION_CHECKOUT.md`.
+- Latest detailed evidence: `docs/handoffs/E10_ORDER_PAYMENT.md`.
 
 ## Current decisions and hard stops
 
@@ -61,9 +61,9 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Next dependency-ready work
 
-1. E8 search/discovery storefront integration on top of the completed public catalog and listings.
-2. E6 acquisition payment processing and cost allocation.
-3. E5 inspection execution/results and E4 inventory lifecycle transitions.
+1. E11 fulfilment/shipment courier adapter.
+2. E12 return & refund.
+3. E13 warranty & claims.
 
 ## Update rule
 
