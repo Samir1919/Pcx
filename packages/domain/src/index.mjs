@@ -10,3 +10,4 @@ export { Permission, Role, UserStatus } from "./identity/constants.mjs";
 export { authorize, authorizeRoleAssignment, hasPermission, permissionsForRole } from "./identity/role-policy.mjs";
 export { createSecurityAuditEvent } from "./identity/audit-event.mjs";
 export { createCustomerRegistrationCandidate, createOwnAddress } from "./identity/identity-record.mjs";
+export { archiveCatalogRecord, CatalogStatus, createBrand, createCategory, createProductModel } from "./catalog/catalog-records.mjs";
