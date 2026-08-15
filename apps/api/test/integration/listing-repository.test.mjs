@@ -43,6 +43,11 @@ test("listing repository persists draft, publishes with unique active constraint
     assert.equal(passport.pcx_item_id, "PCX-TEST-LIST");
     assert.equal(Number(passport.price), 15000);
 
+    const search = await repository.searchPublished({ q: "PCX Gaming Tower", sort: "newest", limit: 10 });
+    assert.equal(search.records.length, 1);
+    assert.equal(search.records[0].pcx_item_id, "PCX-TEST-LIST");
+    assert.equal(search.nextCursor, null);
+
     // A second active listing for the same item violates the unique index.
     await repository.createDraft({ id: second, inventoryItemId: itemId, publicSlug: "pcx-test-list-2", warrantyPolicyId: null, status: "DRAFT", publishedAt: null, createdAt: now });
     await assert.rejects(

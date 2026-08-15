@@ -16,4 +16,4 @@ export { createSellRequest, createSellerDeclaration, FulfilmentPreference, parse
 export { acceptOffer, AcquisitionPaymentStatus, AcquisitionSourceType, createAcquisition, createOffer, createValuation, OfferStatus, ValuationType } from "./acquisition/valuation-offer.mjs";
 export { assertPrimarySerialIdentifier, createInventoryItem, createSerialIdentifier, InventoryItemStatus, normalizeSerialIdentifier, SerialIdentifierType } from "./inventory/inventory-item.mjs";
 export { assertUniqueInspectionTemplateItems, createInspectionTemplate, createInspectionTemplateItem, InspectionResultType, InspectionTemplateStatus } from "./inspection/inspection-template.mjs";
-export { createListing, createListingPrice, createPublicPassport, ListingStatus, publishListing } from "./listing/listing.mjs";
+export { createListing, createListingPrice, createPublicListing, createPublicPassport, ListingStatus, publishListing } from "./listing/listing.mjs";

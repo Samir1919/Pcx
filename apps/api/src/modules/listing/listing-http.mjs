@@ -69,6 +69,36 @@ function map(error) {
 export async function handleListingRequest(request, response, { listingService, allowedOrigins, requestId }) {
   const url = new URL(request.url, "http://pcx.local");
 
+  // Public listing search: GET /api/v1/listings
+  if (url.pathname === "/api/v1/listings") {
+    if (request.method !== "GET") { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
+    if (!listingService) { send(response, 503, failure("LISTING_UNAVAILABLE", "Listings are temporarily unavailable", requestId)); return true; }
+    const allowedKeys = new Set(["categoryId", "brandId", "q", "cursor", "limit", "sort"]);
+    for (const key of url.searchParams.keys()) {
+      if (!allowedKeys.has(key)) { send(response, 400, failure("INVALID_REQUEST", `Unsupported query parameter: ${key}`, requestId)); return true; }
+      if (url.searchParams.getAll(key).length > 1) { send(response, 400, failure("INVALID_REQUEST", `Duplicate query parameter: ${key}`, requestId)); return true; }
+    }
+    const limit = url.searchParams.get("limit") == null ? 20 : Number(url.searchParams.get("limit"));
+    const sort = url.searchParams.get("sort") ?? "newest";
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50 || !new Set(["newest", "price_asc", "price_desc"]).has(sort)) {
+      send(response, 400, failure("INVALID_REQUEST", "Invalid limit or sort", requestId)); return true;
+    }
+    try {
+      const result = await listingService.searchPublic({
+        categoryId: url.searchParams.get("categoryId"),
+        brandId: url.searchParams.get("brandId"),
+        q: url.searchParams.get("q"),
+        cursor: url.searchParams.get("cursor"),
+        limit,
+        sort
+      });
+      send(response, 200, result);
+    } catch (error) {
+      send(response, 400, failure("INVALID_REQUEST", "Invalid search filters", requestId));
+    }
+    return true;
+  }
+
   // Public passport read: GET /api/v1/passport/:pcxId
   const passport = url.pathname.match(/^\/api\/v1\/passport\/([^/]+)$/);
   if (passport) {

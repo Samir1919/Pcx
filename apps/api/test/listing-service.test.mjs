@@ -11,6 +11,7 @@ function fixture(overrides = {}) {
     async createPrice(record) { calls.prices.push(record); return record; },
     async findById(id) { calls.finds.push(id); return id === "l1" ? { id, inventoryItemId: "inv-1", status: ListingStatus.DRAFT, publicSlug: null, publishedAt: null } : null; },
     async findPublicPassport(pcxItemId) { calls.passports.push(pcxItemId); return pcxItemId === "PCX-1" ? { pcxItemId, modelId: "m1", name: "GPU", categoryId: "gpu", brandId: "b1", status: "PUBLISHED", publishedAt: "2026-08-16T12:00:00.000Z", price: 15000, serial: "SECRET" } : null; },
+    async searchPublished(filters) { calls.searches = filters; return { records: [{ id: "l1", public_slug: "pcx-gaming-tower", pcx_item_id: "PCX-1", model_id: "m1", name: "GPU", category_id: "gpu", brand_id: "b1", price: 15000, published_at: "2026-08-16T12:00:00.000Z" }], nextCursor: null }; },
     ...overrides.repository
   };
   const service = createListingService({
@@ -42,6 +43,16 @@ test("setPrice requires pricing permission and positive server-owned amount", as
   assert.equal(calls.prices.length, 1);
   await assert.rejects(service.setPrice("access", { listingId: "l1", price: 0 }), (error) => error.code === "invalid_input");
   await assert.rejects(service.setPrice("access", { listingId: "missing", price: 10 }), (error) => error.code === "not_found");
+});
+
+test("public search returns safe listing cards with pagination meta", async () => {
+  const { service, calls } = fixture();
+  const result = await service.searchPublic({ categoryId: "gpu", q: "GPU", limit: 10, sort: "newest" });
+  assert.equal(result.data[0].pcxItemId, "PCX-1");
+  assert.equal(Object.hasOwn(result.data[0], "serial"), false);
+  assert.equal(Object.hasOwn(result.data[0], "acquisitionCost"), false);
+  assert.deepEqual(result.meta, { nextCursor: null });
+  assert.equal(calls.searches.categoryId, "gpu");
 });
 
 test("public passport never leaks serial or internal fields", async () => {

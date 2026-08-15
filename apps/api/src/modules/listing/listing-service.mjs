@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createListing, createListingPrice, createPublicPassport, publishListing } from "../../../../../packages/domain/src/listing/listing.mjs";
+import { createListing, createListingPrice, createPublicListing, createPublicPassport, publishListing } from "../../../../../packages/domain/src/listing/listing.mjs";
 import { hasPermission, Permission } from "../../../../../packages/domain/src/index.mjs";
 
 export class ListingError extends Error {
@@ -82,6 +82,26 @@ export function createListingService({ authService, repository, id = randomUUID,
       } catch {
         return null;
       }
+    },
+
+    async searchPublic(filters) {
+      const result = await repository.searchPublished(filters);
+      return Object.freeze({
+        data: Object.freeze(result.records.map((row) => createPublicListing({
+          id: row.id,
+          publicSlug: row.public_slug,
+          pcxItemId: row.pcx_item_id,
+          modelId: row.model_id,
+          name: row.name,
+          categoryId: row.category_id,
+          brandId: row.brand_id,
+          grade: null,
+          healthScore: null,
+          price: row.price == null ? null : Number(row.price),
+          publishedAt: row.published_at ? new Date(row.published_at).toISOString() : null
+        }))),
+        meta: Object.freeze({ nextCursor: result.nextCursor })
+      });
     }
   });
 }

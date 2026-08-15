@@ -87,6 +87,36 @@ export function createListingPrice({
 // Public passport exposes only approved disclosure fields. Full serials,
 // acquisition cost, private evidence, and internal technician data are never
 // included; serials stay masked or absent here.
+// Public storefront listing card: approved disclosure only. Never serials,
+// acquisition cost, or private evidence.
+export function createPublicListing({
+  id,
+  publicSlug,
+  pcxItemId,
+  modelId,
+  name,
+  categoryId,
+  brandId,
+  grade = null,
+  healthScore = null,
+  price = null,
+  publishedAt
+}) {
+  return Object.freeze({
+    id: requiredString(id, "id"),
+    publicSlug: publicSlug == null ? null : requiredString(publicSlug, "publicSlug"),
+    pcxItemId: requiredString(pcxItemId, "pcxItemId"),
+    modelId: requiredString(modelId, "modelId"),
+    name: requiredString(name, "name"),
+    categoryId: requiredString(categoryId, "categoryId"),
+    brandId: requiredString(brandId, "brandId"),
+    grade,
+    healthScore: healthScore == null ? null : (Number.isFinite(healthScore) ? healthScore : null),
+    price: price == null ? null : money(price, "price"),
+    publishedAt: publishedAt == null ? null : timestamp(publishedAt, "publishedAt")
+  });
+}
+
 export function createPublicPassport({
   pcxItemId,
   modelId,

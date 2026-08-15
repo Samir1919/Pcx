@@ -11,6 +11,7 @@ function service(overrides = {}) {
     async publish() { return { id: "l1", status: "PUBLISHED" }; },
     async setPrice() { return { id: "p1", price: 15000 }; },
     async publicPassport() { return { pcxItemId: "PCX-1", status: "PUBLISHED" }; },
+    async searchPublic() { return { data: [{ id: "l1", pcxItemId: "PCX-1" }], meta: { nextCursor: null } }; },
     ...overrides
   };
 }
@@ -35,6 +36,14 @@ async function invoke(path, { method = "GET", body, headers = {}, listingService
 }
 
 function csrf() { return { cookie: "pcx_csrf=token", "x-csrf-token": "token" }; }
+
+test("public listing search requires GET and validates filters", async () => {
+  assert.equal((await invoke("/api/v1/listings?categoryId=gpu&q=RTX")).status, 200);
+  assert.equal((await invoke("/api/v1/listings", { method: "POST" })).status, 405);
+  assert.equal((await invoke("/api/v1/listings?unknown=1")).status, 400);
+  assert.equal((await invoke("/api/v1/listings?limit=51")).status, 400);
+  assert.equal((await invoke("/api/v1/listings?sort=cost_desc")).status, 400);
+});
 
 test("public passport is a read-only GET without write security", async () => {
   assert.equal((await invoke("/api/v1/passport/PCX-1")).status, 200);

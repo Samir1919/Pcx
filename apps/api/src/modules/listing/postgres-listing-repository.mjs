@@ -97,6 +97,53 @@ export function createPostgresListingRepository({ pool }) {
         [pcxItemId]
       );
       return result.rows[0] ?? null;
+    },
+
+    async searchPublished({ categoryId = null, brandId = null, q = null, limit = 20, cursor = null, sort = "newest" } = {}) {
+      if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50 || !new Set(["newest", "price_asc", "price_desc"]).has(sort)) throw new TypeError("listing search filters are invalid");
+      const values = [];
+      const where = ["l.status = 'PUBLISHED'"];
+      const add = (value) => { values.push(value); return `$${values.length}`; };
+      if (categoryId) where.push(`pm.category_id::text = ${add(categoryId)}`);
+      if (brandId) where.push(`pm.brand_id::text = ${add(brandId)}`);
+      if (q) {
+        const parameter = add(`%${q.replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_")}%`);
+        where.push(`(pm.name ILIKE ${parameter} ESCAPE '\\' OR COALESCE(pm.model_code,'') ILIKE ${parameter} ESCAPE '\\')`);
+      }
+      if (cursor) {
+        const decoded = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
+        if (sort === "price_desc") {
+          where.push(`(lp.price, l.id::text) < (${add(decoded.value)}, ${add(decoded.id)})`);
+        } else if (sort === "price_asc") {
+          where.push(`(lp.price, l.id::text) > (${add(decoded.value)}, ${add(decoded.id)})`);
+        } else {
+          where.push(`(l.published_at, l.id::text) < (${add(decoded.value)}, ${add(decoded.id)})`);
+        }
+      }
+      const orderBy = sort === "price_desc" ? "lp.price DESC NULLS LAST, l.id DESC"
+        : sort === "price_asc" ? "lp.price ASC NULLS LAST, l.id ASC"
+          : "l.published_at DESC, l.id DESC";
+      const pageSize = add(limit + 1);
+      const result = await pool.query(
+        `SELECT l.id, l.public_slug, ii.pcx_item_id, pm.id AS model_id, pm.name, pm.category_id, pm.brand_id,
+                l.published_at, lp.price
+         FROM listings l
+         JOIN inventory_items ii ON ii.id = l.inventory_item_id
+         JOIN product_models pm ON pm.id = ii.product_model_id
+         LEFT JOIN LATERAL (
+           SELECT price FROM listing_prices WHERE listing_id = l.id AND valid_to IS NULL ORDER BY valid_from DESC LIMIT 1
+         ) lp ON true
+         WHERE ${where.join(" AND ")}
+         ORDER BY ${orderBy}
+         LIMIT ${pageSize}`,
+        values
+      );
+      const hasNext = result.rows.length > limit;
+      const rows = result.rows.slice(0, limit);
+      const nextCursor = hasNext
+        ? Buffer.from(JSON.stringify({ id: rows.at(-1).id, value: sort === "newest" ? new Date(rows.at(-1).published_at).toISOString() : (rows.at(-1).price == null ? null : Number(rows.at(-1).price)) })).toString("base64url")
+        : null;
+      return { records: rows, nextCursor };
     }
   });
 }
