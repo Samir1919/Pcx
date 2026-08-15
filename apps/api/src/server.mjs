@@ -1,18 +1,107 @@
 import { createServer } from "node:http";
 
-export function createRequestHandler({ readiness = () => ({ ok: true }) } = {}) {
-  return (request, response) => {
+const catalogQueryKeys = new Set(["categoryId", "brandId", "q", "cursor", "limit", "sort"]);
+const catalogSorts = new Set(["name_asc", "name_desc"]);
+
+class InvalidRequestError extends Error {}
+
+function send(response, status, body) {
+  response.writeHead(status).end(JSON.stringify(body));
+}
+
+function requestId(request) {
+  const value = request.headers?.["x-request-id"];
+  return typeof value === "string" && value.length > 0 ? value : "unavailable";
+}
+
+function catalogFilters(url) {
+  for (const key of url.searchParams.keys()) {
+    if (!catalogQueryKeys.has(key)) throw new InvalidRequestError(`unsupported query parameter: ${key}`);
+    if (url.searchParams.getAll(key).length > 1) throw new InvalidRequestError(`duplicate query parameter: ${key}`);
+  }
+  const limitValue = url.searchParams.get("limit");
+  const limit = limitValue == null ? 20 : Number(limitValue);
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50) throw new InvalidRequestError("limit must be an integer from 1 to 50");
+  const sort = url.searchParams.get("sort") ?? "name_asc";
+  if (!catalogSorts.has(sort)) throw new InvalidRequestError("unsupported catalog sort");
+  const categoryId = url.searchParams.get("categoryId");
+  const brandId = url.searchParams.get("brandId");
+  const q = url.searchParams.get("q");
+  const cursor = url.searchParams.get("cursor");
+  if (categoryId && categoryId.length > 128) throw new InvalidRequestError("categoryId is too long");
+  if (brandId && brandId.length > 128) throw new InvalidRequestError("brandId is too long");
+  if (q && q.length > 100) throw new InvalidRequestError("q is too long");
+  if (cursor && cursor.length > 512) throw new InvalidRequestError("cursor is too long");
+  return Object.freeze({
+    categoryId,
+    brandId,
+    q,
+    cursor,
+    limit,
+    sort
+  });
+}
+
+export function createRequestHandler({ readiness = () => ({ ok: true }), catalogService } = {}) {
+  return async (request, response) => {
     response.setHeader("content-type", "application/json; charset=utf-8");
-    if (request.url === "/health/live") {
-      response.writeHead(200).end(JSON.stringify({ status: "ok" }));
+    const url = new URL(request.url, "http://pcx.local");
+    const method = request.method ?? "GET";
+    if (url.pathname === "/health/live") {
+      send(response, 200, { status: "ok" });
       return;
     }
-    if (request.url === "/health/ready") {
+    if (url.pathname === "/health/ready") {
       const state = readiness();
-      response.writeHead(state.ok ? 200 : 503).end(JSON.stringify({ status: state.ok ? "ready" : "not_ready" }));
+      send(response, state.ok ? 200 : 503, { status: state.ok ? "ready" : "not_ready" });
       return;
     }
-    response.writeHead(404).end(JSON.stringify({ error: "not_found" }));
+
+    const publicCatalogPath = url.pathname === "/api/v1/categories"
+      || url.pathname === "/api/v1/brands"
+      || url.pathname === "/api/v1/product-models"
+      || url.pathname.startsWith("/api/v1/product-models/");
+    if (!publicCatalogPath) {
+      send(response, 404, { error: { code: "NOT_FOUND", message: "Resource not found", requestId: requestId(request) } });
+      return;
+    }
+    if (method !== "GET") {
+      send(response, 405, { error: { code: "METHOD_NOT_ALLOWED", message: "Method not allowed", requestId: requestId(request) } });
+      return;
+    }
+    if (!catalogService) {
+      send(response, 503, { error: { code: "CATALOG_UNAVAILABLE", message: "Catalog is temporarily unavailable", requestId: requestId(request) } });
+      return;
+    }
+
+    try {
+      if ((url.pathname === "/api/v1/categories" || url.pathname === "/api/v1/brands") && url.searchParams.size > 0) {
+        throw new InvalidRequestError("query parameters are not supported for this resource");
+      }
+      if (url.pathname === "/api/v1/categories") return send(response, 200, await catalogService.listCategories());
+      if (url.pathname === "/api/v1/brands") return send(response, 200, await catalogService.listBrands());
+      if (url.pathname === "/api/v1/product-models") return send(response, 200, await catalogService.listProductModels(catalogFilters(url)));
+      let id;
+      try {
+        id = decodeURIComponent(url.pathname.slice("/api/v1/product-models/".length));
+      } catch {
+        throw new InvalidRequestError("product model ID is malformed");
+      }
+      if (!id || id.includes("/")) return send(response, 404, { error: { code: "NOT_FOUND", message: "Resource not found", requestId: requestId(request) } });
+      const model = await catalogService.getProductModel(id);
+      return model
+        ? send(response, 200, { data: model })
+        : send(response, 404, { error: { code: "PRODUCT_MODEL_NOT_FOUND", message: "Product model not found", requestId: requestId(request) } });
+    } catch (error) {
+      const validation = error instanceof InvalidRequestError;
+      return send(response, validation ? 400 : 500, {
+        error: {
+          code: validation ? "INVALID_REQUEST" : "INTERNAL_ERROR",
+          message: validation ? error.message : "Unexpected server error",
+          requestId: requestId(request)
+        }
+      });
+    }
   };
 }
 
