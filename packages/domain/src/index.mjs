@@ -14,3 +14,4 @@ export { archiveCatalogRecord, CatalogStatus, createBrand, createCategory, creat
 export { assertUniqueModelSpecificationValues, createModelSpecificationValue, createSpecificationDefinition, SpecificationDataType } from "./catalog/specifications.mjs";
 export { createSellRequest, createSellerDeclaration, FulfilmentPreference, parseSellRequestStatus, SellRequestStatus, submitSellRequest } from "./acquisition/sell-request.mjs";
 export { assertPrimarySerialIdentifier, createInventoryItem, createSerialIdentifier, InventoryItemStatus, normalizeSerialIdentifier, SerialIdentifierType } from "./inventory/inventory-item.mjs";
+export { assertUniqueInspectionTemplateItems, createInspectionTemplate, createInspectionTemplateItem, InspectionResultType, InspectionTemplateStatus } from "./inspection/inspection-template.mjs";
