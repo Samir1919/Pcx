@@ -11,7 +11,7 @@ test("identity migration is repeatable and installs security constraints", { ski
   const pool = new pg.Pool({ connectionString });
   try {
     const migrations = await pool.query("SELECT version FROM schema_migrations ORDER BY version");
-    assert.deepEqual(migrations.rows.map(({ version }) => version), ["0001_identity_auth.sql", "0002_identity_policy_seed.sql", "0003_identity_action_tokens.sql", "0004_catalog.sql", "0005_catalog_admin_policy.sql"]);
+    assert.deepEqual(migrations.rows.map(({ version }) => version), ["0001_identity_auth.sql", "0002_identity_policy_seed.sql", "0003_identity_action_tokens.sql", "0004_catalog.sql", "0005_catalog_admin_policy.sql", "0006_catalog_seed.sql"]);
     const tables = await pool.query("SELECT tablename FROM pg_tables WHERE schemaname = 'public'");
     const names = new Set(tables.rows.map(({ tablename }) => tablename));
     for (const name of ["users", "roles", "permissions", "user_roles", "role_permissions", "addresses", "access_sessions", "refresh_families", "refresh_credentials", "auth_audit_events", "identity_action_tokens", "categories", "brands", "product_models", "spec_definitions", "model_spec_values"]) assert.equal(names.has(name), true, `${name} is missing`);

@@ -34,10 +34,10 @@ test("catalog persistence enforces typed category alignment and deterministic pu
 
     assert.deepEqual((await repository.listCategories()).filter(({ id }) => id === categoryA || id === categoryB).map(({ id }) => id).sort(), [categoryA, categoryB]);
     assert.deepEqual((await repository.listBrands()).filter(({ id }) => id === brandId).map(({ id }) => id), [brandId]);
-    const first = await repository.listProductModels({ limit: 1, sort: "name_asc" });
+    const first = await repository.listProductModels({ categoryId: categoryA, limit: 1, sort: "name_asc" });
     assert.equal(first.records[0].name, "Alpha");
     assert.ok(first.nextCursor);
-    const second = await repository.listProductModels({ limit: 1, sort: "name_asc", cursor: first.nextCursor });
+    const second = await repository.listProductModels({ categoryId: categoryA, limit: 1, sort: "name_asc", cursor: first.nextCursor });
     assert.equal(second.records[0].name, "Beta");
     assert.equal(second.nextCursor, null);
     assert.deepEqual((await repository.listProductModels({ q: "second", limit: 20, sort: "name_asc" })).records.map(({ name }) => name), ["Beta"]);
