@@ -1,7 +1,7 @@
 # PCX Project Status
 
 - Updated: 2026-08-16
-- Current main evidence commit: `48d0000`
+- Current main evidence commit: `16ab8be`
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: E8 search/discovery storefront
 - Current autonomy maturity: Stage 2 in progress
@@ -22,7 +22,7 @@ This file is the central progress index. Approved specifications define what PCX
 | E6 — Acquisition, cost & final offer | In progress | Server-owned valuation range, final offer lifecycle (ACTIVE→ACCEPTED with expiry), and immutable idempotent acquisition (agreedPrice derived from accepted offer) | Acquisition payment processing, cost allocation, seller accept/reject endpoints |
 | E7 — Listing, pricing & passport | In progress | Server-owned listing lifecycle (DRAFT→PUBLISHED), versioned asking-price history, one-active-listing-per-item constraint, and safe public passport projection (`GET /passport/:pcxId`) excluding serial/cost/private evidence | Listing media/QR, reservation/sold transitions, disclosure completeness |
 | E8 — Search, discovery & storefront | In progress | Public storefront listing search (`GET /api/v1/listings`) with allow-listed query params, cursor pagination, and safe disclosure-only listing cards (no serial/cost/private evidence) | Storefront UI shell, listing media/QR, recommendation/dedicated search index |
-| E9 — Cart, reservation & checkout | Pending | Specifications approved | Atomic reservation and double-sell concurrency proof |
+| E9 — Cart, reservation & checkout | In progress | Bounded reservation with database-enforced one-active-per-item constraint (double-sell guard), customer-gated create/convert/read-active, and concurrency-proof integration | Cart persistence, order/payment allocation, reservation expiry job |
 | E10 — Order & payment | Pending | Specifications approved | Sandbox adapter, webhook verification/replay and reconciliation |
 | E11 — Fulfilment & shipment | Pending | Specifications approved | Courier sandbox adapter and exception recovery |
 | E12 — Return & refund | Pending | Specifications approved | Eligibility, serial match and refund idempotency |
@@ -44,12 +44,12 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Current verification baseline
 
-- Root `npm run verify`: 137 application/unit tests pass; 14 PostgreSQL integration tests skip without `TEST_DATABASE_URL` by design; secret scan + dependency audit pass; Next production build passes.
-- CI-equivalent `npm run verify:ci`: 137 application/unit + 14 PostgreSQL integration + 1 E2E smoke, all passing (0 failures).
+- Root `npm run verify`: 144 application/unit tests pass; 15 PostgreSQL integration tests skip without `TEST_DATABASE_URL` by design; secret scan + dependency audit pass; Next production build passes.
+- CI-equivalent `npm run verify:ci`: 144 application/unit + 15 PostgreSQL integration + 1 E2E smoke, all passing (0 failures).
 - E0 artifact verification: 36 required artifacts.
 - Dependency audit (`npm audit --omit=dev --audit-level=high`): 0 known vulnerabilities.
 - Backup/restore drill: seed rows recovered to a throwaway database.
-- Latest detailed evidence: `docs/handoffs/E8_SEARCH_STOREFRONT.md`.
+- Latest detailed evidence: `docs/handoffs/E9_RESERVATION_CHECKOUT.md`.
 
 ## Current decisions and hard stops
 
