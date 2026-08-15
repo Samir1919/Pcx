@@ -10,6 +10,8 @@ import { createPostgresCatalogRepository } from "../catalog/postgres-catalog-rep
 import { createCatalogService } from "../catalog/catalog-service.mjs";
 import { createPostgresCatalogCommandRepository } from "../catalog/postgres-catalog-command-repository.mjs";
 import { createCatalogCommandService } from "../catalog/catalog-command-service.mjs";
+import { createPostgresCatalogSpecCommandRepository } from "../catalog/postgres-catalog-spec-command-repository.mjs";
+import { createCatalogSpecCommandService } from "../catalog/catalog-spec-command-service.mjs";
 
 export function parseAllowedOrigins(value) {
   if (typeof value !== "string") throw new TypeError("allowed origins are required");
@@ -49,5 +51,6 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   const addressService = createAddressService({ authService, repository: createPostgresAddressRepository({ pool }) });
   const catalogService = createCatalogService({ repository: createPostgresCatalogRepository({ pool }) });
   const catalogCommandService = createCatalogCommandService({ authService, repository: createPostgresCatalogCommandRepository({ pool }) });
-  return Object.freeze({ authService, identityActionService, addressService, catalogService, catalogCommandService, allowedOrigins: origins });
+  const catalogSpecCommandService = createCatalogSpecCommandService({ authService, repository: createPostgresCatalogSpecCommandRepository({ pool }) });
+  return Object.freeze({ authService, identityActionService, addressService, catalogService, catalogCommandService, catalogSpecCommandService, allowedOrigins: origins });
 }
