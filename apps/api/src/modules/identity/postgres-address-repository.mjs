@@ -20,6 +20,10 @@ function dto(row) {
 export function createPostgresAddressRepository({ pool }) {
   if (!pool || typeof pool.query !== "function" || typeof pool.connect !== "function") throw new TypeError("PostgreSQL pool is required");
   return Object.freeze({
+    async findByOwner(userId, addressId) {
+      const result = await pool.query(`SELECT ${columns} FROM addresses WHERE user_id = $1 AND id = $2`, [userId, addressId]);
+      return result.rows[0] ? dto(result.rows[0]) : null;
+    },
     async listByOwner(userId) {
       const result = await pool.query(`SELECT ${columns} FROM addresses WHERE user_id = $1 ORDER BY is_default DESC, created_at, id`, [userId]);
       return result.rows.map(dto);
