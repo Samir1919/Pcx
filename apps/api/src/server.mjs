@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { handleAuthRequest } from "./modules/identity/auth-http.mjs";
 
 const catalogQueryKeys = new Set(["categoryId", "brandId", "q", "cursor", "limit", "sort"]);
 const catalogSorts = new Set(["name_asc", "name_desc"]);
@@ -11,7 +12,7 @@ function send(response, status, body) {
 
 function requestId(request) {
   const value = request.headers?.["x-request-id"];
-  return typeof value === "string" && value.length > 0 ? value : "unavailable";
+  return typeof value === "string" && value.length > 0 && value.length <= 128 ? value : "unavailable";
 }
 
 function catalogFilters(url) {
@@ -42,7 +43,7 @@ function catalogFilters(url) {
   });
 }
 
-export function createRequestHandler({ readiness = () => ({ ok: true }), catalogService } = {}) {
+export function createRequestHandler({ readiness = () => ({ ok: true }), catalogService, authService, allowedOrigins } = {}) {
   return async (request, response) => {
     response.setHeader("content-type", "application/json; charset=utf-8");
     const url = new URL(request.url, "http://pcx.local");
@@ -56,6 +57,8 @@ export function createRequestHandler({ readiness = () => ({ ok: true }), catalog
       send(response, state.ok ? 200 : 503, { status: state.ok ? "ready" : "not_ready" });
       return;
     }
+
+    if (await handleAuthRequest(request, response, { authService, allowedOrigins, requestId: requestId(request) })) return;
 
     const publicCatalogPath = url.pathname === "/api/v1/categories"
       || url.pathname === "/api/v1/brands"

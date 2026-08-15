@@ -1,9 +1,9 @@
 # PCX Project Status
 
 - Updated: 2026-08-16
-- Current main evidence commit: `8c50d8e`
+- Current main evidence commit: `d5e89df`
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
-- Current engineering focus: E1 authentication application/HTTP boundary
+- Current engineering focus: E1 durable auth audit/composition and contact-security flows
 - Current autonomy maturity: Stage 2 in progress
 - Production deployment: not authorized
 
@@ -14,7 +14,7 @@ This file is the central progress index. Approved specifications define what PCX
 | Epic | Status | Verified scope | Remaining critical scope |
 |---|---|---|---|
 | E0 — Repository & engineering foundation | Complete | Monorepo boundaries, Project Brain, portable agent rules, CI skeleton, local service definitions, verification commands | Controls continue evolving under Stage 2 |
-| E1 — Identity, authentication & RBAC | In progress | Identity/RBAC contracts; customer/address records; accepted ADR 0003; PostgreSQL identity/session schema; canonical policy seeds; Argon2id and opaque credential primitives; transactional refresh rotation/replay-family revocation | Auth application service; register/login/refresh/logout HTTP; cookies/CSRF; rate limits; contact verification/reset; privileged MFA integration; admin user/role screens |
+| E1 — Identity, authentication & RBAC | In progress | Identity/RBAC contracts; customer/address records; accepted ADR 0003; PostgreSQL identity/session schema; canonical policy seeds; Argon2id and opaque credential primitives; transactional refresh rotation/replay-family revocation; auth application service; register/login/refresh/logout HTTP with secure cookies, trusted origins and CSRF | Durable auth audit/composition; production-grade rate limits; contact verification/reset; privileged MFA integration; admin user/role screens |
 | E2 — Catalog & Product Model | In progress | Category/Brand/ProductModel contracts; typed category specifications; safe public catalog service/API | PostgreSQL catalog repository/migrations; admin CRUD/archive; seed volume; authorized admin UI |
 | E3 — Sell-to-PCX | Pending | Specifications approved | Implementation and tests |
 | E4 — Physical intake & inventory identity | Pending | Specifications approved | Implementation and duplicate-identity tests |
@@ -44,11 +44,11 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Current verification baseline
 
-- Root `npm run verify`: 25 unit/application tests pass; 2 PostgreSQL tests skip without `TEST_DATABASE_URL` by design.
-- CI-equivalent `npm run verify:ci`: 27/27 tests pass with PostgreSQL; integration suite 2/2 passes.
+- Root `npm run verify`: 38 unit/application tests pass; 2 PostgreSQL tests skip without `TEST_DATABASE_URL` by design.
+- CI-equivalent PostgreSQL verification remains required before merge; the last recorded integration baseline is 2/2 passing.
 - E0 artifact verification: 36 required artifacts.
 - Locked dependency audit at persistence merge: 0 known vulnerabilities.
-- Latest detailed evidence: `docs/handoffs/E1_SESSION_REPOSITORY.md`.
+- Latest detailed evidence: `docs/handoffs/E1_AUTH_HTTP_BOUNDARY.md`.
 
 ## Current decisions and hard stops
 
@@ -60,11 +60,10 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Next dependency-ready work
 
-1. E1 auth application service: register/login/refresh/logout orchestration and audit events.
-2. E1 HTTP boundary: secure cookie/CSRF contracts and abuse-rate-limit interface.
-3. E1 integration/security tests: generic-login failure, replay, ownership and endpoint abuse behavior.
-4. E1 contact verification/reset and privileged MFA integration points.
-5. E2 PostgreSQL catalog persistence and authorized admin catalog commands.
+1. E1 durable auth audit persistence and concrete API composition with bounded abuse-control adapter.
+2. E1 contact verification/reset and privileged MFA integration points.
+3. E1 authenticated `/me` ownership boundary and address operations.
+4. E2 PostgreSQL catalog persistence and authorized admin catalog commands.
 
 ## Update rule
 
