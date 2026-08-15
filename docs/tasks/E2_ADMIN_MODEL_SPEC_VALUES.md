@@ -1,6 +1,6 @@
 # Task: E2 Admin ProductModel Specification Values
 
-- Status: In progress
+- Status: Complete
 - Owner/agent: Codex orchestrator
 - Branch: `agent/e2-admin-model-spec-values`
 - Risk: Security-sensitive
@@ -39,7 +39,7 @@ Let authorized catalog administrators view and assign category-compatible typed 
 - [x] Editor exposes only active definitions for the model category.
 - [x] Each supported type is converted before the server-validated PUT.
 - [x] Existing values load and can be updated without changing their identity.
-- [ ] Required build/unit/integration gates pass (`npm run verify` passes; PostgreSQL gate is pending because sandbox escalation hit the account usage limit).
+- [x] Required build/unit/integration gates pass (`npm run verify:ci`: 92 application/unit + 9 PostgreSQL integration tests, 0 failures; Next production build passes).
 
 ## State/API/schema/UI impact
 

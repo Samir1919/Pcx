@@ -1,7 +1,7 @@
 # PCX Project Status
 
 - Updated: 2026-08-16
-- Current main evidence commit: `d5e89df`
+- Current main evidence commit: `3b5d95d`
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: E2 public ProductModel specification detail
 - Current autonomy maturity: Stage 2 in progress
@@ -44,11 +44,11 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Current verification baseline
 
-- Root `npm run verify`: 80 unit/application tests pass; 9 PostgreSQL tests skip without `TEST_DATABASE_URL` by design; admin production build passes.
-- CI-equivalent `npm run verify:ci`: 89/89 tests pass with PostgreSQL; integration suite 9/9 passes.
+- Root `npm run verify`: 92 application/unit tests pass; Next production build passes.
+- CI-equivalent `npm run verify:ci`: 101/101 tests pass (92 application/unit + 9 PostgreSQL integration).
 - E0 artifact verification: 36 required artifacts.
 - Locked dependency audit at persistence merge: 0 known vulnerabilities.
-- Latest detailed evidence: `docs/handoffs/E2_ADMIN_CATALOG_UI.md`.
+- Latest detailed evidence: `docs/handoffs/E2_ADMIN_MODEL_SPEC_VALUES.md`.
 
 ## Current decisions and hard stops
 

@@ -1,8 +1,8 @@
 # Agent Handoff: E2 Admin ProductModel Specification Values
 
-- Status: Partial
+- Status: Complete
 - Branch: `agent/e2-admin-model-spec-values`
-- Latest commit: Pending checkpoint commit
+- Latest commit: `3b5d95d`
 - Date: 2026-08-16
 
 ## Outcome
@@ -26,10 +26,9 @@ Authorized admins can open a ProductModel, see category-compatible definitions a
 
 | Command/test | Result |
 |---|---|
-| `npm test` | Pass: 83 application/unit, 9 PostgreSQL skipped without URL |
-| `npm run build` | Pass including Next production build |
-| `npm run verify` | Pass: 83 application/unit; 9 PostgreSQL skipped; Next production build passes |
-| Final `npm run verify:ci` | Not run: sandbox escalation rejected because the account usage limit was reached; must pass before commit |
+| `npm run verify:ci` (final) | Pass: 92 application/unit + 9 PostgreSQL integration (101 total), 0 failures; Next production build passes |
+| `npm run verify` | Pass: 92 application/unit, 0 failures; Next production build passes |
+| `npm run test:integration` | Pass: 9/9 PostgreSQL integration tests |
 
 ## Architecture/security review
 
@@ -41,10 +40,8 @@ None.
 
 ## Remaining work and next safe action
 
-1. Run `TEST_DATABASE_URL=postgresql://pcx:pcx_local_only@localhost:5432/pcx npm run verify:ci` when escalation is available.
-2. Commit this bounded slice only after the PostgreSQL gate passes.
-3. Expose safe typed ProductModel specifications in public model detail.
+1. Expose safe typed ProductModel specifications in public model detail (next dependency-ready E2 slice).
 
 ## Blockers requiring human decision
 
-Temporary external blocker: tool escalation usage limit, next retry window reported as 2026-08-23 00:39. No code or product decision is required.
+None.
