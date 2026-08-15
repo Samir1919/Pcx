@@ -51,4 +51,10 @@ Stop for explicit human approval before production deployment, destructive/irrev
 
 Every material agent run must leave enough durable context for a different agent to continue without chat history: task scope, acceptance criteria, changed files, tests/results, decisions/ADRs, risks, blockers, branch, and latest commit. Use `docs/agentic/HANDOFF_TEMPLATE.md`.
 
+## Continuous-execution contract
+
+When the human gives an open continuation instruction such as “continue,” “take the next dependency-ready task,” “finish the MVP,” or “do not stop,” completing one bounded slice is a checkpoint, not a terminal condition. After verification, self-review, commit, handoff, and status refresh, immediately select and begin the next dependency-ready bounded slice.
+
+Do not end merely because a task passed, a commit was created, a handoff was written, or a convenient response boundary was reached. End continuous execution only when the requested outcome is complete, the human supplies a limit or stop instruction, a hard stop requires approval, a real dependency/blocker prevents meaningful progress, or a material product/policy choice requires human direction. Ordinary uncertainty should be resolved from repository sources and safe, reversible assumptions.
+
 `docs/status/PROJECT_STATUS.md` is the central progress index. Task files and handoffs remain the detailed evidence; the status index must link to them rather than replacing them. Never report guessed percentages as verified completion.

@@ -35,6 +35,19 @@ Ground context → specify bounded slice → inspect code/tests
 
 Agents must not claim success from generated code alone. Completion requires observable verification appropriate to the change.
 
+## Continuation semantics
+
+An open-ended human instruction to continue dependency-ready work persists across task, branch, commit, handoff, and chat-response boundaries. For that instruction, use this outer loop:
+
+```text
+Select next dependency-ready bounded slice
+→ execute and verify the standard loop
+→ commit, hand off, and refresh project status
+→ immediately select the next dependency-ready bounded slice
+```
+
+A completed slice is evidence and a checkpoint, not permission to stop. The outer loop ends only when the human’s terminal outcome is achieved, the human sets a limit or stops the run, a hard stop needs approval, no meaningful dependency-ready work remains because of a genuine blocker, or a material product/policy decision cannot be resolved from approved sources. Lack of a separate orchestrator, completion of required checks, creation of a commit, or creation of a handoff is not a blocker.
+
 ## Branch and commit rules
 
 - Use one isolated branch per epic or coherent slice: `agent/<short-description>`.
