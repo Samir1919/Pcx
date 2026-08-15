@@ -1,7 +1,7 @@
 # E1 Identity, Authentication, and RBAC — Slice 1
 
-- Status: In progress
-- Branch: `agent/e1-identity-rbac`
+- Status: Complete
+- Branch: `agent/e1-identity-rbac-integrated`
 - Risk: Security-sensitive
 
 ## Scope

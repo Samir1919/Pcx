@@ -20,7 +20,8 @@ export function assertCanonicalRoles(roles) {
 
 export function hasPermission(identity, permission) {
   if (!canonicalPermissions.has(permission) || !identity || identity.status !== "ACTIVE") return false;
-  const roles = assertCanonicalRoles(identity.roles);
+  if (!Array.isArray(identity.roles) || identity.roles.some((role) => !canonicalRoles.has(role))) return false;
+  const roles = identity.roles;
   return roles.some((role) => rolePermissions.get(role)?.has(permission));
 }
 

@@ -27,6 +27,7 @@ test("authorization defaults to deny and enforces ownership", () => {
   assert.deepEqual(authorize(customer, Permission.AUDIT_READ), { allowed: false, basis: "default_deny" });
   assert.equal(hasPermission(identity("disabled", [Role.ADMIN], "SUSPENDED"), Permission.AUDIT_READ), false);
   assert.equal(hasPermission(customer, "unknown:permission"), false);
+  assert.equal(hasPermission(identity("unknown-role", ["OWNER"]), Permission.AUDIT_READ), false);
 });
 
 test("role assignment blocks privilege escalation", () => {
