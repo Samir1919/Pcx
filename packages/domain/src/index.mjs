@@ -20,3 +20,4 @@ export { createListing, createListingPrice, createPublicListing, createPublicPas
 export { convertReservation, createReservation, isExpiredReservation, ReservationStatus } from "./commerce/reservation.mjs";
 export { confirmPayment, createOrder, createOrderItemSnapshot, createPayment, OrderStatus, PaymentDirection, PaymentStatus } from "./commerce/order-payment.mjs";
 export { createShipment, createShipmentEvent, markDelivered, markShipped, ShipmentStatus } from "./logistics/shipment.mjs";
+export { approveReturn, createReturnRequest, markReturnReceived, ReturnRequestStatus, settleRefund } from "./warranty/return-refund.mjs";
