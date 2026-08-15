@@ -2,6 +2,8 @@
 
 Before material changes, read `AGENTS.md`, then the relevant brain files and linked approved specification.
 
+Current execution state: `../status/PROJECT_STATUS.md`. This is a progress index, not a business source of truth.
+
 ## Source-of-truth order
 
 1. `docs/specifications/BUSINESS_PRODUCT_REQUIREMENTS.md`

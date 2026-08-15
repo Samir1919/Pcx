@@ -13,6 +13,7 @@ This contract is tool-neutral. Codex, Claude, Gemini, Copilot, Cursor, VS Code a
 5. Create or update a bounded task file from `docs/agentic/TASK_SPEC_TEMPLATE.md`.
 6. Inspect the current branch, working tree, affected code, tests, and ADRs.
 7. Implement the smallest coherent slice, run required gates, self-review, and write a handoff.
+8. Read and update `docs/status/PROJECT_STATUS.md` when a material slice changes epic, maturity-stage, verification, blocker, or next-task state.
 
 For coordinated parallel work, also read `docs/agentic/MULTI_AGENT_SYSTEM.md`. No agent may delegate around a hard stop or grant another agent broader authority than the human provided.
 
@@ -49,3 +50,5 @@ Stop for explicit human approval before production deployment, destructive/irrev
 ## Portable completion record
 
 Every material agent run must leave enough durable context for a different agent to continue without chat history: task scope, acceptance criteria, changed files, tests/results, decisions/ADRs, risks, blockers, branch, and latest commit. Use `docs/agentic/HANDOFF_TEMPLATE.md`.
+
+`docs/status/PROJECT_STATUS.md` is the central progress index. Task files and handoffs remain the detailed evidence; the status index must link to them rather than replacing them. Never report guessed percentages as verified completion.
