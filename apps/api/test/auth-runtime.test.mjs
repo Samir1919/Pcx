@@ -39,14 +39,18 @@ test("trusted origins are exact normalized HTTP(S) origins", () => {
 test("runtime composition requires PostgreSQL and trusted origins", () => {
   assert.throws(() => createAuthRuntime(), /PostgreSQL pool/);
   const pool = { async query() {}, async connect() {} };
-  assert.throws(() => createAuthRuntime({ pool, allowedOrigins: "" }), /origin/);
-  assert.throws(() => createAuthRuntime({ pool, allowedOrigins: new Set(["https://pcx.example/path"]) }), /origin/);
+  const delivery = { async send() {} };
+  assert.throws(() => createAuthRuntime({ pool, allowedOrigins: "", delivery }), /origin/);
+  assert.throws(() => createAuthRuntime({ pool, allowedOrigins: new Set(["https://pcx.example/path"]), delivery }), /origin/);
+  assert.throws(() => createAuthRuntime({ pool, allowedOrigins: "https://pcx.example" }), /delivery/);
   const runtime = createAuthRuntime({
     pool,
     allowedOrigins: "https://pcx.example",
+    delivery,
     abuseControl: { async check() { return { allowed: true }; } },
     audit: { async record() {} }
   });
   assert.equal(typeof runtime.authService.login, "function");
+  assert.equal(typeof runtime.identityActionService.resetPassword, "function");
   assert.deepEqual([...runtime.allowedOrigins], ["https://pcx.example"]);
 });

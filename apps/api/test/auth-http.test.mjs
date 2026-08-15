@@ -21,7 +21,7 @@ function service(overrides = {}) {
   };
 }
 
-async function invoke(path, { method = "POST", body = {}, headers = {}, authService = service(), allowedOrigins = new Set([origin]) } = {}) {
+async function invoke(path, { method = "POST", body = {}, headers = {}, authService = service(), identityActionService, allowedOrigins = new Set([origin]) } = {}) {
   const serialized = typeof body === "string" ? body : JSON.stringify(body);
   const result = { headers: {} };
   const response = {
@@ -36,7 +36,7 @@ async function invoke(path, { method = "POST", body = {}, headers = {}, authServ
     socket: { remoteAddress: "192.0.2.1" },
     async *[Symbol.asyncIterator]() { if (serialized.length > 0) yield Buffer.from(serialized); }
   };
-  await createRequestHandler({ authService, allowedOrigins })(request, response);
+  await createRequestHandler({ authService, identityActionService, allowedOrigins })(request, response);
   return result;
 }
 

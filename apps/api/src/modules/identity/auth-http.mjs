@@ -1,12 +1,18 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { AuthenticationError } from "./auth-service.mjs";
+import { IdentityActionError } from "./identity-action-service.mjs";
 
-const routes = new Set(["register", "login", "refresh", "logout"]);
+const sessionRoutes = new Set(["register", "login", "refresh", "logout"]);
+const identityActionRoutes = new Set(["verify-contact", "forgot-password", "reset-password"]);
+const routes = new Set([...sessionRoutes, ...identityActionRoutes]);
 const fields = Object.freeze({
   register: new Set(["email", "phone", "password"]),
   login: new Set(["contact", "password"]),
   refresh: new Set(),
-  logout: new Set()
+  logout: new Set(),
+  "verify-contact": new Set(["token"]),
+  "forgot-password": new Set(["contact"]),
+  "reset-password": new Set(["token", "password"])
 });
 const maxBodyBytes = 16 * 1024;
 
@@ -83,6 +89,9 @@ function validateFields(action, body) {
     throw new HttpAuthError("INVALID_REQUEST", 400, "Contact and password are required");
   }
   if ((action === "refresh" || action === "logout") && Object.keys(body).length > 0) throw new HttpAuthError("INVALID_REQUEST", 400, "Request body must be empty");
+  if (action === "verify-contact" && (typeof body.token !== "string" || !body.token)) throw new HttpAuthError("INVALID_REQUEST", 400, "Token is required");
+  if (action === "forgot-password" && (typeof body.contact !== "string" || !body.contact.trim())) throw new HttpAuthError("INVALID_REQUEST", 400, "Contact is required");
+  if (action === "reset-password" && (typeof body.token !== "string" || !body.token || typeof body.password !== "string")) throw new HttpAuthError("INVALID_REQUEST", 400, "Token and password are required");
 }
 
 function context(request, requestId) {
@@ -115,13 +124,17 @@ function clearCookies() {
 function mapped(error) {
   if (error instanceof HttpAuthError) return error;
   if (error instanceof TypeError) return new HttpAuthError("INVALID_INPUT", 422, "Request values are invalid");
+  if (error instanceof IdentityActionError) {
+    if (error.code === "rate_limited") return new HttpAuthError("RATE_LIMITED", 429, "Too many requests");
+    return new HttpAuthError("INVALID_TOKEN", 400, "Action token is invalid or expired");
+  }
   if (!(error instanceof AuthenticationError)) return new HttpAuthError("INTERNAL_ERROR", 500, "Unexpected server error");
   if (error.code === "rate_limited") return new HttpAuthError("RATE_LIMITED", 429, "Too many requests");
   if (error.code === "contact_unavailable") return new HttpAuthError("CONTACT_UNAVAILABLE", 409, "Contact is unavailable");
   return new HttpAuthError("UNAUTHENTICATED", 401, "Authentication failed");
 }
 
-export async function handleAuthRequest(request, response, { authService, allowedOrigins, requestId, csrfToken = () => randomBytes(32).toString("base64url") }) {
+export async function handleAuthRequest(request, response, { authService, identityActionService, allowedOrigins, requestId, csrfToken = () => randomBytes(32).toString("base64url") }) {
   const url = new URL(request.url, "http://pcx.local");
   if (!url.pathname.startsWith("/api/v1/auth/")) return false;
   const action = url.pathname.slice("/api/v1/auth/".length);
@@ -130,7 +143,8 @@ export async function handleAuthRequest(request, response, { authService, allowe
     send(response, 405, errorBody("METHOD_NOT_ALLOWED", "Method not allowed", requestId));
     return true;
   }
-  if (!authService || !allowedOrigins || allowedOrigins.size === 0) {
+  const selectedService = identityActionRoutes.has(action) ? identityActionService : authService;
+  if (!selectedService || !allowedOrigins || allowedOrigins.size === 0) {
     send(response, 503, errorBody("AUTH_UNAVAILABLE", "Authentication is temporarily unavailable", requestId));
     return true;
   }
@@ -153,13 +167,23 @@ export async function handleAuthRequest(request, response, { authService, allowe
       const result = await authService.refresh({ refreshCredential: parsedCookies.pcx_refresh }, authContext);
       response.setHeader("set-cookie", sessionCookies(result.session, csrfToken()));
       send(response, 200, { data: { status: result.status } });
-    } else {
+    } else if (action === "logout") {
       await authService.logout({ refreshCredential: parsedCookies.pcx_refresh }, authContext);
+      response.setHeader("set-cookie", clearCookies());
+      response.writeHead(204).end();
+    } else if (action === "verify-contact") {
+      const result = await identityActionService.verifyContact({ credential: body.token }, authContext);
+      send(response, 200, { data: { status: result.status } });
+    } else if (action === "forgot-password") {
+      await identityActionService.requestPasswordReset({ contact: body.contact }, authContext);
+      send(response, 202, { data: { status: "accepted" } });
+    } else {
+      await identityActionService.resetPassword({ credential: body.token, password: body.password }, authContext);
       response.setHeader("set-cookie", clearCookies());
       response.writeHead(204).end();
     }
   } catch (error) {
-    if (action === "refresh" && error instanceof AuthenticationError && error.code === "invalid_refresh") {
+    if ((action === "refresh" && error instanceof AuthenticationError && error.code === "invalid_refresh") || action === "reset-password") {
       response.setHeader("set-cookie", clearCookies());
     }
     const failure = mapped(error);

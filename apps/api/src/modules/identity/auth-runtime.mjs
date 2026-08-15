@@ -2,6 +2,8 @@ import { createInMemoryAuthAbuseControl } from "./auth-abuse-control.mjs";
 import { createAuthService } from "./auth-service.mjs";
 import { createPostgresAuthAudit } from "./postgres-auth-audit.mjs";
 import { createPostgresIdentityRepository } from "./postgres-identity-repository.mjs";
+import { createPostgresIdentityActionRepository } from "./postgres-identity-action-repository.mjs";
+import { createIdentityActionService } from "./identity-action-service.mjs";
 
 export function parseAllowedOrigins(value) {
   if (typeof value !== "string") throw new TypeError("allowed origins are required");
@@ -18,14 +20,24 @@ export function parseAllowedOrigins(value) {
   return origins;
 }
 
-export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit } = {}) {
+export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, delivery } = {}) {
   if (!pool || typeof pool.query !== "function" || typeof pool.connect !== "function") throw new TypeError("PostgreSQL pool is required");
+  if (!delivery || typeof delivery.send !== "function") throw new TypeError("identity action delivery.send is required");
   const origins = parseAllowedOrigins(allowedOrigins instanceof Set ? [...allowedOrigins].join(",") : allowedOrigins);
   const repository = createPostgresIdentityRepository({ pool });
+  const control = abuseControl ?? createInMemoryAuthAbuseControl();
+  const auditSink = audit ?? createPostgresAuthAudit({ pool });
   const authService = createAuthService({
     repository,
-    abuseControl: abuseControl ?? createInMemoryAuthAbuseControl(),
-    audit: audit ?? createPostgresAuthAudit({ pool })
+    abuseControl: control,
+    audit: auditSink
   });
-  return Object.freeze({ authService, allowedOrigins: origins });
+  const identityActionService = createIdentityActionService({
+    identityRepository: repository,
+    actionRepository: createPostgresIdentityActionRepository({ pool }),
+    delivery,
+    abuseControl: control,
+    audit: auditSink
+  });
+  return Object.freeze({ authService, identityActionService, allowedOrigins: origins });
 }
