@@ -19,7 +19,7 @@ test("spec commands persist typed values and actor audits atomically",{skip:!con
     await repo.createDefinition(record,event("76000000-0000-4000-8000-000000000007","CREATE",definition)); assert.equal((await repo.findDefinition(definition)).dataType,"NUMBER"); assert.deepEqual((await repo.listDefinitions({categoryId:category})).map(({id})=>id),[definition]);
     let saved=await repo.upsertValue({id:value,productModelId:model,specificationDefinitionId:definition,dataType:"NUMBER",value:256,createdAt:now},category,event("76000000-0000-4000-8000-000000000008","UPSERT",value)); assert.equal(saved.value,256);
     saved=await repo.upsertValue({...saved,value:512},category,event("76000000-0000-4000-8000-000000000009","UPSERT",value)); assert.equal(saved.id,value);
-    assert.equal(Number((await pool.query("SELECT value_number FROM model_spec_values WHERE id=$1",[value])).rows[0].value_number),512);
+    assert.equal(Number((await pool.query("SELECT value_number FROM model_spec_values WHERE id=$1",[value])).rows[0].value_number),512); assert.deepEqual((await repo.listValues(model)).map((item)=>[item.specificationDefinitionId,item.value]),[[definition,512]]);
     assert.equal((await pool.query("SELECT count(*)::int AS count FROM auth_audit_events WHERE actor_id=$1",[actor])).rows[0].count,3);
   }finally{await pool.end();}
 });
