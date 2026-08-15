@@ -8,7 +8,8 @@ const required = [
   "docs/brain/security.md", "docs/brain/state-machines.md", "docs/adr/0001-modular-monolith.md",
   "docs/specifications/PROJECT_BRAIN_AGENTIC_SYSTEM.md", "docs/agentic/PORTABLE_AGENT_WORKFLOW.md",
   "docs/agentic/START_PROMPT.md", "docs/agentic/TASK_SPEC_TEMPLATE.md", "docs/agentic/HANDOFF_TEMPLATE.md",
-  "CLAUDE.md", "GEMINI.md", ".github/copilot-instructions.md", ".cursor/rules/pcx.mdc", ".vscode/tasks.json"
+  "docs/agentic/MULTI_AGENT_SYSTEM.md", "CLAUDE.md", "GEMINI.md", "CONVENTIONS.md", ".clinerules",
+  ".windsurfrules", ".roo/rules/pcx.md", ".github/copilot-instructions.md", ".cursor/rules/pcx.mdc", ".vscode/tasks.json"
 ];
 
 for (const file of required) await access(file);

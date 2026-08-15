@@ -7,11 +7,14 @@ This contract is tool-neutral. Codex, Claude, Gemini, Copilot, Cursor, VS Code a
 ## Universal onboarding order
 
 1. Read this file completely.
-2. Read `docs/brain/README.md` and only the brain/spec sections relevant to the task.
-3. Read `docs/agentic/PORTABLE_AGENT_WORKFLOW.md`.
-4. Create or update a bounded task file from `docs/agentic/TASK_SPEC_TEMPLATE.md`.
-5. Inspect the current branch, working tree, affected code, tests, and ADRs.
-6. Implement the smallest coherent slice, run required gates, self-review, and write a handoff.
+2. Follow `docs/agentic/START_PROMPT.md` as the session bootstrap contract.
+3. Read `docs/brain/README.md` and only the brain/spec sections relevant to the task.
+4. Read `docs/agentic/PORTABLE_AGENT_WORKFLOW.md`.
+5. Create or update a bounded task file from `docs/agentic/TASK_SPEC_TEMPLATE.md`.
+6. Inspect the current branch, working tree, affected code, tests, and ADRs.
+7. Implement the smallest coherent slice, run required gates, self-review, and write a handoff.
+
+For coordinated parallel work, also read `docs/agentic/MULTI_AGENT_SYSTEM.md`. No agent may delegate around a hard stop or grant another agent broader authority than the human provided.
 
 ## Mandatory invariants
 

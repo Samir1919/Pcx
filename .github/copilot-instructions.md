@@ -1,6 +1,6 @@
 # GitHub Copilot Instructions
 
-The repository-wide contract is `AGENTS.md`. Read it, `docs/brain/README.md`, and `docs/agentic/PORTABLE_AGENT_WORKFLOW.md` before proposing material changes.
+The repository-wide contract is `AGENTS.md`. Read it completely, then execute `docs/agentic/START_PROMPT.md` and follow `docs/brain/README.md` and `docs/agentic/PORTABLE_AGENT_WORKFLOW.md` before proposing material changes.
 
 Approved specifications and accepted ADRs govern behavior. Do not invent missing business policy, bypass server-side state/RBAC, trust client commerce values, expose restricted data, weaken tests/security, deploy production, or create destructive migrations without explicit approval.
 

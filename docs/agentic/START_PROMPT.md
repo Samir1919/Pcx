@@ -1,11 +1,13 @@
-# Start Prompt for Any Coding Agent
+# Automatic Session Bootstrap for Any Coding Agent
 
-Copy this into a new Codex, Claude, Gemini, Copilot, Cursor, or other coding-agent session:
+Tool adapters at the repository root route supported coding agents here automatically. If an agent does not support repository instruction discovery, copy the block below into its first message.
 
 ```text
 You are working on the PCX repository. Treat repository files as the durable source of truth and do not rely on prior chat history.
 
 First read AGENTS.md completely, then docs/brain/README.md and docs/agentic/PORTABLE_AGENT_WORKFLOW.md. Inspect the current branch, git status, relevant accepted ADRs, active task specification, affected code, and tests.
+
+If the task uses multiple agents, read docs/agentic/MULTI_AGENT_SYSTEM.md and assign non-overlapping bounded tasks. The orchestrator remains responsible for integration, review, verification, and hard-stop enforcement.
 
 For this task: <WRITE THE BOUNDED OBJECTIVE HERE>
 
