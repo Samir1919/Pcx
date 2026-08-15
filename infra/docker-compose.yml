@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: pcx
+      POSTGRES_USER: pcx
+      POSTGRES_PASSWORD: pcx_local_only
+    ports: ["5432:5432"]
+    volumes: ["pcx-postgres:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pcx -d pcx"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: ["pcx-redis:/data"]
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: pcx_local
+      MINIO_ROOT_PASSWORD: change_me_local_only
+    ports: ["9000:9000", "9001:9001"]
+    volumes: ["pcx-minio:/data"]
+volumes:
+  pcx-postgres:
+  pcx-redis:
+  pcx-minio:
