@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createCustomerRegistrationCandidate } from "../../../../../packages/domain/src/identity/identity-record.mjs";
 import { generateOpaqueCredential, hashOpaqueCredential, sessionExpiries } from "./credentials.mjs";
 import { assertPassword, hashPassword, verifyPassword } from "./password.mjs";
+import { requiresPrivilegedMfa, safeMfaChallenge } from "./privileged-mfa.mjs";
 
 const dummyPasswordHash = "$argon2id$v=19$m=19456,p=1,t=2$O2/E313oRvHGzD2bSIIZVw$bR3lzbWFjtRahsze5LJ/mLBbUrEPNerDV6PiojyYe6A";
 
@@ -28,7 +29,8 @@ export function createAuthService({
   clock = () => new Date(),
   id = randomUUID,
   credential = generateOpaqueCredential,
-  passwords = { assert: assertPassword, hash: hashPassword, verify: verifyPassword }
+  passwords = { assert: assertPassword, hash: hashPassword, verify: verifyPassword },
+  mfa
 }) {
   for (const method of ["createCustomer", "findPasswordIdentityByContact", "createSession", "rotateRefresh", "revokeFamilyByRefreshHash"]) {
     requiredDependency(repository, method, "repository");
@@ -98,6 +100,15 @@ export function createAuthService({
       if (!valid || identity?.status !== "ACTIVE") {
         await record("login", "denied", context, identity?.id ?? null);
         throw new AuthenticationError("invalid_credentials");
+      }
+      if (requiresPrivilegedMfa(identity.roles)) {
+        if (!mfa || typeof mfa.beginChallenge !== "function") {
+          await record("login", "mfa_unavailable", context, identity.id);
+          throw new AuthenticationError("mfa_unavailable");
+        }
+        const challenge = safeMfaChallenge(await mfa.beginChallenge({ userId: identity.id, requestId: safeContext(context).requestId }));
+        await record("login", "mfa_required", context, identity.id);
+        return Object.freeze({ status: "mfa_required", challenge });
       }
       const session = await issueSession(identity.id, context);
       await record("login", "succeeded", context, identity.id);

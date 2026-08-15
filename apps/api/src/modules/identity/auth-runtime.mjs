@@ -20,7 +20,7 @@ export function parseAllowedOrigins(value) {
   return origins;
 }
 
-export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, delivery } = {}) {
+export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, delivery, mfa } = {}) {
   if (!pool || typeof pool.query !== "function" || typeof pool.connect !== "function") throw new TypeError("PostgreSQL pool is required");
   if (!delivery || typeof delivery.send !== "function") throw new TypeError("identity action delivery.send is required");
   const origins = parseAllowedOrigins(allowedOrigins instanceof Set ? [...allowedOrigins].join(",") : allowedOrigins);
@@ -30,7 +30,8 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   const authService = createAuthService({
     repository,
     abuseControl: control,
-    audit: auditSink
+    audit: auditSink,
+    mfa
   });
   const identityActionService = createIdentityActionService({
     identityRepository: repository,

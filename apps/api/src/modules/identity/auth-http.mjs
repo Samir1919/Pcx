@@ -131,6 +131,7 @@ function mapped(error) {
   if (!(error instanceof AuthenticationError)) return new HttpAuthError("INTERNAL_ERROR", 500, "Unexpected server error");
   if (error.code === "rate_limited") return new HttpAuthError("RATE_LIMITED", 429, "Too many requests");
   if (error.code === "contact_unavailable") return new HttpAuthError("CONTACT_UNAVAILABLE", 409, "Contact is unavailable");
+  if (error.code === "mfa_unavailable") return new HttpAuthError("MFA_UNAVAILABLE", 503, "Multi-factor authentication is unavailable");
   return new HttpAuthError("UNAUTHENTICATED", 401, "Authentication failed");
 }
 
@@ -161,8 +162,11 @@ export async function handleAuthRequest(request, response, { authService, identi
       send(response, 201, { data: result.customer });
     } else if (action === "login") {
       const result = await authService.login(body, authContext);
-      response.setHeader("set-cookie", sessionCookies(result.session, csrfToken()));
-      send(response, 200, { data: { identity: result.identity } });
+      if (result.status === "mfa_required") send(response, 202, { data: { status: result.status, challenge: result.challenge } });
+      else {
+        response.setHeader("set-cookie", sessionCookies(result.session, csrfToken()));
+        send(response, 200, { data: { identity: result.identity } });
+      }
     } else if (action === "refresh") {
       const result = await authService.refresh({ refreshCredential: parsedCookies.pcx_refresh }, authContext);
       response.setHeader("set-cookie", sessionCookies(result.session, csrfToken()));

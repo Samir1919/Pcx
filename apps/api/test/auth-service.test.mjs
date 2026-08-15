@@ -21,7 +21,8 @@ function fixture(overrides = {}) {
     clock: () => new Date("2026-08-16T12:00:00.000Z"),
     id: () => `id-${++sequence}`,
     credential: () => `secret-${++sequence}`,
-    passwords: { assert() {}, async hash() { return "$argon2id$hash"; }, async verify() { return true; }, ...overrides.passwords }
+    passwords: { assert() {}, async hash() { return "$argon2id$hash"; }, async verify() { return true; }, ...overrides.passwords },
+    mfa: overrides.mfa
   });
   return { service, calls };
 }
@@ -91,4 +92,17 @@ test("logout is caller-idempotent and abuse controls fail closed", async () => {
   await assert.rejects(denied.service.login({ contact: "x", password: "y" }), (error) => error.code === "rate_limited");
   assert.equal(denied.calls.sessions.length, 0);
   assert.equal(denied.calls.audits[0].outcome, "rate_limited");
+});
+
+test("privileged login requires a valid MFA challenge and never creates a password-only session", async () => {
+  const repository = { async findPasswordIdentityByContact() { return { id: "admin-1", password_hash: "hash", status: "ACTIVE", roles: ["ADMIN"] }; } };
+  const missing = fixture({ repository });
+  await assert.rejects(missing.service.login({ contact: "admin@example.com", password: "password" }), (error) => error.code === "mfa_unavailable");
+  assert.equal(missing.calls.sessions.length, 0);
+  const calls = [];
+  const ready = fixture({ repository, mfa: { async beginChallenge(input) { calls.push(input); return { id: "mfa-1", expiresAt: "2026-08-16T12:05:00.000Z", providerSecret: "hidden" }; } } });
+  const result = await ready.service.login({ contact: "admin@example.com", password: "password" }, { requestId: "mfa-request" });
+  assert.deepEqual(result, { status: "mfa_required", challenge: { id: "mfa-1", expiresAt: "2026-08-16T12:05:00.000Z" } });
+  assert.deepEqual(calls, [{ userId: "admin-1", requestId: "mfa-request" }]);
+  assert.equal(ready.calls.sessions.length, 0);
 });

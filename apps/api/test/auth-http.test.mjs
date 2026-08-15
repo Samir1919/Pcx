@@ -65,6 +65,13 @@ test("login issues secure scoped cookies without exposing credentials in JSON", 
   assert.equal(csrf.includes("HttpOnly"), false);
 });
 
+test("privileged login returns MFA challenge without session cookies", async () => {
+  const response = await invoke("/api/v1/auth/login", { body: { contact: "admin@example.com", password: "password" }, authService: service({ async login() { return { status: "mfa_required", challenge: { id: "mfa-1", expiresAt: "2026-08-16T12:05:00.000Z" } }; } }) });
+  assert.equal(response.status, 202);
+  assert.deepEqual(response.body.data, { status: "mfa_required", challenge: { id: "mfa-1", expiresAt: "2026-08-16T12:05:00.000Z" } });
+  assert.equal(response.headers["set-cookie"], undefined);
+});
+
 test("every auth action requires an exact configured origin", async () => {
   assert.equal((await invoke("/api/v1/auth/login", { body: { contact: "a", password: "b" }, headers: { origin: "https://evil.example" } })).status, 403);
   assert.equal((await invoke("/api/v1/auth/login", { body: { contact: "a", password: "b" }, headers: { origin: `${origin}.evil.example` } })).status, 403);
