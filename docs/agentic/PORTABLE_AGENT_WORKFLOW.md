@@ -56,6 +56,44 @@ A completed slice is evidence and a checkpoint, not permission to stop. The oute
 - Never stage unrelated user work.
 - Do not merge or deploy merely because tests pass; follow human and repository gates.
 
+### Safe commit creation in the control plane
+
+The Stage 3 control plane (`scripts/control-plane.mjs`) exposes a `createShellGit().commit({ message, files })` method that creates commits without risking a shell hang. Use it for any commit made through the control plane:
+
+- It **rejects any message containing a newline** (fail-fast) instead of hanging on a `dquote>` continuation prompt. A multi-line `-m` argument is the most common cause of a stuck agent terminal.
+- When `files` are provided, it stages them first (`git add <files>`) and then commits with a single-line `-m`.
+- All commands run through `execFile` with explicit argument arrays (no shell interpolation).
+
+For a multi-line commit message, write the message to a file first and commit with `git commit -F <file>` (see "Shell command safety" below). Never pass a multi-line string as a `-m` argument.
+
+
+## Shell command safety
+
+Agent terminals run non-interactively. A command that waits for input never returns; the run stalls silently and the agent appears "stuck" while nothing is actually executing. These rules are mandatory for every tool.
+
+**Never put a multi-line string inside a shell command.** A `-m "line one<newline>line two"` argument is the most common cause: the newline reaches the shell before the closing quote, the shell drops to a `dquote>` continuation prompt, and the command hangs forever. Nothing is staged, nothing is committed, and there is no error to read.
+
+For a multi-paragraph commit message, write the message to a file first, then:
+
+```bash
+git commit -F docs/handoffs/.commit-msg.txt
+```
+
+Or keep every argument on a single line with one `-m` per paragraph:
+
+```bash
+git commit -m "feat(scope): single-line subject" -m "Single-line body paragraph."
+```
+
+Additional rules:
+
+- Prefer many short commands over one long chained command. A chain that hangs gives no signal about which step stalled.
+- Pass non-interactive flags explicitly: `git --no-pager`, `npm ci --no-audit --no-fund`, `gh --json`. Never rely on a pager exiting on its own.
+- Do not pipe a long-running command through `tail`/`head` when you need progress; the output is buffered until the command finishes, so a hang and a slow success look identical.
+- Never run a command that opens an editor or prompts for a password, a passphrase, or a `y/n` confirmation. Use the flag that answers it, or stop and ask the human.
+
+If a command appears to hang, verify the real state before retrying or reporting anything: `git status --short`, `git log --oneline -3`, and `ls .git/index.lock`. An empty staging area and an unchanged `HEAD` mean the command never ran — do not describe the work as committed.
+
 ## Standard commands
 
 ```bash

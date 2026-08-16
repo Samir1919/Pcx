@@ -38,6 +38,8 @@ import { createPostgresNotificationRepository } from "../notification/postgres-n
 import { createNotificationService } from "../notification/notification-service.mjs";
 import { createPostgresAuditLogRepository } from "../audit/postgres-audit-log-repository.mjs";
 import { createAuditLogService } from "../audit/audit-log-service.mjs";
+import { createPostgresPaymentProviderConfigRepository } from "../payment/postgres-payment-provider-config-repository.mjs";
+import { createPaymentProviderConfigService } from "../payment/payment-provider-config-service.mjs";
 
 export function parseAllowedOrigins(value) {
   if (typeof value !== "string") throw new TypeError("allowed origins are required");
@@ -86,7 +88,10 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   const listingRepository = createPostgresListingRepository({ pool });
   const listingService = createListingService({ authService, repository: listingRepository });
   const reservationService = createReservationService({ authService, listingRepository, reservationRepository: createPostgresReservationRepository({ pool }) });
-  const orderPaymentService = createOrderPaymentService({ authService, repository: createPostgresOrderPaymentRepository({ pool }) });
+  const paymentProviderConfigRepository = createPostgresPaymentProviderConfigRepository({ pool });
+  const paymentProviderConfigService = createPaymentProviderConfigService({ authService, repository: paymentProviderConfigRepository });
+  const orderPaymentService = createOrderPaymentService({ authService, repository: createPostgresOrderPaymentRepository({ pool }), paymentProviderConfigService });
+
   const shipmentService = createShipmentService({ authService, repository: createPostgresShipmentRepository({ pool }), webhookSecret: courierWebhookSecret });
 
   const returnRequestService = createReturnRequestService({ authService, repository: createPostgresReturnRequestRepository({ pool }) });
@@ -94,5 +99,6 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   const operationsReportService = createOperationsReportService({ authService, repository: createPostgresOperationsReportRepository({ pool }) });
   const notificationService = createNotificationService({ authService, repository: createPostgresNotificationRepository({ pool }) });
   const auditLogService = createAuditLogService({ authService, repository: createPostgresAuditLogRepository({ pool }) });
-  return Object.freeze({ authService, identityActionService, addressService, catalogService, catalogCommandService, catalogSpecCommandService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, listingService, reservationService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, operationsReportService, notificationService, auditLogService, allowedOrigins: origins });
+  return Object.freeze({ authService, identityActionService, addressService, catalogService, catalogCommandService, catalogSpecCommandService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, listingService, reservationService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, operationsReportService, notificationService, auditLogService, paymentProviderConfigService, allowedOrigins: origins });
+
 }

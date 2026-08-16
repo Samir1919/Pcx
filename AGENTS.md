@@ -41,6 +41,7 @@ Agentic infrastructure must evolve according to `docs/agentic/AUTONOMY_EVOLUTION
 - Write or update tests for changed business behavior.
 - Run `npm run verify:e0`, `npm test`, and relevant checks before commit.
 - Never commit credentials, production data, or private evidence.
+- Never put a multi-line string inside a shell command. Write commit bodies to a file and use `git commit -F <file>`. See "Shell command safety" in `docs/agentic/PORTABLE_AGENT_WORKFLOW.md`.
 - Record approved architecture changes as ADRs; do not silently change business truth.
 
 ## Hard stops

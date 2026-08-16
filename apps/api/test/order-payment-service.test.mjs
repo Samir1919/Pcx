@@ -17,7 +17,8 @@ function fixture(overrides = {}) {
     repository,
     id: (() => { let n = 0; return () => `id-${++n}`; })(),
     clock: () => new Date("2026-08-16T12:00:00.000Z"),
-    gateway: overrides.gateway
+    gateway: overrides.gateway,
+    paymentProviderConfigService: overrides.paymentProviderConfigService
   });
 
   return { service, calls };
@@ -78,5 +79,29 @@ test("payment create uses an injected gateway and defaults provider to SANDBOX",
   assert.equal(calls.payments[0].providerTransactionId, "gw-id-1");
   assert.equal(calls.payments[0].provider, "SANDBOX");
   assert.deepEqual(charges, [{ amount: 500, currency: "BDT", reference: "id-1" }]);
+});
+
+test("payment create records the provider identity, not the credential mode, for active credentials", async () => {
+  // A REAL-mode bKash config must record provider "bkash" (who took the money),
+  // never "REAL" (which environment the credentials pointed at).
+  for (const mode of ["SANDBOX", "REAL"]) {
+    const paymentProviderConfigService = {
+      async getActiveCredentials(provider) {
+        assert.equal(provider, "bkash");
+        return { mode, credentials: { appKey: "k", appSecret: "s" } };
+      }
+    };
+    const { service, calls } = fixture({ paymentProviderConfigService });
+    await service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, method: "mobile", amount: 500 });
+    assert.equal(calls.payments[0].provider, "bkash");
+    assert.equal(calls.payments[0].providerTransactionId, `bkash-${mode.toLowerCase()}-id-1`);
+  }
+});
+
+test("payment create falls back to the sandbox provider when no credentials are active", async () => {
+  const paymentProviderConfigService = { async getActiveCredentials() { return null; } };
+  const { service, calls } = fixture({ paymentProviderConfigService });
+  await service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, method: "mobile", amount: 500 });
+  assert.equal(calls.payments[0].provider, "SANDBOX");
 });
 

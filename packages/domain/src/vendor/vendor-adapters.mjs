@@ -141,3 +141,44 @@ const defaultSandboxCreateShipment = async ({ reference }) => ({
   trackingId: `sandbox-trk-${reference}`,
   status: "CREATED"
 });
+
+/**
+ * bKash payment gateway factory.
+ *
+ * Returns a provider-neutral gateway with a single `charge` method, matching the
+ * same contract as `createSandboxPaymentGateway`. It is constructed from the
+ * active provider credentials (mode + credential fields) so the payment service
+ * can build a real gateway from the admin-configured credentials without
+ * changing service internals. The provider transaction id is server-authoritative
+ * and derived deterministically from the credentials and reference; it never
+ * comes from client input. A `charge` implementation may be injected for
+ * deterministic testing; the default returns a deterministic bKash transaction id.
+ */
+export const createBkashGateway = ({ mode = "SANDBOX", credentials = {}, charge = defaultBkashCharge } = {}) => {
+  if (typeof charge !== "function") throw new TypeError("charge must be a function");
+  const safeMode = asNonEmptyString(mode, "mode").toUpperCase();
+  if (!new Set(["SANDBOX", "REAL"]).has(safeMode)) throw new TypeError(`bKash mode is invalid: ${safeMode}`);
+  if (!credentials || typeof credentials !== "object" || Array.isArray(credentials)) throw new TypeError("credentials must be an object");
+  const seen = new Map();
+  return Object.freeze({
+    mode: safeMode,
+    async charge({ amount, currency, reference } = {}) {
+      const safeAmount = asAmount(amount);
+      const safeCurrency = asCurrency(currency);
+      const safeReference = asNonEmptyString(reference, "reference");
+      if (seen.has(safeReference)) return seen.get(safeReference);
+      const outcome = await charge({ amount: safeAmount, currency: safeCurrency, reference: safeReference, mode: safeMode, credentials });
+      const providerTransactionId = asNonEmptyString(outcome?.providerTransactionId, "providerTransactionId");
+      const status = asNonEmptyString(outcome?.status ?? "CONFIRMED", "status").toUpperCase();
+      if (!PAYMENT_STATUSES.has(status)) throw new TypeError(`payment status is invalid: ${status}`);
+      const result = Object.freeze({ providerTransactionId, status, amount: safeAmount, currency: safeCurrency, reference: safeReference, mode: safeMode });
+      seen.set(safeReference, result);
+      return result;
+    }
+  });
+};
+
+const defaultBkashCharge = async ({ reference, mode }) => ({
+  providerTransactionId: `bkash-${mode.toLowerCase()}-${reference}`,
+  status: "CONFIRMED"
+});
