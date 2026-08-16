@@ -16,6 +16,16 @@ const model = {
   technicianNotes: "PRIVATE"
 };
 
+const specification = {
+  id: "spec-1",
+  specificationDefinitionId: "def-1",
+  key: "vram_gb",
+  label: "VRAM",
+  dataType: "NUMBER",
+  unit: "GB",
+  value: 12
+};
+
 function service(overrides = {}) {
   return createCatalogService({
     repository: {
@@ -23,6 +33,7 @@ function service(overrides = {}) {
       async listBrands() { return { records: [brand], nextCursor: "brand-next" }; },
       async listProductModels() { return { records: [model], nextCursor: null }; },
       async findProductModelById(id) { return id === model.id ? model : null; },
+      async listModelSpecifications(id) { return id === model.id ? [specification] : []; },
       ...overrides
     }
   });
@@ -59,6 +70,17 @@ test("product model detail uses safe DTO and missing records return request-awar
   assert.equal(Object.hasOwn(found.body.data, "serialNumber"), false);
   assert.equal(missing.status, 404);
   assert.equal(missing.body.error.requestId, "request-404");
+});
+
+test("product model detail exposes only safe typed specifications", async () => {
+  const found = await invoke("/api/v1/product-models/rtx-3060");
+  assert.deepEqual(found.body.data.specifications, [
+    { key: "vram_gb", label: "VRAM", dataType: "NUMBER", unit: "GB", value: 12 }
+  ]);
+  for (const spec of found.body.data.specifications) {
+    assert.equal(Object.hasOwn(spec, "id"), false);
+    assert.equal(Object.hasOwn(spec, "specificationDefinitionId"), false);
+  }
 });
 
 test("catalog query allow-list, method, and availability failures are predictable", async () => {

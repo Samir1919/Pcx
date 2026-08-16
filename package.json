@@ -3,8 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22 <23" },
-  "workspaces": ["apps/*", "packages/*"],
+  "engines": {
+    "node": ">=22 <23"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev:api": "node apps/api/src/server.mjs",
     "dev:worker": "node apps/worker/src/worker.mjs",
@@ -15,7 +20,12 @@
     "lint": "node scripts/lint-check.mjs",
     "typecheck": "node scripts/typecheck-check.mjs",
     "build": "node scripts/build-check.mjs",
-    "verify": "npm run verify:e0 && npm run lint && npm run typecheck && npm test && npm run build",
-    "verify:ci": "npm run verify && npm run test:integration"
+    "security": "node scripts/security-check.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "db:backup": "sh scripts/db-backup.sh",
+    "db:restore-drill": "sh scripts/db-restore-drill.sh",
+    "release:preflight": "node scripts/release-preflight.mjs",
+    "verify": "npm run verify:e0 && npm run lint && npm run typecheck && npm test && npm run build && npm run security",
+    "verify:ci": "npm run verify && npm run test:integration && npm run smoke"
   }
 }

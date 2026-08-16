@@ -21,7 +21,7 @@ function service(overrides = {}) {
   };
 }
 
-async function invoke(path, { method = "POST", body = {}, headers = {}, authService = service(), allowedOrigins = new Set([origin]) } = {}) {
+async function invoke(path, { method = "POST", body = {}, headers = {}, authService = service(), identityActionService, allowedOrigins = new Set([origin]) } = {}) {
   const serialized = typeof body === "string" ? body : JSON.stringify(body);
   const result = { headers: {} };
   const response = {
@@ -36,7 +36,7 @@ async function invoke(path, { method = "POST", body = {}, headers = {}, authServ
     socket: { remoteAddress: "192.0.2.1" },
     async *[Symbol.asyncIterator]() { if (serialized.length > 0) yield Buffer.from(serialized); }
   };
-  await createRequestHandler({ authService, allowedOrigins })(request, response);
+  await createRequestHandler({ authService, identityActionService, allowedOrigins })(request, response);
   return result;
 }
 
@@ -61,8 +61,15 @@ test("login issues secure scoped cookies without exposing credentials in JSON", 
   const [access, refresh, csrf] = response.headers["set-cookie"];
   assert.match(access, /^pcx_access=raw-access; Path=\/; .*Secure; HttpOnly; SameSite=Strict$/);
   assert.match(refresh, /^pcx_refresh=raw-refresh; Path=\/api\/v1\/auth; .*Secure; HttpOnly; SameSite=Strict$/);
-  assert.match(csrf, /^pcx_csrf=/);
+  assert.match(csrf, /^pcx_csrf=.*; Path=\/api\/v1;/);
   assert.equal(csrf.includes("HttpOnly"), false);
+});
+
+test("privileged login returns MFA challenge without session cookies", async () => {
+  const response = await invoke("/api/v1/auth/login", { body: { contact: "admin@example.com", password: "password" }, authService: service({ async login() { return { status: "mfa_required", challenge: { id: "mfa-1", expiresAt: "2026-08-16T12:05:00.000Z" } }; } }) });
+  assert.equal(response.status, 202);
+  assert.deepEqual(response.body.data, { status: "mfa_required", challenge: { id: "mfa-1", expiresAt: "2026-08-16T12:05:00.000Z" } });
+  assert.equal(response.headers["set-cookie"], undefined);
 });
 
 test("every auth action requires an exact configured origin", async () => {
@@ -83,6 +90,22 @@ test("refresh requires double-submit CSRF and rotates all cookies", async () => 
   assert.equal(response.headers["set-cookie"].length, 3);
 });
 
+test("mfa verification validates CSRF and issues session cookies", async () => {
+  const missingCsrf = await invoke("/api/v1/auth/verify-mfa", { body: { challengeId: "c1", credential: "123456" } });
+  assert.equal(missingCsrf.status, 403);
+  let presented;
+  const response = await invoke("/api/v1/auth/verify-mfa", {
+    body: { challengeId: "c1", credential: "123456" },
+    headers: { cookie: "pcx_csrf=token", "x-csrf-token": "token" },
+    authService: service({ async verifyMfa(input) { presented = input; return { status: "authenticated", identity: { userId: "admin-1" }, session }; } })
+  });
+  assert.equal(response.status, 200);
+  assert.deepEqual(presented, { challengeId: "c1", credential: "123456" });
+  assert.deepEqual(response.body.data, { status: "authenticated", identity: { userId: "admin-1" } });
+  assert.equal(response.headers["set-cookie"].length, 3);
+  assert.equal(JSON.stringify(response.body).includes("123456"), false);
+});
+
 test("logout validates CSRF, remains body-free, and expires every cookie", async () => {
   let presented;
   const response = await invoke("/api/v1/auth/logout", { headers: { cookie: "pcx_refresh=unknown; pcx_csrf=token", "x-csrf-token": "token" }, authService: service({ async logout(input) { presented = input; } }) });
@@ -90,6 +113,7 @@ test("logout validates CSRF, remains body-free, and expires every cookie", async
   assert.equal(response.body, undefined);
   assert.equal(presented.refreshCredential, "unknown");
   assert.equal(response.headers["set-cookie"].every((value) => value.includes("Max-Age=0")), true);
+  assert.equal(response.headers["set-cookie"].some((value) => value.startsWith("pcx_csrf=") && value.includes("Path=/api/v1;")), true);
 });
 
 test("application failures map to stable request-aware responses", async () => {

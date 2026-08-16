@@ -1,0 +1,56 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import pg from "pg";
+import { runMigrations } from "../../src/infrastructure/database/migrate.mjs";
+import { createPostgresOrderPaymentRepository } from "../../src/modules/commerce/postgres-order-payment-repository.mjs";
+
+const connectionString = process.env.TEST_DATABASE_URL;
+
+test("order/payment repository persists order, snapshot items, and idempotent payment", { skip: !connectionString }, async () => {
+  await runMigrations({ connectionString });
+  const pool = new pg.Pool({ connectionString });
+  const repository = createPostgresOrderPaymentRepository({ pool });
+  const customer = "9e000000-0000-4000-8000-000000000001";
+  const productModelId = "82000000-0000-0000-0000-000000000001"; // seeded model
+  const itemA = "9e000000-0000-4000-8000-000000000002";
+  const itemB = "9e000000-0000-4000-8000-000000000003";
+  const orderId = "9e000000-0000-4000-8000-000000000004";
+  const snapshotId = "9e000000-0000-4000-8000-000000000005";
+  const paymentId = "9e000000-0000-4000-8000-000000000006";
+  const now = "2026-08-16T12:00:00.000Z";
+  try {
+    await pool.query("DELETE FROM payments WHERE order_id::text = $1", [orderId]);
+    await pool.query("DELETE FROM order_items WHERE order_id::text = $1", [orderId]);
+    await pool.query("DELETE FROM orders WHERE id::text = $1", [orderId]);
+    await pool.query("DELETE FROM serial_identifiers WHERE inventory_item_id::text IN ($1,$2)", [itemA, itemB]);
+    await pool.query("DELETE FROM inventory_items WHERE id::text IN ($1,$2)", [itemA, itemB]);
+    await pool.query("DELETE FROM users WHERE email = 'order-customer@example.com'");
+    await pool.query("INSERT INTO users(id,email,status) VALUES ($1,'order-customer@example.com','ACTIVE')", [customer]);
+    await pool.query("INSERT INTO inventory_items(id, pcx_item_id, product_model_id, status, received_at, created_at, updated_at) VALUES ($1,'PCX-TEST-ORDER', $2, 'APPROVED', now(), now(), now())", [itemA, productModelId]);
+
+    const order = await repository.createOrder({ id: orderId, userId: customer, currency: "BDT", subtotal: 1500, shippingAmount: 0, discountAmount: 0, totalAmount: 1500, placedAt: now });
+    assert.equal(order.userId, customer);
+    assert.ok(order.orderNo.startsWith("ORD-"));
+
+    const snapshot = await repository.createOrderItem({ id: snapshotId, orderId, inventoryItemId: itemA, listingId: null, productModelId, pcxItemId: "PCX-TEST-ORDER", productName: "GPU", grade: null, healthScore: null, unitPrice: 1500, specs: [] });
+    assert.equal(snapshot.id, snapshotId);
+
+    const payment = await repository.createPayment({ id: paymentId, orderId, direction: "INBOUND", provider: "bkash", providerTransactionId: "txn-order-1", method: "mobile", amount: 1500, initiatedAt: now });
+    assert.equal(payment.status, "INITIATED");
+
+    // Duplicate provider transaction id is rejected (idempotency).
+    await assert.rejects(
+      repository.createPayment({ id: "9e000000-0000-4000-8000-000000000099", orderId, direction: "INBOUND", provider: "bkash", providerTransactionId: "txn-order-1", method: "mobile", amount: 1500, initiatedAt: now }),
+      (error) => error.code === "23505"
+    );
+
+    const confirmed = await repository.confirmPayment("txn-order-1", now);
+    assert.equal(confirmed.status, "confirmed");
+    assert.equal(confirmed.record.status, "CONFIRMED");
+
+    // Confirming again returns not_confirmable.
+    assert.deepEqual(await repository.confirmPayment("txn-order-1", now), { status: "not_confirmable" });
+  } finally {
+    await pool.end();
+  }
+});

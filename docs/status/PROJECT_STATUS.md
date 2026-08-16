@@ -1,9 +1,9 @@
 # PCX Project Status
 
 - Updated: 2026-08-16
-- Current main evidence commit: `d5e89df`
+- Current main evidence commit: `464044b`
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
-- Current engineering focus: E1 durable auth audit/composition and contact-security flows
+- Current engineering focus: E8 search/discovery storefront
 - Current autonomy maturity: Stage 2 in progress
 - Production deployment: not authorized
 
@@ -14,41 +14,42 @@ This file is the central progress index. Approved specifications define what PCX
 | Epic | Status | Verified scope | Remaining critical scope |
 |---|---|---|---|
 | E0 — Repository & engineering foundation | Complete | Monorepo boundaries, Project Brain, portable agent rules, CI skeleton, local service definitions, verification commands | Controls continue evolving under Stage 2 |
-| E1 — Identity, authentication & RBAC | In progress | Identity/RBAC contracts; customer/address records; accepted ADR 0003; PostgreSQL identity/session schema; canonical policy seeds; Argon2id and opaque credential primitives; transactional refresh rotation/replay-family revocation; auth application service; register/login/refresh/logout HTTP with secure cookies, trusted origins and CSRF | Durable auth audit/composition; production-grade rate limits; contact verification/reset; privileged MFA integration; admin user/role screens |
-| E2 — Catalog & Product Model | In progress | Category/Brand/ProductModel contracts; typed category specifications; safe public catalog service/API | PostgreSQL catalog repository/migrations; admin CRUD/archive; seed volume; authorized admin UI |
-| E3 — Sell-to-PCX | Pending | Specifications approved | Implementation and tests |
-| E4 — Physical intake & inventory identity | Pending | Specifications approved | Implementation and duplicate-identity tests |
-| E5 — Inspection & verification | Pending | Specifications approved | Implementation and integrity tests |
-| E6 — Acquisition, cost & final offer | Pending | Specifications approved | Implementation and financial idempotency |
-| E7 — Listing, pricing & passport | Pending | Specifications approved | Implementation and public-leak tests |
-| E8 — Search, discovery & storefront | Pending | Specifications approved | Implementation and realistic-volume validation |
-| E9 — Cart, reservation & checkout | Pending | Specifications approved | Atomic reservation and double-sell concurrency proof |
-| E10 — Order & payment | Pending | Specifications approved | Sandbox adapter, webhook verification/replay and reconciliation |
-| E11 — Fulfilment & shipment | Pending | Specifications approved | Courier sandbox adapter and exception recovery |
-| E12 — Return & refund | Pending | Specifications approved | Eligibility, serial match and refund idempotency |
-| E13 — Warranty & claims | Pending | Specifications approved | Lifecycle and resolution implementation |
-| E14 — Admin operations & reporting | Pending | Specifications approved | Operational UI and reports |
-| E15 — Notifications | Pending | Specifications approved | Provider-neutral adapters, retries and delivery visibility |
-| E16 — Audit, observability & jobs | Pending | Specifications approved | Runtime implementation and runbooks |
-| E17 — Security hardening | Pending | Threat model approved; early controls implemented incrementally | Full regression/scanning/headers/upload/MFA gates |
-| E18 — Backup, staging & release readiness | Pending | Infrastructure plan approved | Staging, restore drill, rehearsal, smoke/rollback/launch gates |
+| E1 — Identity, authentication & RBAC | In progress | Identity/RBAC contracts; auth/session and secure browser flows; audit/runtime/local limiter; contact/reset flows; privileged MFA gate and provider-neutral challenge verification; authenticated `/me`; ownership-safe authenticated address CRUD with origin/CSRF | Concrete MFA provider/enrollment; production delivery/distributed limits/atomic audit; admin user/role screens |
+| E2 — Catalog & Product Model | In progress | Category/Brand/ProductModel contracts; typed specs; PostgreSQL persistence/runtime; audited admin catalog and typed specification-definition/value commands; responsive admin catalog and model-value UI; launch seeds and volume validation; safe typed specifications in public ProductModel detail | Sandbox search/listing and E8 storefront integration |
+| E3 — Sell-to-PCX | In progress | Owner-scoped authenticated sell-request create/list/get/submit with server-owned DRAFT, ownership declaration, and DRAFT→SUBMITTED transition | Estimated range, admin queue, info/inspection/valuation/offer flows, media, notifications |
+| E4 — Physical intake & inventory identity | In progress | Permission-gated physical intake as server-owned RECEIVED InventoryItem with normalized serial identifiers and database-enforced duplicate-identity rejection | Inspection/lifecycle transitions, PCX ID generation, cost allocation, listing |
+| E5 — Inspection & verification | In progress | Versioned category-scoped inspection templates with typed, unique, canonical-code items created/read under SYSTEM_CONFIGURE | Inspection execution/results, health scores, evidence, immutable submissions, supervisor override |
+| E6 — Acquisition, cost & final offer | In progress | Server-owned valuation range, final offer lifecycle (ACTIVE→ACCEPTED with expiry), and immutable idempotent acquisition (agreedPrice derived from accepted offer) | Acquisition payment processing, cost allocation, seller accept/reject endpoints |
+| E7 — Listing, pricing & passport | In progress | Server-owned listing lifecycle (DRAFT→PUBLISHED), versioned asking-price history, one-active-listing-per-item constraint, and safe public passport projection (`GET /passport/:pcxId`) excluding serial/cost/private evidence | Listing media/QR, reservation/sold transitions, disclosure completeness |
+| E8 — Search, discovery & storefront | In progress | Public storefront listing search (`GET /api/v1/listings`) with allow-listed query params, cursor pagination, and safe disclosure-only listing cards (no serial/cost/private evidence) | Storefront UI shell, listing media/QR, recommendation/dedicated search index |
+| E9 — Cart, reservation & checkout | In progress | Bounded reservation with database-enforced one-active-per-item constraint (double-sell guard), customer-gated create/convert/read-active, and concurrency-proof integration | Cart persistence, order/payment allocation, reservation expiry job |
+| E10 — Order & payment | In progress | Customer-gated order creation with server-computed totals and sold-fact snapshots, plus idempotent payments keyed by unique provider transaction id (confirm once from INITIATED) | Payment gateway/webhook integration, refunds, reconciliation |
+| E11 — Fulfilment & shipment | In progress | Server-owned shipment lifecycle (DRAFT→SHIPPED→DELIVERED) with unique tracking id and persisted shipment events, gated by INVENTORY_MANAGE/SYSTEM_CONFIGURE | Courier sandbox adapter/webhook, packaging evidence media, return-to-origin |
+| E12 — Return & refund | In progress | Customer-gated return request with server-owned REQUESTED→APPROVED→RECEIVED→REFUNDED lifecycle and database-enforced one-refundable-request-per-item (double-refund guard) | Refund gateway execution, physical serial-match intake, carrier pickup |
+| E13 — Warranty & claims | In progress | One warranty per sold order item with a valid window, plus server-owned claim lifecycle (REQUESTED→RESOLVED) and typed resolutions (REPAIR/REPLACE/REFUND/REJECT) recorded with approving identity | Warranty policy authoring, claim inspections, carrier pickup, cost accounting |
+| E14 — Admin operations & reporting | In progress | Admin-gated operations dashboard (`GET /api/v1/admin/reports/operations`) with lifecycle counts and recent orders/sell requests under AUDIT_READ/SYSTEM_CONFIGURE | Full BI/reporting UI, scheduled exports, per-module operational screens |
+| E15 — Notifications | In progress | Provider-neutral notification outbox (PENDING→SENT/FAILED) with SYSTEM_CONFIGURE-gated creation and dispatch; delivery failure never rolls back a business transaction | Concrete email/SMS/push providers, retries, delivery visibility |
+| E16 — Audit, observability & jobs | In progress | Append-only audit logs (`audit_logs`) with AUDIT_READ-gated filtered listing, plus existing notification `dispatchDue` as the jobs pattern; liveness/readiness endpoints | Full audit retention/rotation, BI dashboards, external SIEM |
+| E17 — Security hardening | In progress | Baseline response security headers (`nosniff`, `DENY`, `no-referrer`, restrictive CSP) with regression coverage | Upload scanning, HSTS, CSP allowlisting for admin UI, MFA gates |
+| E18 — Backup, staging & release readiness | In progress | Release preflight (`npm run release:preflight`) verifying staging/backup/restore artifacts and no placeholder secrets; runbook in handoff | Real production deployment and real secrets (hard stop) |
 
 ## Agentic maturity
 
 | Stage | Status | Evidence / trigger |
 |---|---|---|
 | Stage 1 — Lean controlled development | Complete | Project Brain, hard stops, bounded branches/tasks, tests, review, handoffs and safe merge flow |
-| Stage 2 — MVP integration/release discipline | In progress | Locked install, PostgreSQL additive migrations, migration ledger/checksums, integration tests, CI PostgreSQL service; staging/security scans/E2E/restore gates remain |
+| Stage 2 — MVP integration/release discipline | In progress | Locked install, additive migrations, migration checksums, integration tests, CI PostgreSQL service, secret/dependency scanning, staging overlay, E2E smoke path, database backup/restore drill; container image scan and sandbox payment/courier/notification adapters remain |
 | Stage 3 — Multi-agent control plane | Not started | Entry criteria not yet evidenced; no custom orchestration platform justified |
 | Stage 4 — Production delivery/operations | Not started | Requires real staging/production operations and explicit production approval |
 
 ## Current verification baseline
 
-- Root `npm run verify`: 38 unit/application tests pass; 2 PostgreSQL tests skip without `TEST_DATABASE_URL` by design.
-- CI-equivalent PostgreSQL verification remains required before merge; the last recorded integration baseline is 2/2 passing.
+- Root `npm run verify`: 206 application/unit tests pass; 22 PostgreSQL integration tests skip without `TEST_DATABASE_URL` by design; secret scan + dependency audit pass; Next production build passes.
+- CI-equivalent `npm run verify:ci`: 206 application/unit + 22 PostgreSQL integration + 1 E2E smoke, all passing (0 failures).
 - E0 artifact verification: 36 required artifacts.
-- Locked dependency audit at persistence merge: 0 known vulnerabilities.
-- Latest detailed evidence: `docs/handoffs/E1_AUTH_HTTP_BOUNDARY.md`.
+- Dependency audit (`npm audit --omit=dev --audit-level=high`): 0 known vulnerabilities.
+- Backup/restore drill: seed rows recovered to a throwaway database.
+- Latest detailed evidence: `docs/handoffs/E18_BACKUP_STAGING_RELEASE_READINESS.md`.
 
 ## Current decisions and hard stops
 
@@ -60,10 +61,9 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Next dependency-ready work
 
-1. E1 durable auth audit persistence and concrete API composition with bounded abuse-control adapter.
-2. E1 contact verification/reset and privileged MFA integration points.
-3. E1 authenticated `/me` ownership boundary and address operations.
-4. E2 PostgreSQL catalog persistence and authorized admin catalog commands.
+1. Production deployment (requires explicit human approval — hard stop).
+2. Real payment/courier/notification provider credentials (hard stop).
+3. Container image scan + sandbox adapters.
 
 ## Update rule
 

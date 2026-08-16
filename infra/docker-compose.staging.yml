@@ -1,0 +1,40 @@
+# Staging overlay. Runs a production-like local stack isolated from the
+# development containers (separate project name, ports, volumes, credentials).
+# All credentials below are synthetic and marked non-production. Real staging
+# must inject secrets from a secret manager/environment, never from this file.
+name: pcx-staging
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pcx_staging
+      POSTGRES_USER: pcx_staging
+      POSTGRES_PASSWORD: pcx_staging_local_only
+    ports: [ "5433:5432" ]
+    volumes: [ "pcx-staging-postgres:/var/lib/postgresql/data" ]
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U pcx_staging -d pcx_staging" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports: [ "6380:6379" ]
+    command: [ "redis-server", "--appendonly", "yes" ]
+    volumes: [ "pcx-staging-redis:/data" ]
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9003"
+    environment:
+      MINIO_ROOT_USER: pcx_staging
+      MINIO_ROOT_PASSWORD: change_me_staging_local_only
+    ports: [ "9002:9000", "9003:9003" ]
+    volumes: [ "pcx-staging-minio:/data" ]
+volumes:
+  pcx-staging-postgres:
+  pcx-staging-redis:
+  pcx-staging-minio:

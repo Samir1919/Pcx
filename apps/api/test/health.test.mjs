@@ -15,7 +15,13 @@ async function invoke(url, options) {
 
 test("liveness and readiness endpoints are explicit", async () => {
   assert.deepEqual(await invoke("/health/live"), {
-    headers: { "content-type": "application/json; charset=utf-8" },
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "x-content-type-options": "nosniff",
+      "x-frame-options": "DENY",
+      "referrer-policy": "no-referrer",
+      "content-security-policy": "default-src 'none'; frame-ancestors 'none'"
+    },
     status: 200,
     body: { status: "ok" }
   });

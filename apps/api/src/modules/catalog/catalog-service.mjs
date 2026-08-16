@@ -1,5 +1,5 @@
 import { CatalogStatus } from "../../../../../packages/domain/src/index.mjs";
-import { toPublicBrand, toPublicCategory, toPublicProductModel } from "./catalog-dto.mjs";
+import { toPublicBrand, toPublicCategory, toPublicProductModel, toPublicSpecification } from "./catalog-dto.mjs";
 
 const requiredMethods = ["listCategories", "listBrands", "listProductModels", "findProductModelById"];
 
@@ -34,7 +34,15 @@ export function createCatalogService({ repository }) {
     },
     async getProductModel(id) {
       const record = await repository.findProductModelById(id);
-      return record?.status === CatalogStatus.ACTIVE ? toPublicProductModel(record) : null;
+      if (record?.status !== CatalogStatus.ACTIVE) return null;
+      const specifications = typeof repository.listModelSpecifications === "function"
+        ? await repository.listModelSpecifications(id)
+        : [];
+      if (!Array.isArray(specifications)) throw new TypeError("catalog repository specification result must be an array");
+      return Object.freeze({
+        ...toPublicProductModel(record),
+        specifications: Object.freeze(specifications.map(toPublicSpecification))
+      });
     }
   });
 }

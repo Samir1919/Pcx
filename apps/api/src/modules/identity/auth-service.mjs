@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createCustomerRegistrationCandidate } from "../../../../../packages/domain/src/identity/identity-record.mjs";
 import { generateOpaqueCredential, hashOpaqueCredential, sessionExpiries } from "./credentials.mjs";
 import { assertPassword, hashPassword, verifyPassword } from "./password.mjs";
+import { requiresPrivilegedMfa, safeMfaChallenge, safeMfaUserId } from "./privileged-mfa.mjs";
 
 const dummyPasswordHash = "$argon2id$v=19$m=19456,p=1,t=2$O2/E313oRvHGzD2bSIIZVw$bR3lzbWFjtRahsze5LJ/mLBbUrEPNerDV6PiojyYe6A";
 
@@ -28,7 +29,8 @@ export function createAuthService({
   clock = () => new Date(),
   id = randomUUID,
   credential = generateOpaqueCredential,
-  passwords = { assert: assertPassword, hash: hashPassword, verify: verifyPassword }
+  passwords = { assert: assertPassword, hash: hashPassword, verify: verifyPassword },
+  mfa
 }) {
   for (const method of ["createCustomer", "findPasswordIdentityByContact", "createSession", "rotateRefresh", "revokeFamilyByRefreshHash"]) {
     requiredDependency(repository, method, "repository");
@@ -70,6 +72,18 @@ export function createAuthService({
   }
 
   return Object.freeze({
+    async authenticateAccess({ accessCredential }) {
+      if (typeof accessCredential !== "string" || accessCredential.length === 0) throw new AuthenticationError("invalid_access");
+      const identity = await repository.findActiveIdentityByAccessHash(hashOpaqueCredential(accessCredential), clock().toISOString());
+      if (!identity) throw new AuthenticationError("invalid_access");
+      return Object.freeze({
+        userId: identity.userId,
+        status: identity.status,
+        contactVerified: identity.contactVerified === true,
+        roles: Object.freeze([...(identity.roles ?? [])])
+      });
+    },
+
     async register({ email, phone, password }, context = {}) {
       await control("register", context);
       passwords.assert(password);
@@ -99,9 +113,44 @@ export function createAuthService({
         await record("login", "denied", context, identity?.id ?? null);
         throw new AuthenticationError("invalid_credentials");
       }
+      if (requiresPrivilegedMfa(identity.roles)) {
+        if (!mfa || typeof mfa.beginChallenge !== "function") {
+          await record("login", "mfa_unavailable", context, identity.id);
+          throw new AuthenticationError("mfa_unavailable");
+        }
+        const challenge = safeMfaChallenge(await mfa.beginChallenge({ userId: identity.id, requestId: safeContext(context).requestId }));
+        await record("login", "mfa_required", context, identity.id);
+        return Object.freeze({ status: "mfa_required", challenge });
+      }
       const session = await issueSession(identity.id, context);
       await record("login", "succeeded", context, identity.id);
       return Object.freeze({ status: "authenticated", identity: Object.freeze({ userId: identity.id, roles: Object.freeze([...(identity.roles ?? [])]) }), session });
+    },
+
+    async verifyMfa({ challengeId, credential }, context = {}) {
+      await control("mfa_verify", context);
+      if (typeof challengeId !== "string" || challengeId.length === 0 || typeof credential !== "string" || credential.length === 0) {
+        await record("mfa_verify", "denied", context);
+        throw new AuthenticationError("invalid_mfa");
+      }
+      if (!mfa || typeof mfa.verifyChallenge !== "function") {
+        await record("mfa_verify", "denied", context);
+        throw new AuthenticationError("invalid_mfa");
+      }
+      let verification;
+      try {
+        verification = await mfa.verifyChallenge({ challengeId, credential, requestId: safeContext(context).requestId });
+      } catch {
+        verification = null;
+      }
+      if (verification?.status !== "verified" || typeof verification.userId !== "string" || verification.userId.length === 0) {
+        await record("mfa_verify", "denied", context);
+        throw new AuthenticationError("invalid_mfa");
+      }
+      const userId = safeMfaUserId(verification.userId);
+      const session = await issueSession(userId, context);
+      await record("mfa_verify", "succeeded", context, userId);
+      return Object.freeze({ status: "authenticated", identity: Object.freeze({ userId }), session });
     },
 
     async refresh({ refreshCredential }, context = {}) {

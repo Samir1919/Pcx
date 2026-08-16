@@ -1,10 +1,27 @@
 import { createServer } from "node:http";
 import { handleAuthRequest } from "./modules/identity/auth-http.mjs";
+import { handleSelfRequest } from "./modules/identity/self-http.mjs";
+import { handleAddressRequest } from "./modules/identity/address-http.mjs";
+import { handleCatalogCommandRequest } from "./modules/catalog/catalog-command-http.mjs";
+import { handleCatalogSpecCommandRequest } from "./modules/catalog/catalog-spec-command-http.mjs";
+import { handleSellRequestRequest } from "./modules/acquisition/sell-request-http.mjs";
+import { handleAcquisitionRequest } from "./modules/acquisition/acquisition-http.mjs";
+import { handleInventoryRequest } from "./modules/inventory/inventory-http.mjs";
+import { handleInspectionTemplateRequest } from "./modules/inspection/inspection-template-http.mjs";
+import { handleListingRequest } from "./modules/listing/listing-http.mjs";
+import { handleReservationRequest } from "./modules/commerce/reservation-http.mjs";
+import { handleOrderPaymentRequest } from "./modules/commerce/order-payment-http.mjs";
+import { handleShipmentRequest } from "./modules/logistics/shipment-http.mjs";
+import { handleReturnRequest } from "./modules/warranty/return-request-http.mjs";
+import { handleWarrantyClaimRequest } from "./modules/warranty/warranty-claim-http.mjs";
+import { handleOperationsReportRequest } from "./modules/reporting/operations-report-http.mjs";
+import { handleNotificationRequest } from "./modules/notification/notification-http.mjs";
+import { handleAuditLogRequest } from "./modules/audit/audit-log-http.mjs";
 
 const catalogQueryKeys = new Set(["categoryId", "brandId", "q", "cursor", "limit", "sort"]);
 const catalogSorts = new Set(["name_asc", "name_desc"]);
 
-class InvalidRequestError extends Error {}
+class InvalidRequestError extends Error { }
 
 function send(response, status, body) {
   response.writeHead(status).end(JSON.stringify(body));
@@ -43,9 +60,13 @@ function catalogFilters(url) {
   });
 }
 
-export function createRequestHandler({ readiness = () => ({ ok: true }), catalogService, authService, allowedOrigins } = {}) {
+export function createRequestHandler({ readiness = () => ({ ok: true }), catalogService, catalogCommandService, catalogSpecCommandService, authService, identityActionService, addressService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, listingService, reservationService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, operationsReportService, notificationService, auditLogService, allowedOrigins } = {}) {
   return async (request, response) => {
     response.setHeader("content-type", "application/json; charset=utf-8");
+    response.setHeader("x-content-type-options", "nosniff");
+    response.setHeader("x-frame-options", "DENY");
+    response.setHeader("referrer-policy", "no-referrer");
+    response.setHeader("content-security-policy", "default-src 'none'; frame-ancestors 'none'");
     const url = new URL(request.url, "http://pcx.local");
     const method = request.method ?? "GET";
     if (url.pathname === "/health/live") {
@@ -58,7 +79,24 @@ export function createRequestHandler({ readiness = () => ({ ok: true }), catalog
       return;
     }
 
-    if (await handleAuthRequest(request, response, { authService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleAuthRequest(request, response, { authService, identityActionService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleCatalogSpecCommandRequest(request, response, { catalogSpecCommandService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleCatalogCommandRequest(request, response, { catalogCommandService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleAddressRequest(request, response, { addressService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleSellRequestRequest(request, response, { sellRequestService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleAcquisitionRequest(request, response, { acquisitionService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleInventoryRequest(request, response, { inventoryService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleInspectionTemplateRequest(request, response, { inspectionTemplateService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleListingRequest(request, response, { listingService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleReservationRequest(request, response, { reservationService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleOrderPaymentRequest(request, response, { orderPaymentService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleShipmentRequest(request, response, { shipmentService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleReturnRequest(request, response, { returnRequestService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleWarrantyClaimRequest(request, response, { warrantyClaimService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleOperationsReportRequest(request, response, { operationsReportService, requestId: requestId(request) })) return;
+    if (await handleNotificationRequest(request, response, { notificationService, requestId: requestId(request) })) return;
+    if (await handleAuditLogRequest(request, response, { auditLogService, requestId: requestId(request) })) return;
+    if (await handleSelfRequest(request, response, { authService, requestId: requestId(request) })) return;
 
     const publicCatalogPath = url.pathname === "/api/v1/categories"
       || url.pathname === "/api/v1/brands"

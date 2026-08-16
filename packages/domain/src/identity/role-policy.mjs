@@ -7,7 +7,7 @@ const rolePermissions = new Map([
   [Role.SUPERVISOR, new Set([Permission.INVENTORY_READ, Permission.INSPECTION_READ, Permission.INSPECTION_SUBMIT, Permission.INSPECTION_OVERRIDE])],
   [Role.INVENTORY, new Set([Permission.INVENTORY_READ, Permission.INVENTORY_MANAGE, Permission.INSPECTION_READ, Permission.PRICING_READ])],
   [Role.FINANCE, new Set([Permission.PAYMENT_READ, Permission.ACQUISITION_PAYMENT_MANAGE, Permission.REFUND_MANAGE, Permission.AUDIT_READ])],
-  [Role.ADMIN, new Set([Permission.CUSTOMER_READ_ASSIGNED, Permission.INVENTORY_READ, Permission.INVENTORY_MANAGE, Permission.INSPECTION_READ, Permission.PRICING_READ, Permission.PRICING_MANAGE, Permission.PAYMENT_READ, Permission.ROLE_READ, Permission.AUDIT_READ, Permission.SYSTEM_CONFIGURE])],
+  [Role.ADMIN, new Set([Permission.CUSTOMER_READ_ASSIGNED, Permission.CATALOG_READ, Permission.CATALOG_MANAGE, Permission.INVENTORY_READ, Permission.INVENTORY_MANAGE, Permission.INSPECTION_READ, Permission.PRICING_READ, Permission.PRICING_MANAGE, Permission.PAYMENT_READ, Permission.ROLE_READ, Permission.AUDIT_READ, Permission.SYSTEM_CONFIGURE])],
   [Role.SUPER_ADMIN, new Set(Object.values(Permission))]
 ]);
 
