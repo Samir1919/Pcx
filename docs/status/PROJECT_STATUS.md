@@ -62,7 +62,7 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Current verification baseline
 
-- Root `npm test`: 313 pass, 0 fail, 22 skipped (DB integration) after the AI executor/reviewer adapter slice (ai-adapters tests add 11).
+- Root `npm test`: 318 pass, 0 fail, 22 skipped (DB integration) after the worker-runtime wiring slice (worker composition tests add 5).
 - Root `npm run verify`: pass for this slice: E0, lint, typecheck, tests, build, and security scan (secrets + dependencies + container).
 - CI-equivalent `npm run verify:ci`: application/unit + PostgreSQL integration + E2E smoke, all passing (0 failures).
 - E0 artifact verification: 36 required artifacts; latest GitHub merge evidence is PR #1 (`1692049`).
@@ -104,7 +104,7 @@ This file is the central progress index. Approved specifications define what PCX
 ## Next dependency-ready work
 
 1. Merge or supersede `agent/e1-identity-rbac` (holds valuable unmerged identity/RBAC work).
-2. Wire the worker into the deployment runtime (docker-compose) for the courier webhook outbox.
+2. Add an application Dockerfile and wire the worker into `docker-compose.yml` (a deployment concern; no app images exist yet).
 3. Link the `/payments` admin route from the sidebar and implement a real bKash HTTP adapter behind the injected gateway contract.
 4. Production deployment and real provider credentials remain human-approval hard stops.
 

@@ -9,7 +9,7 @@
 // The worker never owns business truth; it only advances durable state that the
 // services already own. Jobs are idempotent and safe to run repeatedly.
 
-export function startWorker({ shipmentService, notificationService, intervalMs = 5_000, onError = () => { } } = {}) {
+export function startWorker({ shipmentService, notificationService, intervalMs = 5_000, onError = () => { }, unref = true } = {}) {
   if (shipmentService && typeof shipmentService.dispatchDueWebhookEvents !== "function") throw new TypeError("shipmentService.dispatchDueWebhookEvents is required");
   if (notificationService && typeof notificationService.dispatchDue !== "function") throw new TypeError("notificationService.dispatchDue is required");
 
@@ -39,7 +39,9 @@ export function startWorker({ shipmentService, notificationService, intervalMs =
     start() {
       if (timer) return this;
       timer = setInterval(tick, intervalMs);
-      timer.unref?.();
+      // A foreground daemon (unref=false) keeps the event loop alive so the
+      // interval actually fires; tests and short-lived callers keep unref=true.
+      if (unref) timer.unref?.();
       return this;
     },
     stop() {
@@ -48,8 +50,4 @@ export function startWorker({ shipmentService, notificationService, intervalMs =
       return this;
     }
   });
-}
-
-if (process.argv[1] === new URL(import.meta.url).pathname) {
-  process.stdout.write(`${JSON.stringify(startWorker())}\n`);
 }

@@ -12,7 +12,7 @@
   ],
   "scripts": {
     "dev:api": "node apps/api/src/index.mjs",
-    "dev:worker": "node apps/worker/src/worker.mjs",
+    "dev:worker": "node apps/worker/src/main.mjs",
     "verify:e0": "node scripts/e0-check.mjs",
     "test": "node --test",
     "test:integration": "node --test apps/api/test/integration/*.test.mjs",
