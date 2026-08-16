@@ -25,7 +25,8 @@ This file is the central progress index. Approved specifications define what PCX
 | E9 — Cart, reservation & checkout | In progress | Bounded reservation with database-enforced one-active-per-item constraint (double-sell guard), customer-gated create/convert/read-active, and concurrency-proof integration | Cart persistence, order/payment allocation, reservation expiry job |
 | E10 — Order & payment | In progress | Customer-gated order creation with server-computed totals and sold-fact snapshots, plus idempotent payments keyed by a server-authoritative provider transaction id derived from the injected sandbox payment gateway (confirm once from INITIATED) | Real payment gateway/webhook integration, refunds, reconciliation |
 
-| E11 — Fulfilment & shipment | In progress | Server-owned shipment lifecycle (DRAFT→SHIPPED→DELIVERED) with unique tracking id and persisted shipment events, gated by INVENTORY_MANAGE/SYSTEM_CONFIGURE; tracking id is server-authoritative, derived from the injected sandbox courier | Courier webhook, packaging evidence media, return-to-origin |
+| E11 — Fulfilment & shipment | In progress | Server-owned shipment lifecycle (DRAFT→SHIPPED→DELIVERED→RETURNED) with unique tracking id and persisted shipment events, gated by INVENTORY_MANAGE/SYSTEM_CONFIGURE; tracking id is server-authoritative, derived from the injected sandbox courier; signed courier webhook (`POST /api/v1/webhooks/courier`) advances DELIVERED/RETURNED with timing-safe secret validation and idempotent final-state handling | Packaging evidence media, return-to-origin, webhook retry/outbox |
+
 
 | E12 — Return & refund | In progress | Customer-gated return request with server-owned REQUESTED→APPROVED→RECEIVED→REFUNDED lifecycle and database-enforced one-refundable-request-per-item (double-refund guard) | Refund gateway execution, physical serial-match intake, carrier pickup |
 | E13 — Warranty & claims | In progress | One warranty per sold order item with a valid window, plus server-owned claim lifecycle (REQUESTED→RESOLVED) and typed resolutions (REPAIR/REPLACE/REFUND/REJECT) recorded with approving identity | Warranty policy authoring, claim inspections, carrier pickup, cost accounting |
@@ -51,13 +52,14 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Current verification baseline
 
-- Root `npm test`: 253 total tests after courier wiring; 231 passed, 22 PostgreSQL integration tests skip without `TEST_DATABASE_URL` by design, 0 failed.
-- Root `npm run verify`: pass with E0, lint, typecheck, 253 tests (231 pass, 22 PostgreSQL skips by design), build, secret scan, and dependency audit.
-- CI-equivalent `npm run verify:ci`: 231 application/unit + 22 PostgreSQL integration + 1 E2E smoke, all passing (0 failures).
+- Root `npm test`: 264 total tests after courier webhook wiring; 242 passed, 22 PostgreSQL integration tests skip without `TEST_DATABASE_URL` by design, 0 failed.
+- Root `npm run verify`: pass with E0, lint, typecheck, 264 tests (242 pass, 22 PostgreSQL skips by design), build, secret scan, and dependency audit.
+- CI-equivalent `npm run verify:ci`: 242 application/unit + 22 PostgreSQL integration + 1 E2E smoke, all passing (0 failures).
 - E0 artifact verification: 36 required artifacts; latest GitHub merge evidence is PR #1 (`1692049`).
 - Dependency audit (`npm audit --omit=dev --audit-level=high`): 0 known vulnerabilities.
 - Backup/restore drill: seed rows recovered to a throwaway database.
-- Latest detailed evidence: `docs/handoffs/STAGE3_COURIER_WIRING.md`.
+- Latest detailed evidence: `docs/handoffs/STAGE3_COURIER_WEBHOOK.md`.
+
 
 
 
@@ -78,9 +80,10 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Next dependency-ready work
 
-1. Wire the sandbox courier webhook/status-update flow into the logistics service (the courier adapter is now wired for server-authoritative tracking id derivation; the notification dispatcher and payment gateway are already wired).
+1. Add webhook retry/outbox delivery guarantees for the courier webhook (explicitly deferred from the courier webhook slice).
 2. Complete safe Stage 2 release slices: container image scan when an image exists.
 3. Production deployment and real provider credentials remain human-approval hard stops.
+
 
 
 

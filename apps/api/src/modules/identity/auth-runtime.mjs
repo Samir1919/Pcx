@@ -54,7 +54,8 @@ export function parseAllowedOrigins(value) {
   return origins;
 }
 
-export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, delivery, mfa } = {}) {
+export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, delivery, mfa, courierWebhookSecret = process.env.COURIER_WEBHOOK_SECRET ?? null } = {}) {
+
   if (!pool || typeof pool.query !== "function" || typeof pool.connect !== "function") throw new TypeError("PostgreSQL pool is required");
   if (!delivery || typeof delivery.send !== "function") throw new TypeError("identity action delivery.send is required");
   const origins = parseAllowedOrigins(allowedOrigins instanceof Set ? [...allowedOrigins].join(",") : allowedOrigins);
@@ -86,7 +87,8 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   const listingService = createListingService({ authService, repository: listingRepository });
   const reservationService = createReservationService({ authService, listingRepository, reservationRepository: createPostgresReservationRepository({ pool }) });
   const orderPaymentService = createOrderPaymentService({ authService, repository: createPostgresOrderPaymentRepository({ pool }) });
-  const shipmentService = createShipmentService({ authService, repository: createPostgresShipmentRepository({ pool }) });
+  const shipmentService = createShipmentService({ authService, repository: createPostgresShipmentRepository({ pool }), webhookSecret: courierWebhookSecret });
+
   const returnRequestService = createReturnRequestService({ authService, repository: createPostgresReturnRequestRepository({ pool }) });
   const warrantyClaimService = createWarrantyClaimService({ authService, repository: createPostgresWarrantyClaimRepository({ pool }) });
   const operationsReportService = createOperationsReportService({ authService, repository: createPostgresOperationsReportRepository({ pool }) });

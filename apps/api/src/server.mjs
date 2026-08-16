@@ -12,6 +12,8 @@ import { handleListingRequest } from "./modules/listing/listing-http.mjs";
 import { handleReservationRequest } from "./modules/commerce/reservation-http.mjs";
 import { handleOrderPaymentRequest } from "./modules/commerce/order-payment-http.mjs";
 import { handleShipmentRequest } from "./modules/logistics/shipment-http.mjs";
+import { handleCourierWebhookRequest } from "./modules/logistics/shipment-webhook-http.mjs";
+
 import { handleReturnRequest } from "./modules/warranty/return-request-http.mjs";
 import { handleWarrantyClaimRequest } from "./modules/warranty/warranty-claim-http.mjs";
 import { handleOperationsReportRequest } from "./modules/reporting/operations-report-http.mjs";
@@ -91,7 +93,9 @@ export function createRequestHandler({ readiness = () => ({ ok: true }), catalog
     if (await handleReservationRequest(request, response, { reservationService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleOrderPaymentRequest(request, response, { orderPaymentService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleShipmentRequest(request, response, { shipmentService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleCourierWebhookRequest(request, response, { shipmentService, requestId: requestId(request) })) return;
     if (await handleReturnRequest(request, response, { returnRequestService, allowedOrigins, requestId: requestId(request) })) return;
+
     if (await handleWarrantyClaimRequest(request, response, { warrantyClaimService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleOperationsReportRequest(request, response, { operationsReportService, requestId: requestId(request) })) return;
     if (await handleNotificationRequest(request, response, { notificationService, requestId: requestId(request) })) return;

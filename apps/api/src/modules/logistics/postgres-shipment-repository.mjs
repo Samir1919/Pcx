@@ -26,9 +26,11 @@ function shipment(row) {
     status: row.status,
     shippedAt: row.shipped_at ? new Date(row.shipped_at).toISOString() : null,
     deliveredAt: row.delivered_at ? new Date(row.delivered_at).toISOString() : null,
+    returnedAt: row.returned_at ? new Date(row.returned_at).toISOString() : null,
     createdAt: new Date(row.created_at).toISOString()
   });
 }
+
 
 export function createPostgresShipmentRepository({ pool }) {
   if (!pool || typeof pool.query !== "function" || typeof pool.connect !== "function") throw new TypeError("PostgreSQL pool is required");
@@ -62,7 +64,7 @@ export function createPostgresShipmentRepository({ pool }) {
         const updated = await client.query(
           `UPDATE shipments SET status = 'DELIVERED', delivered_at = $2
            WHERE id = $1 AND status = 'SHIPPED'
-           RETURNING id, order_id, courier, tracking_id, package_type, weight, cod_amount, shipping_charge, status, shipped_at, delivered_at, created_at`,
+           RETURNING id, order_id, courier, tracking_id, package_type, weight, cod_amount, shipping_charge, status, shipped_at, delivered_at, returned_at, created_at`,
           [shipmentId, now]
         );
         if (updated.rowCount !== 1) return { status: "not_deliverable" };
@@ -70,7 +72,21 @@ export function createPostgresShipmentRepository({ pool }) {
       });
     },
 
+    async markReturned(shipmentId, now) {
+      return transaction(pool, async (client) => {
+        const updated = await client.query(
+          `UPDATE shipments SET status = 'RETURNED', returned_at = $2
+           WHERE id = $1 AND status = 'SHIPPED'
+           RETURNING id, order_id, courier, tracking_id, package_type, weight, cod_amount, shipping_charge, status, shipped_at, delivered_at, returned_at, created_at`,
+          [shipmentId, now]
+        );
+        if (updated.rowCount !== 1) return { status: "not_returnable" };
+        return { status: "returned", record: shipment(updated.rows[0]) };
+      });
+    },
+
     async recordEvent(event) {
+
       const result = await pool.query(
         `INSERT INTO shipment_events(id, shipment_id, status, provider_status_raw, occurred_at)
          VALUES ($1, $2, $3, $4, $5) RETURNING id`,

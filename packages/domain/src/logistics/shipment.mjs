@@ -82,6 +82,17 @@ export function markDelivered(shipment, { deliveredAt = new Date() } = {}) {
   });
 }
 
+export function markReturned(shipment, { returnedAt = new Date() } = {}) {
+  if (!shipment || typeof shipment !== "object") throw new TypeError("shipment is required");
+  if (shipment.status !== ShipmentStatus.SHIPPED) throw new TypeError("only a SHIPPED shipment can be returned");
+  return Object.freeze({
+    ...shipment,
+    status: ShipmentStatus.RETURNED,
+    returnedAt: timestamp(returnedAt, "returnedAt")
+  });
+}
+
+
 export function createShipmentEvent({ id, shipmentId, status, providerStatusRaw = null, occurredAt = new Date() }) {
   if (!statuses.has(status)) throw new TypeError("shipment status is invalid");
   return Object.freeze({
