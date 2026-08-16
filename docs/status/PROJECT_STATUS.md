@@ -1,11 +1,12 @@
 # PCX Project Status
 
-- Updated: 2026-08-16
-- Current main evidence commit: `39f71e6`
+- Updated: 2026-08-17
+- Current main evidence commit: `39f71e6` (branch `agent/autonomous-safe-slices` holds 4 new slices pending merge)
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: Stage 2 completion and Stage 3 control-plane foundation
 - Current autonomy maturity: Stage 2 in progress; Stage 3 foundation implementation in progress
 - Production deployment: not authorized
+
 
 This file is the central progress index. Approved specifications define what PCX must become; task files, handoffs, tests, migrations, and Git commits prove what is complete. Percentages are intentionally omitted because they are not reliable acceptance evidence.
 
@@ -25,7 +26,8 @@ This file is the central progress index. Approved specifications define what PCX
 | E9 — Cart, reservation & checkout | In progress | Bounded reservation with database-enforced one-active-per-item constraint (double-sell guard), customer-gated create/convert/read-active, and concurrency-proof integration | Cart persistence, order/payment allocation, reservation expiry job |
 | E10 — Order & payment | In progress | Customer-gated order creation with server-computed totals and sold-fact snapshots, plus idempotent payments keyed by a server-authoritative provider transaction id derived from the injected sandbox payment gateway (confirm once from INITIATED) | Real payment gateway/webhook integration, refunds, reconciliation |
 
-| E11 — Fulfilment & shipment | In progress | Server-owned shipment lifecycle (DRAFT→SHIPPED→DELIVERED→RETURNED) with unique tracking id and persisted shipment events, gated by INVENTORY_MANAGE/SYSTEM_CONFIGURE; tracking id is server-authoritative, derived from the injected sandbox courier; signed courier webhook (`POST /api/v1/webhooks/courier`) advances DELIVERED/RETURNED with timing-safe secret validation and idempotent final-state handling | Packaging evidence media, return-to-origin, webhook retry/outbox |
+| E11 — Fulfilment & shipment | In progress | Server-owned shipment lifecycle (DRAFT→SHIPPED→DELIVERED→RETURNED) with unique tracking id and persisted shipment events, gated by INVENTORY_MANAGE/SYSTEM_CONFIGURE; tracking id is server-authoritative, derived from the injected sandbox courier; signed courier webhook (`POST /api/v1/webhooks/courier`) advances DELIVERED/RETURNED with timing-safe secret validation and idempotent final-state handling; durable courier webhook outbox (`shipment_webhook_events`) enqueues every webhook before application and a worker job (`dispatchDueWebhookEvents`) retries PENDING events with a bounded backoff budget until APPLIED or FAILED | Packaging evidence media, return-to-origin |
+
 
 
 | E12 — Return & refund | In progress | Customer-gated return request with server-owned REQUESTED→APPROVED→RECEIVED→REFUNDED lifecycle and database-enforced one-refundable-request-per-item (double-refund guard) | Refund gateway execution, physical serial-match intake, carrier pickup |
@@ -41,8 +43,9 @@ This file is the central progress index. Approved specifications define what PCX
 | Stage | Status | Evidence / trigger |
 |---|---|---|
 | Stage 1 — Lean controlled development | Complete | Project Brain, hard stops, bounded branches/tasks, tests, review, handoffs and safe merge flow |
-| Stage 2 — MVP integration/release discipline | In progress | Locked install, additive migrations, migration checksums, integration tests, CI PostgreSQL service, secret/dependency scanning, staging overlay, E2E smoke path, database backup/restore drill; container image scan and sandbox payment/courier/notification adapters remain |
-| Stage 3 — Multi-agent control plane | Foundation implementation in progress | DAG/default-deny validation, an injected bounded local runner (retry, timeout, budget, cancellation, kill switch, artifact metadata), a deterministic parallel worktree planner with prefix-aware file/module/migration conflict detection, review/QA/security/integrated-verification/handoff adapters, and worktree create/remove/merge orchestration plus a parallel worker driver loop that persists every run to a durable secret-free JSONL log, a real shell git adapter (execFile, no shell interpolation, validated agent branches and `.worktrees/` paths, plus branch deletion after merge), and a durable secret-free JSONL action/artifact log store with run-record mapping, and deterministic secret-free sandbox vendor adapters (notification dispatcher, idempotent payment gateway, courier) behind injected provider-neutral contracts; the payment and courier adapters are wired into the commerce and logistics services (server-authoritative provider transaction id and tracking id); a runnable autonomous orchestration loop driver (`scripts/autonomous-loop.mjs`) that loads a bounded task graph, runs every dependency-ready task through the full pipeline with the real shell git adapter and durable log store, persists completed/failed task status back to the graph file for cross-process resume, and reports a durable summary (dry-run mode is CI-safe); stuck-state hardening now adds durable transitive `BLOCKED` propagation, in-loop batch limits, explicit integration-target checkout, merge-conflict abort, cleanup-failure reporting, durable `PASSED` resume, real merge/worktree failure records, and merged-branch deletion |
+| Stage 2 — MVP integration/release discipline | In progress | Locked install, additive migrations, migration checksums, integration tests, CI PostgreSQL service, secret/dependency scanning, staging overlay, E2E smoke path, database backup/restore drill, and a container image scan (`scripts/container-scan.mjs`) that runs when an image exists and skips safely otherwise; sandbox payment/courier/notification adapters remain |
+| Stage 3 — Multi-agent control plane | Foundation implementation in progress | DAG/default-deny validation, an injected bounded local runner (retry, timeout, budget, cancellation, kill switch, artifact metadata), a deterministic parallel worktree planner with prefix-aware file/module/migration conflict detection, review/QA/security/integrated-verification/handoff adapters, and worktree create/remove/merge orchestration plus a parallel worker driver loop that persists every run to a durable secret-free JSONL log, a real shell git adapter (execFile, no shell interpolation, validated agent branches and `.worktrees/` paths, plus branch deletion after merge), and a durable secret-free JSONL action/artifact log store with run-record mapping, and deterministic secret-free sandbox vendor adapters (notification dispatcher, idempotent payment gateway, courier) behind injected provider-neutral contracts; the payment and courier adapters are wired into the commerce and logistics services (server-authoritative provider transaction id and tracking id); a runnable autonomous orchestration loop driver (`scripts/autonomous-loop.mjs`) that loads a bounded task graph, runs every dependency-ready task through the full pipeline with the real shell git adapter and durable log store, persists completed/failed task status back to the graph file for cross-process resume, and reports a durable summary (dry-run mode is CI-safe); stuck-state hardening now adds durable transitive `BLOCKED` propagation, in-loop batch limits, explicit integration-target checkout, merge-conflict abort, cleanup-failure reporting, durable `PASSED` resume, real merge/worktree failure records, and merged-branch deletion; a vendor-neutral external-agent executor contract (ADR 0007) with default-deny and secret-rejection validation is approved and implemented |
+
 
 
 
@@ -54,14 +57,15 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Current verification baseline
 
-- Root `npm test`: 280 total tests after stuck-state hardening; 258 passed, 22 PostgreSQL integration tests skip without `TEST_DATABASE_URL` by design, 0 failed.
-- Root `npm run verify`: pass for this slice: E0, lint, typecheck, 280 tests, build, and security scan.
-- CI-equivalent `npm run verify:ci`: 254 application/unit + 22 PostgreSQL integration + 1 E2E smoke, all passing (0 failures).
+- Root `npm test`: 275 pass, 0 fail, 22 skipped (DB integration) after the courier outbox slice; container-scan tests add 5 more (280 total unit/script tests).
+- Root `npm run verify`: pass for this slice: E0, lint, typecheck, tests, build, and security scan (secrets + dependencies + container).
+- CI-equivalent `npm run verify:ci`: application/unit + PostgreSQL integration + E2E smoke, all passing (0 failures).
 - E0 artifact verification: 36 required artifacts; latest GitHub merge evidence is PR #1 (`1692049`).
 - Dependency audit (`npm audit --omit=dev --audit-level=high`): 0 known vulnerabilities.
 - Backup/restore drill: seed rows recovered to a throwaway database.
 - Autonomous loop dry-run: `node scripts/autonomous-loop.mjs --dry-run --graph work/autonomous-graph.json` completes 2 batches (spec/api/web), 0 failed.
-- Latest detailed evidence: `docs/handoffs/STAGE3_AGENT_STUCK_FIX.md`.
+- Latest detailed evidence: `docs/handoffs/AUTONOMOUS_TASK4_BRANCH_CLEANUP.md` (and `AUTONOMOUS_TASK1_EXECUTOR_CONTRACT.md`, `AUTONOMOUS_TASK2_COURIER_WEBHOOK_OUTBOX.md`, `AUTONOMOUS_TASK3_CONTAINER_SCAN.md`).
+
 
 
 
@@ -79,16 +83,18 @@ This file is the central progress index. Approved specifications define what PCX
 - ADR 0003 server-side authentication boundary: Accepted.
 - ADR 0005 Stage 3 policy-constrained control plane: Accepted for bounded local/CI implementation; hard stops unchanged.
 - ADR 0006 server-authoritative gateway-derived provider transaction id: Accepted.
+- ADR 0007 vendor-neutral external-agent executor contract: Accepted (default-deny, secret-rejection validation).
 - No current implementation blocker.
+
 
 - Remaining hard stops: production deployment, destructive/irreversible migrations, production/customer-data deletion, real payment destinations/provider credentials, production secrets, test/security weakening, large framework replacement, or core invariant/source-of-truth changes.
 
 ## Next dependency-ready work
 
-1. Define and approve a vendor-neutral external-agent executor contract before wiring Cline or DeepSeek.
-2. Add webhook retry/outbox delivery guarantees for the courier webhook.
-3. Complete safe Stage 2 release slices: container image scan when an image exists.
-4. Production deployment and real provider credentials remain human-approval hard stops.
+1. Merge or supersede `agent/e1-identity-rbac` (holds valuable unmerged identity/RBAC work).
+2. Wire the worker into the deployment runtime (docker-compose) for the courier webhook outbox.
+3. Production deployment and real provider credentials remain human-approval hard stops.
+
 
 
 
