@@ -39,7 +39,8 @@ This file is the central progress index. Approved specifications define what PCX
 |---|---|---|
 | Stage 1 — Lean controlled development | Complete | Project Brain, hard stops, bounded branches/tasks, tests, review, handoffs and safe merge flow |
 | Stage 2 — MVP integration/release discipline | In progress | Locked install, additive migrations, migration checksums, integration tests, CI PostgreSQL service, secret/dependency scanning, staging overlay, E2E smoke path, database backup/restore drill; container image scan and sandbox payment/courier/notification adapters remain |
-| Stage 3 — Multi-agent control plane | Foundation implementation in progress | DAG/default-deny validation, an injected bounded local runner (retry, timeout, budget, cancellation, kill switch, artifact metadata), a deterministic parallel worktree planner with prefix-aware file/module/migration conflict detection, review/QA/security/integrated-verification/handoff adapters, and worktree create/remove/merge orchestration plus a parallel worker driver loop that persists every run to a durable secret-free JSONL log, a real shell git adapter (execFile, no shell interpolation, validated agent branches and `.worktrees/` paths), and a durable secret-free JSONL action/artifact log store with run-record mapping; vendor adapters remain |
+| Stage 3 — Multi-agent control plane | Foundation implementation in progress | DAG/default-deny validation, an injected bounded local runner (retry, timeout, budget, cancellation, kill switch, artifact metadata), a deterministic parallel worktree planner with prefix-aware file/module/migration conflict detection, review/QA/security/integrated-verification/handoff adapters, and worktree create/remove/merge orchestration plus a parallel worker driver loop that persists every run to a durable secret-free JSONL log, a real shell git adapter (execFile, no shell interpolation, validated agent branches and `.worktrees/` paths), and a durable secret-free JSONL action/artifact log store with run-record mapping, and deterministic secret-free sandbox vendor adapters (notification dispatcher, idempotent payment gateway, courier) behind injected provider-neutral contracts; wiring the payment/courier adapters into the commerce/logistics services remains |
+
 
 
 | Stage 4 — Production delivery/operations | Not started | Requires real staging/production operations and explicit production approval |
@@ -47,13 +48,14 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Current verification baseline
 
-- Root `npm test`: 241 total tests after driver-log-wiring coverage; 219 passed, 22 PostgreSQL integration tests skip without `TEST_DATABASE_URL` by design, 0 failed.
-- Root `npm run verify`: pass with E0, lint, typecheck, 241 tests (219 pass, 22 PostgreSQL skips by design), build, secret scan, and dependency audit.
-- CI-equivalent `npm run verify:ci`: 219 application/unit + 22 PostgreSQL integration + 1 E2E smoke, all passing (0 failures).
+- Root `npm test`: 247 total tests after vendor-adapter coverage; 225 passed, 22 PostgreSQL integration tests skip without `TEST_DATABASE_URL` by design, 0 failed.
+- Root `npm run verify`: pass with E0, lint, typecheck, 247 tests (225 pass, 22 PostgreSQL skips by design), build, secret scan, and dependency audit.
+- CI-equivalent `npm run verify:ci`: 225 application/unit + 22 PostgreSQL integration + 1 E2E smoke, all passing (0 failures).
 - E0 artifact verification: 36 required artifacts; latest GitHub merge evidence is PR #1 (`1692049`).
 - Dependency audit (`npm audit --omit=dev --audit-level=high`): 0 known vulnerabilities.
 - Backup/restore drill: seed rows recovered to a throwaway database.
-- Latest detailed evidence: `docs/handoffs/STAGE3_DRIVER_LOG_WIRING.md`.
+- Latest detailed evidence: `docs/handoffs/STAGE3_VENDOR_ADAPTERS.md`.
+
 
 
 
@@ -69,9 +71,10 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Next dependency-ready work
 
-1. Add vendor adapters (sandbox payment/courier/notification) behind the injected adapter contract.
-2. Complete safe Stage 2 release slices: container image scan when an image exists, plus sandbox payment/courier/notification adapters.
+1. Wire the sandbox payment/courier adapters into the commerce/logistics services behind a provider-neutral gateway interface (the notification dispatcher is already wired via the injected `dispatchers` contract).
+2. Complete safe Stage 2 release slices: container image scan when an image exists.
 3. Production deployment and real provider credentials remain human-approval hard stops.
+
 
 
 

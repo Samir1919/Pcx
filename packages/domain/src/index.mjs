@@ -23,3 +23,5 @@ export { createNotification, markNotificationFailed, markNotificationSent, Notif
 export { createShipment, createShipmentEvent, markDelivered, markShipped, ShipmentStatus } from "./logistics/shipment.mjs";
 export { approveReturn, createReturnRequest, markReturnReceived, ReturnRequestStatus, settleRefund } from "./warranty/return-refund.mjs";
 export { createClaim, createClaimResolution, createWarranty, ClaimStatus, ResolutionType, WarrantyStatus } from "./warranty/warranty-claim.mjs";
+export { createSandboxCourier, createSandboxNotificationDispatcher, createSandboxPaymentGateway } from "./vendor/vendor-adapters.mjs";
+
