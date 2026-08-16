@@ -74,7 +74,7 @@ export function createRequestHandler({ readiness = () => ({ ok: true }), catalog
       return;
     }
     if (url.pathname === "/health/ready") {
-      const state = readiness();
+      const state = await readiness();
       send(response, state.ok ? 200 : 503, { status: state.ok ? "ready" : "not_ready" });
       return;
     }

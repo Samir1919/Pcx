@@ -28,3 +28,10 @@ test("liveness and readiness endpoints are explicit", async () => {
   assert.equal((await invoke("/health/ready")).status, 200);
   assert.equal((await invoke("/health/ready", { readiness: () => ({ ok: false }) })).status, 503);
 });
+
+test("readiness awaits an async readiness probe (regression)", async () => {
+  // Production readiness is an async function returning a Promise; the handler
+  // must await it rather than reading `.ok` off the unresolved Promise.
+  assert.equal((await invoke("/health/ready", { readiness: async () => ({ ok: true }) })).status, 200);
+  assert.equal((await invoke("/health/ready", { readiness: async () => ({ ok: false }) })).status, 503);
+});
