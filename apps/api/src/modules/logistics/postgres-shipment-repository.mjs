@@ -93,6 +93,66 @@ export function createPostgresShipmentRepository({ pool }) {
         [event.id, event.shipmentId, event.status, event.providerStatusRaw, event.occurredAt]
       );
       return { id: result.rows[0].id };
+    },
+
+    // Durable outbox for inbound courier webhook events. Every webhook is
+    // durably queued so a delivery event is never lost between receipt and
+    // application. A worker retries PENDING events until APPLIED or FAILED.
+    async enqueueWebhookEvent(event) {
+      const result = await pool.query(
+        `INSERT INTO shipment_webhook_events(id, shipment_id, provider_status, occurred_at, status, retry_count, next_attempt_at)
+         VALUES ($1, $2, $3, $4, 'PENDING', 0, $5) RETURNING id, shipment_id, provider_status, occurred_at, status, retry_count, next_attempt_at, created_at`,
+        [event.id, event.shipmentId, event.providerStatus, event.occurredAt, event.nextAttemptAt ?? null]
+      );
+      return webhookEvent(result.rows[0]);
+    },
+
+    async listPendingWebhookEvents(limit = 20) {
+      const result = await pool.query(
+        `SELECT id, shipment_id, provider_status, occurred_at, status, retry_count, next_attempt_at, created_at, applied_at
+         FROM shipment_webhook_events
+         WHERE status = 'PENDING' AND (next_attempt_at IS NULL OR next_attempt_at <= now())
+         ORDER BY created_at ASC LIMIT $1`,
+        [limit]
+      );
+      return result.rows.map(webhookEvent);
+    },
+
+    async markWebhookApplied(id, now) {
+      const result = await pool.query(
+        `UPDATE shipment_webhook_events SET status = 'APPLIED', applied_at = $2
+         WHERE id = $1 AND status = 'PENDING'
+         RETURNING id, shipment_id, provider_status, occurred_at, status, retry_count, next_attempt_at, created_at, applied_at`,
+        [id, now]
+      );
+      if (result.rowCount !== 1) return null;
+      return webhookEvent(result.rows[0]);
+    },
+
+    async markWebhookFailed(id, retryCount, nextAttemptAt) {
+      const result = await pool.query(
+        `UPDATE shipment_webhook_events SET status = 'FAILED', retry_count = $2, next_attempt_at = $3
+         WHERE id = $1 AND status = 'PENDING'
+         RETURNING id, shipment_id, provider_status, occurred_at, status, retry_count, next_attempt_at, created_at, applied_at`,
+        [id, retryCount, nextAttemptAt ?? null]
+      );
+      if (result.rowCount !== 1) return null;
+      return webhookEvent(result.rows[0]);
     }
   });
 }
+
+function webhookEvent(row) {
+  return Object.freeze({
+    id: row.id,
+    shipmentId: row.shipment_id,
+    providerStatus: row.provider_status,
+    occurredAt: row.occurred_at ? new Date(row.occurred_at).toISOString() : null,
+    status: row.status,
+    retryCount: Number(row.retry_count),
+    nextAttemptAt: row.next_attempt_at ? new Date(row.next_attempt_at).toISOString() : null,
+    createdAt: new Date(row.created_at).toISOString(),
+    appliedAt: row.applied_at ? new Date(row.applied_at).toISOString() : null
+  });
+}
+

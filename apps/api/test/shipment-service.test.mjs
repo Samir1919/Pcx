@@ -6,15 +6,20 @@ import { ShipmentStatus } from "../../../packages/domain/src/index.mjs";
 const address = { line1: "1 Main St", city: "Dhaka", country: "BD" };
 
 function fixture(overrides = {}) {
-  const calls = { creates: [], ships: [], delivers: [], returns: [], events: [], courierCalls: [] };
+  const calls = { creates: [], ships: [], delivers: [], returns: [], events: [], courierCalls: [], enqueued: [], applied: [], failed: [], pending: [] };
   const repository = {
     async create(record) { calls.creates.push(record); return record; },
     async markShipped(id, trackingId, now) { calls.ships.push({ id, trackingId, now }); return { status: "shipped", record: { id, status: ShipmentStatus.SHIPPED, trackingId } }; },
     async markDelivered(id, now) { calls.delivers.push({ id, now }); return { status: "delivered", record: { id, status: ShipmentStatus.DELIVERED } }; },
     async markReturned(id, now) { calls.returns.push({ id, now }); return { status: "returned", record: { id, status: ShipmentStatus.RETURNED } }; },
     async recordEvent(event) { calls.events.push(event); return { id: event.id }; },
+    async enqueueWebhookEvent(event) { calls.enqueued.push(event); return { ...event, status: "PENDING", retryCount: 0 }; },
+    async listPendingWebhookEvents(limit) { return calls.pending.slice(0, limit); },
+    async markWebhookApplied(id, now) { calls.applied.push({ id, now }); return { id, status: "APPLIED" }; },
+    async markWebhookFailed(id, retryCount, nextAttemptAt) { calls.failed.push({ id, retryCount, nextAttemptAt }); return { id, status: "FAILED", retryCount }; },
     ...overrides.repository
   };
+
   const courier = {
     async createShipment({ reference, address: addr }) { calls.courierCalls.push({ reference, address: addr }); return { trackingId: `sandbox-trk-${reference}`, status: "CREATED" }; },
     ...overrides.courier
@@ -133,5 +138,82 @@ test("webhook records an informational provider status without a state change", 
   assert.equal(calls.events.length, 1);
   assert.equal(calls.events[0].providerStatusRaw, "IN_TRANSIT");
 });
+
+test("webhook durably enqueues every event to the outbox before application", async () => {
+  const { service, calls } = fixture();
+  await service.handleWebhook({ signature: "test-secret", shipmentId: "s1", providerStatus: "DELIVERED" });
+  assert.equal(calls.enqueued.length, 1);
+  assert.equal(calls.enqueued[0].shipmentId, "s1");
+  assert.equal(calls.enqueued[0].providerStatus, "DELIVERED");
+  assert.equal(calls.applied.length, 1);
+  assert.equal(calls.applied[0].id, calls.enqueued[0].id);
+});
+
+test("webhook marks the outbox event applied for informational and noop statuses", async () => {
+  const { service, calls } = fixture();
+  await service.handleWebhook({ signature: "test-secret", shipmentId: "s1", providerStatus: "IN_TRANSIT" });
+  assert.equal(calls.enqueued.length, 1);
+  assert.equal(calls.applied.length, 1);
+  assert.equal(calls.applied[0].id, calls.enqueued[0].id);
+
+  const noop = fixture({ repository: { async markDelivered() { return { status: "not_deliverable" }; } } });
+  await noop.service.handleWebhook({ signature: "test-secret", shipmentId: "s1", providerStatus: "DELIVERED" });
+  assert.equal(noop.calls.enqueued.length, 1);
+  assert.equal(noop.calls.applied.length, 1);
+});
+
+test("dispatchDueWebhookEvents applies pending terminal events and marks them applied", async () => {
+  const { service, calls } = fixture();
+  calls.pending.push({ id: "evt-1", shipmentId: "s1", providerStatus: "DELIVERED", occurredAt: "2026-08-16T12:00:00.000Z", retryCount: 0 });
+  const results = await service.dispatchDueWebhookEvents();
+  assert.deepEqual(results, [{ id: "evt-1", status: "APPLIED" }]);
+  assert.equal(calls.delivers.length, 1);
+  assert.equal(calls.events.length, 1);
+  assert.equal(calls.events[0].status, "DELIVERED");
+  assert.equal(calls.applied.length, 1);
+  assert.equal(calls.applied[0].id, "evt-1");
+});
+
+test("dispatchDueWebhookEvents records informational pending events without a state change", async () => {
+  const { service, calls } = fixture();
+  calls.pending.push({ id: "evt-2", shipmentId: "s1", providerStatus: "IN_TRANSIT", occurredAt: "2026-08-16T12:00:00.000Z", retryCount: 0 });
+  const results = await service.dispatchDueWebhookEvents();
+  assert.deepEqual(results, [{ id: "evt-2", status: "APPLIED" }]);
+  assert.equal(calls.delivers.length, 0);
+  assert.equal(calls.returns.length, 0);
+  assert.equal(calls.events.length, 1);
+  assert.equal(calls.events[0].providerStatusRaw, "IN_TRANSIT");
+});
+
+test("dispatchDueWebhookEvents is idempotent for an already-final shipment", async () => {
+  const { service, calls } = fixture({ repository: { async markDelivered() { return { status: "not_deliverable" }; } } });
+  calls.pending.push({ id: "evt-3", shipmentId: "s1", providerStatus: "DELIVERED", occurredAt: "2026-08-16T12:00:00.000Z", retryCount: 0 });
+  const results = await service.dispatchDueWebhookEvents();
+  assert.deepEqual(results, [{ id: "evt-3", status: "APPLIED" }]);
+  assert.equal(calls.events.length, 0);
+  assert.equal(calls.applied.length, 1);
+});
+
+test("dispatchDueWebhookEvents marks a failing event FAILED and schedules a retry", async () => {
+  const { service, calls } = fixture({ repository: { async markDelivered() { throw new Error("db down"); } } });
+  calls.pending.push({ id: "evt-4", shipmentId: "s1", providerStatus: "DELIVERED", occurredAt: "2026-08-16T12:00:00.000Z", retryCount: 0 });
+  const results = await service.dispatchDueWebhookEvents();
+  assert.deepEqual(results, [{ id: "evt-4", status: "FAILED" }]);
+  assert.equal(calls.failed.length, 1);
+  assert.equal(calls.failed[0].id, "evt-4");
+  assert.equal(calls.failed[0].retryCount, 1);
+  assert.ok(calls.failed[0].nextAttemptAt);
+});
+
+test("dispatchDueWebhookEvents exhausts the retry budget and stops scheduling", async () => {
+  const { service, calls } = fixture({ repository: { async markDelivered() { throw new Error("db down"); } } });
+  calls.pending.push({ id: "evt-5", shipmentId: "s1", providerStatus: "DELIVERED", occurredAt: "2026-08-16T12:00:00.000Z", retryCount: 5 });
+  const results = await service.dispatchDueWebhookEvents();
+  assert.deepEqual(results, [{ id: "evt-5", status: "FAILED" }]);
+  assert.equal(calls.failed.length, 1);
+  assert.equal(calls.failed[0].retryCount, 6);
+  assert.equal(calls.failed[0].nextAttemptAt, null);
+});
+
 
 
