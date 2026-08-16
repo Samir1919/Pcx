@@ -552,7 +552,7 @@ export const mergeWorktree = async ({ plan, git, into = "integration" } = {}) =>
   });
 };
 
-const runWorkerPipeline = async ({ task, executor, gatesExecutor, environment, signal, isKilled, approvalBoundary }) => {
+const runWorkerPipeline = async ({ task, executor, gatesExecutor, environment, signal, isKilled, approvalBoundary, reviewer }) => {
   const actions = ["read", "edit", "run_test", "run_lint", "run_typecheck", "run_build", "create_branch", "create_commit", "create_handoff"];
   const execution = await runBoundedTask({ task, actions, executor, environment, signal, isKilled, approvalBoundary });
 
@@ -571,8 +571,12 @@ const runWorkerPipeline = async ({ task, executor, gatesExecutor, environment, s
   }
   const qa = await runQaGates({ task, gates: task.tests, executor: gatesExecutor });
   const security = securityReview({ task });
-  const review = reviewTask({ task });
+  // The review step is injectable so an AI-backed reviewer (e.g. OpenAI) can be
+  // used. When no reviewer is provided, fall back to the deterministic local
+  // review adapter. The reviewer must return a `reviewTask`-shaped result.
+  const review = reviewer ? await reviewer({ task, checks: [] }) : reviewTask({ task });
   const integrated = verifyIntegrated({ task, qa, security, review });
+
   const commit = execution.artifacts.find((artifact) => artifact.type === "commit")?.path ?? "pending";
   const handoff = integrated.verdict === "READY"
     ? buildHandoff({ task, branch: `agent/${slugTaskId(task.id)}`, commit, qa, security, review, sections: { outcome: "complete" } })
@@ -608,9 +612,9 @@ const failedRecord = (taskId, failureClass) => Object.freeze({
  * silently-ignored git error): the worktree is still removed for cleanup, and
  * a merged branch is deleted so agent branches do not accumulate across runs.
  */
-const runOneWorker = async ({ task, executor, gatesExecutor, git, environment, signal, isKilled, approvalBoundary }) => {
+const runOneWorker = async ({ task, executor, gatesExecutor, git, environment, signal, isKilled, approvalBoundary, reviewer }) => {
   const plan = Object.freeze({ taskId: task.id, branch: `agent/${slugTaskId(task.id)}`, worktree: `.worktrees/${slugTaskId(task.id)}` });
-  if (!git) return runWorkerPipeline({ task, executor, gatesExecutor, environment, signal, isKilled, approvalBoundary });
+  if (!git) return runWorkerPipeline({ task, executor, gatesExecutor, environment, signal, isKilled, approvalBoundary, reviewer });
   let created = false;
   let mergedSuccessfully = false;
   let record;
@@ -618,7 +622,8 @@ const runOneWorker = async ({ task, executor, gatesExecutor, git, environment, s
     const creation = await createWorktree({ plan, git });
     created = creation.created;
     if (!created) return failedRecord(task.id, "worktree_create_failed");
-    record = await runWorkerPipeline({ task, executor, gatesExecutor, environment, signal, isKilled, approvalBoundary });
+    record = await runWorkerPipeline({ task, executor, gatesExecutor, environment, signal, isKilled, approvalBoundary, reviewer });
+
 
     if (record.status === "PASSED") {
       const merged = await mergeWorktree({ plan, git });
@@ -659,7 +664,8 @@ const runOneWorker = async ({ task, executor, gatesExecutor, git, environment, s
  * its integrated verification reports READY. Failed tasks are recorded and not
  * re-attempted, so the loop always terminates.
  */
-export const runParallelWorkers = async ({ graph, completedIds = [], executor, gatesExecutor, git, logStore, environment = "local", signal, isKilled = () => false, maxBatches = null, approvalBoundary } = {}) => {
+export const runParallelWorkers = async ({ graph, completedIds = [], executor, gatesExecutor, git, logStore, environment = "local", signal, isKilled = () => false, maxBatches = null, approvalBoundary, reviewer } = {}) => {
+
 
   const validated = validateTaskGraph(graph);
   if (typeof executor !== "function") throw new Error("executor must be a function");
@@ -692,7 +698,8 @@ export const runParallelWorkers = async ({ graph, completedIds = [], executor, g
       const next = plan.deferred.find((entry) => !failed.has(entry.taskId));
       if (!next) break;
       const task = validated.tasks.find((entry) => entry.id === next.taskId);
-      const record = await runOneWorker({ task, executor, gatesExecutor, git, environment, signal, isKilled, approvalBoundary });
+      const record = await runOneWorker({ task, executor, gatesExecutor, git, environment, signal, isKilled, approvalBoundary, reviewer });
+
 
       await persist(record);
       if (record.status === "PASSED") {
@@ -707,9 +714,10 @@ export const runParallelWorkers = async ({ graph, completedIds = [], executor, g
     }
     const results = await Promise.all(selected.map(async (entry) => {
       const task = validated.tasks.find((candidate) => candidate.id === entry.taskId);
-      const record = await runOneWorker({ task, executor, gatesExecutor, git, environment, signal, isKilled, approvalBoundary });
+      const record = await runOneWorker({ task, executor, gatesExecutor, git, environment, signal, isKilled, approvalBoundary, reviewer });
       return { taskId: entry.taskId, record };
     }));
+
 
     for (const { taskId, record } of results) {
       await persist(record);

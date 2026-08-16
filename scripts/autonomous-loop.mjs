@@ -15,7 +15,10 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 
 import { dirname } from "node:path";
+import { createDeepSeekExecutor } from "./ai-executor.mjs";
+import { createOpenAiReviewer } from "./ai-review.mjs";
 import { createFileLogStore, createShellGit, runParallelWorkers, summarizeRuns, validateTaskGraph } from "./control-plane.mjs";
+
 
 
 
@@ -29,7 +32,7 @@ const asNonEmptyString = (value, field) => {
 };
 
 const parseArgs = (argv = []) => {
-  const args = { graph: DEFAULT_GRAPH, log: DEFAULT_LOG, dryRun: false, maxBatches: null, noPersistGraph: false, realExecutor: false, approvalRequired: false };
+  const args = { graph: DEFAULT_GRAPH, log: DEFAULT_LOG, dryRun: false, maxBatches: null, noPersistGraph: false, realExecutor: false, approvalRequired: false, deepseekExecutor: false, openAiReview: false };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--graph") {
@@ -44,6 +47,10 @@ const parseArgs = (argv = []) => {
       args.noPersistGraph = true;
     } else if (arg === "--real-executor") {
       args.realExecutor = true;
+    } else if (arg === "--deepseek-executor") {
+      args.deepseekExecutor = true;
+    } else if (arg === "--openai-review") {
+      args.openAiReview = true;
     } else if (arg === "--approval-required") {
       args.approvalRequired = true;
     } else if (arg === "--max-batches") {
@@ -57,6 +64,7 @@ const parseArgs = (argv = []) => {
   }
   return Object.freeze(args);
 };
+
 
 
 
@@ -145,7 +153,8 @@ export const runAutonomousLoop = async ({
   signal,
   isKilled = () => false,
   maxBatches = null,
-  approvalBoundary
+  approvalBoundary,
+  reviewer
 } = {}) => {
   const validated = validateTaskGraph(graph);
   if (typeof executor !== "function") throw new Error("executor must be a function");
@@ -160,8 +169,10 @@ export const runAutonomousLoop = async ({
     signal,
     isKilled,
     maxBatches,
-    approvalBoundary
+    approvalBoundary,
+    reviewer
   });
+
   const limited = summary.limited;
   const report = summarizeRuns(summary.records);
   return Object.freeze({
@@ -211,9 +222,16 @@ const main = async () => {
   await mkdir(dirname(args.log), { recursive: true });
   const logStore = createFileLogStore({ path: args.log });
   const git = args.dryRun ? null : createShellGit();
-  const executor = args.realExecutor ? createRealExecutor() : undefined;
+  // Executor selection: --deepseek-executor uses the DeepSeek API (reads
+  // DEEPSEEK_API_KEY/DEEPSEEK_MODEL from the environment). --real-executor uses
+  // the local marker-file executor. Otherwise the default no-op executor is used.
+  const executor = args.deepseekExecutor ? createDeepSeekExecutor() : args.realExecutor ? createRealExecutor() : undefined;
+  // Reviewer selection: --openai-review uses the OpenAI API (reads
+  // OPENAI_API_KEY/OPENAI_MODEL from the environment). Otherwise the
+  // deterministic local review adapter is used.
+  const reviewer = args.openAiReview ? createOpenAiReviewer() : undefined;
   const approvalBoundary = args.approvalRequired ? { requiresApproval: ["create_commit"], approved: [] } : undefined;
-  const summary = await runAutonomousLoop({ graph, git, logStore, maxBatches: args.maxBatches, executor, approvalBoundary });
+  const summary = await runAutonomousLoop({ graph, git, logStore, maxBatches: args.maxBatches, executor, reviewer, approvalBoundary });
   process.stdout.write(`${writeSummary(summary)}\n`);
   if (!args.noPersistGraph) {
     const updatedGraph = applyRunSummaryToGraph(graph, summary);
@@ -221,6 +239,7 @@ const main = async () => {
   }
   if (summary.failed.length > 0 || summary.blocked.length > 0 || summary.limited) process.exitCode = 1;
 };
+
 
 
 

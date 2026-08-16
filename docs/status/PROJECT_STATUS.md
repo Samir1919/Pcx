@@ -62,14 +62,15 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Current verification baseline
 
-- Root `npm test`: 302 pass, 0 fail, 22 skipped (DB integration) after the orchestrator reporting/approval slice (control-plane and autonomous-loop tests add 11).
+- Root `npm test`: 313 pass, 0 fail, 22 skipped (DB integration) after the AI executor/reviewer adapter slice (ai-adapters tests add 11).
 - Root `npm run verify`: pass for this slice: E0, lint, typecheck, tests, build, and security scan (secrets + dependencies + container).
 - CI-equivalent `npm run verify:ci`: application/unit + PostgreSQL integration + E2E smoke, all passing (0 failures).
 - E0 artifact verification: 36 required artifacts; latest GitHub merge evidence is PR #1 (`1692049`).
 - Dependency audit (`npm audit --omit=dev --audit-level=high`): 0 known vulnerabilities.
 - Backup/restore drill: seed rows recovered to a throwaway database.
-- Autonomous loop dry-run: `node scripts/autonomous-loop.mjs --dry-run --real-executor --no-persist-graph` completes spec/api/web with a surfaced cost/runtime report (Tasks 3, Passed 3, Cost 3); `--approval-required` blocks commit-creating tasks with `approval_required`.
-- Latest detailed evidence: `docs/handoffs/STAGE3_ORCHESTRATOR_REPORTING_APPROVAL.md` (and `AUTONOMOUS_TASK5_BKASH_CREDENTIALS_ADMIN.md`, `AUTONOMOUS_TASK1_EXECUTOR_CONTRACT.md`, `AUTONOMOUS_TASK2_COURIER_WEBHOOK_OUTBOX.md`, `AUTONOMOUS_TASK3_CONTAINER_SCAN.md`, `AUTONOMOUS_TASK4_BRANCH_CLEANUP.md`).
+- Autonomous loop dry-run: `node scripts/autonomous-loop.mjs --dry-run --real-executor --no-persist-graph` completes spec/api/web with a surfaced cost/runtime report (Tasks 3, Passed 3, Cost 3); `--approval-required` blocks commit-creating tasks with `approval_required`; `--deepseek-executor` and `--openai-review` opt into AI-backed adapters.
+- Latest detailed evidence: `docs/handoffs/STAGE3_AI_EXECUTOR_REVIEWER_ADAPTERS.md` (and `STAGE3_ORCHESTRATOR_REPORTING_APPROVAL.md`, `AUTONOMOUS_TASK5_BKASH_CREDENTIALS_ADMIN.md`, `AUTONOMOUS_TASK1_EXECUTOR_CONTRACT.md`, `AUTONOMOUS_TASK2_COURIER_WEBHOOK_OUTBOX.md`, `AUTONOMOUS_TASK3_CONTAINER_SCAN.md`, `AUTONOMOUS_TASK4_BRANCH_CLEANUP.md`).
+
 
 
 
@@ -92,7 +93,9 @@ This file is the central progress index. Approved specifications define what PCX
 - ADR 0006 server-authoritative gateway-derived provider transaction id: Accepted.
 - ADR 0007 vendor-neutral external-agent executor contract: Accepted (default-deny, secret-rejection validation).
 - ADR 0008 Stage 3 entry evidence and control-plane completion: Accepted (records trigger evidence, capabilities, cost/owner, rollout/rollback, success metrics, and manual controls).
+- ADR 0009 AI-backed executor and reviewer adapters: Accepted (opt-in DeepSeek executor and OpenAI reviewer wired via `--deepseek-executor`/`--openai-review`; secrets never in source/logs/artifacts; review gate cannot be weakened).
 - No current implementation blocker.
+
 
 
 
