@@ -4,7 +4,7 @@
 - Current main evidence commit: `39f71e6`
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: Stage 2 completion and Stage 3 control-plane foundation
-- Current autonomy maturity: Stage 2 in progress; Stage 3 foundation planned
+- Current autonomy maturity: Stage 2 in progress; Stage 3 foundation implementation in progress
 - Production deployment: not authorized
 
 This file is the central progress index. Approved specifications define what PCX must become; task files, handoffs, tests, migrations, and Git commits prove what is complete. Percentages are intentionally omitted because they are not reliable acceptance evidence.
@@ -39,12 +39,13 @@ This file is the central progress index. Approved specifications define what PCX
 |---|---|---|
 | Stage 1 — Lean controlled development | Complete | Project Brain, hard stops, bounded branches/tasks, tests, review, handoffs and safe merge flow |
 | Stage 2 — MVP integration/release discipline | In progress | Locked install, additive migrations, migration checksums, integration tests, CI PostgreSQL service, secret/dependency scanning, staging overlay, E2E smoke path, database backup/restore drill; container image scan and sandbox payment/courier/notification adapters remain |
-| Stage 3 — Multi-agent control plane | Foundation planned, implementation not started | `docs/tasks/STAGE3_CONTROL_PLANE_FOUNDATION.md` and proposed ADR 0005 define an evidence-gated, policy-constrained rollout; executable control plane is not yet available |
+| Stage 3 — Multi-agent control plane | Foundation implementation in progress | `scripts/control-plane.mjs` now validates bounded DAGs and default-deny hard stops; worker runner, isolation, gates, and artifact logging remain unavailable |
 | Stage 4 — Production delivery/operations | Not started | Requires real staging/production operations and explicit production approval |
 
 ## Current verification baseline
 
-- Root `npm run verify`: 213 application/unit tests pass (incl. 3 storefront adapter tests); 22 PostgreSQL integration tests skip without `TEST_DATABASE_URL` by design; secret scan + dependency audit pass; Next production build passes.
+- Root `npm test`: 217 total tests after Stage 3 control-plane tests; 195 passed, 22 PostgreSQL integration tests skip without `TEST_DATABASE_URL` by design, 0 failed.
+- Root `npm run verify`: pass with E0, lint, typecheck, 217 tests (195 pass, 22 PostgreSQL skips by design), build, secret scan, and dependency audit.
 - CI-equivalent `npm run verify:ci`: 213 application/unit + 22 PostgreSQL integration + 1 E2E smoke, all passing (0 failures).
 - E0 artifact verification: 36 required artifacts; latest GitHub merge evidence is PR #1 (`1692049`).
 - Dependency audit (`npm audit --omit=dev --audit-level=high`): 0 known vulnerabilities.
@@ -56,13 +57,14 @@ This file is the central progress index. Approved specifications define what PCX
 - ADR 0001 modular monolith: Accepted.
 - ADR 0002 PostgreSQL source of truth: Accepted.
 - ADR 0003 server-side authentication boundary: Accepted.
+- ADR 0005 Stage 3 policy-constrained control plane: Accepted for bounded local/CI implementation; hard stops unchanged.
 - No current implementation blocker.
 - Remaining hard stops: production deployment, destructive/irreversible migrations, production/customer-data deletion, real payment destinations/provider credentials, production secrets, test/security weakening, large framework replacement, or core invariant/source-of-truth changes.
 
 ## Next dependency-ready work
 
 1. Complete safe Stage 2 release slices: container image scan when an image exists, plus sandbox payment/courier/notification adapters.
-2. Implement Stage 3 task/DAG validator and default-deny policy foundation from `docs/tasks/STAGE3_CONTROL_PLANE_FOUNDATION.md` and proposed ADR 0005.
+2. Implement bounded local runner controls with timeout/retry/budget/cancellation and artifact capture.
 3. Production deployment and real provider credentials remain human-approval hard stops.
 
 ## Update rule

@@ -1,6 +1,6 @@
 # ADR 0005: Stage 3 policy-constrained agent control plane
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-08-16
 
 ## Context
@@ -95,4 +95,4 @@ Production deployment, production credentials/secrets, payment destinations, des
 
 ## Approval
 
-This ADR is proposed for the Stage 3 planning/foundation slice. Implementation beyond documentation requires confirmation that the trigger evidence and bounded rollout are acceptable; this ADR does not authorize production deployment or any existing hard stop.
+Accepted for bounded local/CI implementation by the human instruction to proceed and continue. Acceptance authorizes the staged repository-native control-plane work in this ADR, but does not authorize production deployment or any existing hard stop.
