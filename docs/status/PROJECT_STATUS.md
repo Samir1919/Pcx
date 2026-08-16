@@ -39,18 +39,18 @@ This file is the central progress index. Approved specifications define what PCX
 |---|---|---|
 | Stage 1 — Lean controlled development | Complete | Project Brain, hard stops, bounded branches/tasks, tests, review, handoffs and safe merge flow |
 | Stage 2 — MVP integration/release discipline | In progress | Locked install, additive migrations, migration checksums, integration tests, CI PostgreSQL service, secret/dependency scanning, staging overlay, E2E smoke path, database backup/restore drill; container image scan and sandbox payment/courier/notification adapters remain |
-| Stage 3 — Multi-agent control plane | Foundation implementation in progress | DAG/default-deny validation plus an injected bounded local runner enforce retry, timeout, budget, cancellation, kill switch, and artifact metadata; shell/vendor adapters, isolation, review gates, and durable logs remain unavailable |
+| Stage 3 — Multi-agent control plane | Foundation implementation in progress | DAG/default-deny validation, an injected bounded local runner (retry, timeout, budget, cancellation, kill switch, artifact metadata), and a deterministic parallel worktree planner with prefix-aware file/module/migration conflict detection; shell/vendor adapters, worktree creation, review gates, and durable logs remain unavailable |
 | Stage 4 — Production delivery/operations | Not started | Requires real staging/production operations and explicit production approval |
 
 ## Current verification baseline
 
-- Root `npm test`: 221 total tests after bounded-runner coverage; 199 passed, 22 PostgreSQL integration tests skip without `TEST_DATABASE_URL` by design, 0 failed.
-- Root `npm run verify`: pass with E0, lint, typecheck, 221 tests (199 pass, 22 PostgreSQL skips by design), build, secret scan, and dependency audit.
+- Root `npm test`: 223 total tests after worktree/conflict-planning coverage; 201 passed, 22 PostgreSQL integration tests skip without `TEST_DATABASE_URL` by design, 0 failed.
+- Root `npm run verify`: pass with E0, lint, typecheck, 223 tests (201 pass, 22 PostgreSQL skips by design), build, secret scan, and dependency audit.
 - CI-equivalent `npm run verify:ci`: 213 application/unit + 22 PostgreSQL integration + 1 E2E smoke, all passing (0 failures).
 - E0 artifact verification: 36 required artifacts; latest GitHub merge evidence is PR #1 (`1692049`).
 - Dependency audit (`npm audit --omit=dev --audit-level=high`): 0 known vulnerabilities.
 - Backup/restore drill: seed rows recovered to a throwaway database.
-- Latest detailed evidence: `docs/handoffs/E18_BACKUP_STAGING_RELEASE_READINESS.md`.
+- Latest detailed evidence: `docs/handoffs/STAGE3_WORKTREE_CONFLICT_PLANNING.md`.
 
 ## Current decisions and hard stops
 
@@ -64,7 +64,7 @@ This file is the central progress index. Approved specifications define what PCX
 ## Next dependency-ready work
 
 1. Complete safe Stage 2 release slices: container image scan when an image exists, plus sandbox payment/courier/notification adapters.
-2. Add isolated worktree planning and transitive file/module/migration overlap checks before enabling any parallel worker adapter.
+2. Add reviewer, QA, security, integrated verification, and handoff adapters, then isolated worktree creation and merge orchestration, before enabling any parallel worker adapter.
 3. Production deployment and real provider credentials remain human-approval hard stops.
 
 ## Update rule

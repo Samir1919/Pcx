@@ -32,6 +32,12 @@ const asStringArray = (value, field) => {
   return [...new Set(value.map((entry) => entry.trim()))];
 };
 
+const normalizeRepositoryPath = (value, field) => {
+  const path = asNonEmptyString(value, field).replaceAll("\\", "/").replace(/^\.\//, "");
+  if (path.startsWith("/") || path.split("/").includes("..")) throw new Error(`${field} must be repository-relative without traversal`);
+  return path.replace(/\/$/, "");
+};
+
 const validateTask = (task) => {
   if (!task || typeof task !== "object") throw new Error("task must be an object");
   const id = asNonEmptyString(task.id, "task.id");
@@ -48,7 +54,7 @@ const validateTask = (task) => {
     owner: asNonEmptyString(task.owner, `task ${id}.owner`),
     dependsOn: asStringArray(task.dependsOn ?? [], `task ${id}.dependsOn`),
     scope: asStringArray(task.scope, `task ${id}.scope`),
-    affectedPaths: asStringArray(task.affectedPaths, `task ${id}.affectedPaths`),
+    affectedPaths: asStringArray(task.affectedPaths, `task ${id}.affectedPaths`).map((path, index) => normalizeRepositoryPath(path, `task ${id}.affectedPaths[${index}]`)),
     tests: asStringArray(task.tests, `task ${id}.tests`),
     prohibitedActions: asStringArray(task.prohibitedActions ?? [], `task ${id}.prohibitedActions`),
     risk,
@@ -59,7 +65,20 @@ const validateTask = (task) => {
   });
 };
 
-const hasPathOverlap = (left, right) => left.some((path) => right.includes(path));
+const pathsOverlap = (left, right) => left === right || left.startsWith(`${right}/`) || right.startsWith(`${left}/`);
+const hasPathOverlap = (left, right) => left.some((leftPath) => right.some((rightPath) => pathsOverlap(leftPath, rightPath)));
+const moduleForPath = (path) => {
+  const parts = path.split("/");
+  if (["apps", "packages"].includes(parts[0]) && parts[1]) return `${parts[0]}/${parts[1]}`;
+  return parts[0];
+};
+const isMigrationPath = (path) => path === "migrations" || path.includes("/migrations/") || path.endsWith("/migrations");
+const dependsOnTransitively = (taskId, dependencyId, byId, seen = new Set()) => {
+  if (seen.has(taskId)) return false;
+  seen.add(taskId);
+  const task = byId.get(taskId);
+  return task.dependsOn.includes(dependencyId) || task.dependsOn.some((id) => dependsOnTransitively(id, dependencyId, byId, new Set(seen)));
+};
 
 export const validateTaskGraph = (graph) => {
   if (!graph || graph.version !== 1 || !Array.isArray(graph.tasks) || graph.tasks.length === 0) throw new Error("graph must have version 1 and at least one task");
@@ -91,7 +110,7 @@ export const validateTaskGraph = (graph) => {
     for (let next = index + 1; next < tasks.length; next += 1) {
       const left = tasks[index];
       const right = tasks[next];
-      const ordered = left.dependsOn.includes(right.id) || right.dependsOn.includes(left.id);
+      const ordered = dependsOnTransitively(left.id, right.id, byId) || dependsOnTransitively(right.id, left.id, byId);
       if (!ordered && hasPathOverlap(left.affectedPaths, right.affectedPaths)) throw new Error(`unsequenced affected-path overlap: ${left.id} and ${right.id}`);
     }
   }
@@ -102,6 +121,39 @@ export const readyTasks = (graph, completedIds = []) => {
   const validated = validateTaskGraph(graph);
   const completed = new Set(completedIds);
   return validated.tasks.filter((task) => task.status === "PENDING" && !completed.has(task.id) && task.dependsOn.every((dependency) => completed.has(dependency))).map((task) => task.id);
+};
+
+const conflictReasons = (left, right) => {
+  const reasons = [];
+  if (hasPathOverlap(left.affectedPaths, right.affectedPaths)) reasons.push("path_overlap");
+  const leftModules = new Set(left.affectedPaths.map(moduleForPath));
+  if (right.affectedPaths.some((path) => leftModules.has(moduleForPath(path)))) reasons.push("module_overlap");
+  if (left.affectedPaths.some(isMigrationPath) && right.affectedPaths.some(isMigrationPath)) reasons.push("migration_writer_overlap");
+  return [...new Set(reasons)];
+};
+
+const slugTaskId = (id) => {
+  const slug = id.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  if (!slug) throw new Error(`task id cannot produce a safe branch slug: ${id}`);
+  return slug.slice(0, 80);
+};
+
+export const planParallelTasks = (graph, completedIds = []) => {
+  const validated = validateTaskGraph(graph);
+  const ready = new Set(readyTasks(validated, completedIds));
+  const candidates = validated.tasks.filter((task) => ready.has(task.id));
+  const selected = [];
+  const deferred = [];
+  for (const task of candidates) {
+    const conflicts = selected.map((entry) => ({ taskId: entry.task.id, reasons: conflictReasons(task, entry.task) })).filter((entry) => entry.reasons.length > 0);
+    if (conflicts.length > 0) {
+      deferred.push(Object.freeze({ taskId: task.id, conflicts: Object.freeze(conflicts) }));
+      continue;
+    }
+    const slug = slugTaskId(task.id);
+    selected.push({ task, plan: Object.freeze({ taskId: task.id, branch: `agent/${slug}`, worktree: `.worktrees/${slug}` }) });
+  }
+  return Object.freeze({ selected: Object.freeze(selected.map((entry) => entry.plan)), deferred: Object.freeze(deferred) });
 };
 
 export const evaluateAction = ({ action, environment = "local", approved = false } = {}) => {
@@ -120,7 +172,7 @@ const sanitizeArtifacts = (artifacts = []) => {
     if (unknown.length > 0) throw new Error(`artifact ${index} contains prohibited metadata: ${unknown.join(",")}`);
     return Object.freeze({
       type: asNonEmptyString(artifact.type, `artifact ${index}.type`),
-      path: asNonEmptyString(artifact.path, `artifact ${index}.path`),
+      path: normalizeRepositoryPath(artifact.path, `artifact ${index}.path`),
       status: asNonEmptyString(artifact.status, `artifact ${index}.status`)
     });
   });

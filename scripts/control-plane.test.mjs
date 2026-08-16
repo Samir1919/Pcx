@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { evaluateAction, readyTasks, runBoundedTask, validateTaskGraph } from "./control-plane.mjs";
+import { evaluateAction, planParallelTasks, readyTasks, runBoundedTask, validateTaskGraph } from "./control-plane.mjs";
 
 const task = (id, overrides = {}) => ({
   id,
@@ -22,6 +22,36 @@ test("rejects unknown dependencies, cycles, and unsequenced path overlap", () =>
   assert.throws(() => validateTaskGraph({ version: 1, tasks: [task("a", { dependsOn: ["missing"] })] }), /unknown task/);
   assert.throws(() => validateTaskGraph({ version: 1, tasks: [task("a", { dependsOn: ["b"] }), task("b", { dependsOn: ["a"] })] }), /cycle/);
   assert.throws(() => validateTaskGraph({ version: 1, tasks: [task("a", { affectedPaths: ["shared/file"] }), task("b", { affectedPaths: ["shared/file"] })] }), /overlap/);
+});
+
+test("path validation is prefix-aware, traversal-safe, and permits transitive ordering", () => {
+  const shared = "apps/api/src/shared.mjs";
+  assert.doesNotThrow(() => validateTaskGraph({ version: 1, tasks: [task("a", { affectedPaths: [shared] }), task("b", { affectedPaths: [shared], dependsOn: ["a"] }), task("c", { affectedPaths: [shared], dependsOn: ["b"] })] }));
+  assert.throws(() => validateTaskGraph({ version: 1, tasks: [task("a", { affectedPaths: ["apps/api"] }), task("b", { affectedPaths: ["apps/api/src/file.mjs"] })] }), /overlap/);
+  assert.throws(() => validateTaskGraph({ version: 1, tasks: [task("escape", { affectedPaths: ["../outside"] })] }), /repository-relative/);
+});
+
+test("parallel planner selects isolated modules and defers module and migration writers", () => {
+  const modules = planParallelTasks({
+    version: 1, tasks: [
+      task("API Feature", { affectedPaths: ["apps/api/src/a.mjs"] }),
+      task("api-second", { affectedPaths: ["apps/api/src/b.mjs"] }),
+      task("web", { affectedPaths: ["apps/web/src/c.mjs"] })
+    ]
+  });
+  assert.deepEqual(modules.selected, [
+    { taskId: "API Feature", branch: "agent/api-feature", worktree: ".worktrees/api-feature" },
+    { taskId: "web", branch: "agent/web", worktree: ".worktrees/web" }
+  ]);
+  assert.deepEqual(modules.deferred[0], { taskId: "api-second", conflicts: [{ taskId: "API Feature", reasons: ["module_overlap"] }] });
+  const migrations = planParallelTasks({
+    version: 1, tasks: [
+      task("api-migration", { affectedPaths: ["apps/api/migrations/100.sql"] }),
+      task("domain-migration", { affectedPaths: ["packages/domain/migrations/200.sql"] })
+    ]
+  });
+  assert.deepEqual(migrations.selected.map((entry) => entry.taskId), ["api-migration"]);
+  assert.deepEqual(migrations.deferred[0].conflicts[0].reasons, ["migration_writer_overlap"]);
 });
 
 test("enforces bounded retry, timeout, and budget values", () => {
