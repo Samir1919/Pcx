@@ -23,7 +23,8 @@ This file is the central progress index. Approved specifications define what PCX
 | E7 — Listing, pricing & passport | In progress | Server-owned listing lifecycle (DRAFT→PUBLISHED), versioned asking-price history, one-active-listing-per-item constraint, and safe public passport projection (`GET /passport/:pcxId`) excluding serial/cost/private evidence | Listing media/QR, reservation/sold transitions, disclosure completeness |
 | E8 — Search, discovery & storefront | In progress | Public storefront listing search (`GET /api/v1/listings`) with allow-listed query params, cursor pagination, and safe disclosure-only listing cards (no serial/cost/private evidence); responsive storefront UI shell (`apps/web`) with category/brand filter, sort, cursor pagination, and public passport page | Listing media/QR, recommendation/dedicated search index |
 | E9 — Cart, reservation & checkout | In progress | Bounded reservation with database-enforced one-active-per-item constraint (double-sell guard), customer-gated create/convert/read-active, and concurrency-proof integration | Cart persistence, order/payment allocation, reservation expiry job |
-| E10 — Order & payment | In progress | Customer-gated order creation with server-computed totals and sold-fact snapshots, plus idempotent payments keyed by unique provider transaction id (confirm once from INITIATED) | Payment gateway/webhook integration, refunds, reconciliation |
+| E10 — Order & payment | In progress | Customer-gated order creation with server-computed totals and sold-fact snapshots, plus idempotent payments keyed by a server-authoritative provider transaction id derived from the injected sandbox payment gateway (confirm once from INITIATED) | Real payment gateway/webhook integration, refunds, reconciliation |
+
 | E11 — Fulfilment & shipment | In progress | Server-owned shipment lifecycle (DRAFT→SHIPPED→DELIVERED) with unique tracking id and persisted shipment events, gated by INVENTORY_MANAGE/SYSTEM_CONFIGURE | Courier sandbox adapter/webhook, packaging evidence media, return-to-origin |
 | E12 — Return & refund | In progress | Customer-gated return request with server-owned REQUESTED→APPROVED→RECEIVED→REFUNDED lifecycle and database-enforced one-refundable-request-per-item (double-refund guard) | Refund gateway execution, physical serial-match intake, carrier pickup |
 | E13 — Warranty & claims | In progress | One warranty per sold order item with a valid window, plus server-owned claim lifecycle (REQUESTED→RESOLVED) and typed resolutions (REPAIR/REPLACE/REFUND/REJECT) recorded with approving identity | Warranty policy authoring, claim inspections, carrier pickup, cost accounting |
@@ -48,13 +49,14 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Current verification baseline
 
-- Root `npm test`: 247 total tests after vendor-adapter coverage; 225 passed, 22 PostgreSQL integration tests skip without `TEST_DATABASE_URL` by design, 0 failed.
-- Root `npm run verify`: pass with E0, lint, typecheck, 247 tests (225 pass, 22 PostgreSQL skips by design), build, secret scan, and dependency audit.
-- CI-equivalent `npm run verify:ci`: 225 application/unit + 22 PostgreSQL integration + 1 E2E smoke, all passing (0 failures).
+- Root `npm test`: 249 total tests after payment-gateway wiring; 227 passed, 22 PostgreSQL integration tests skip without `TEST_DATABASE_URL` by design, 0 failed.
+- Root `npm run verify`: pass with E0, lint, typecheck, 249 tests (227 pass, 22 PostgreSQL skips by design), build, secret scan, and dependency audit.
+- CI-equivalent `npm run verify:ci`: 227 application/unit + 22 PostgreSQL integration + 1 E2E smoke, all passing (0 failures).
 - E0 artifact verification: 36 required artifacts; latest GitHub merge evidence is PR #1 (`1692049`).
 - Dependency audit (`npm audit --omit=dev --audit-level=high`): 0 known vulnerabilities.
 - Backup/restore drill: seed rows recovered to a throwaway database.
-- Latest detailed evidence: `docs/handoffs/STAGE3_VENDOR_ADAPTERS.md`.
+- Latest detailed evidence: `docs/handoffs/STAGE3_PAYMENT_GATEWAY_WIRING.md`.
+
 
 
 
@@ -66,14 +68,17 @@ This file is the central progress index. Approved specifications define what PCX
 - ADR 0002 PostgreSQL source of truth: Accepted.
 - ADR 0003 server-side authentication boundary: Accepted.
 - ADR 0005 Stage 3 policy-constrained control plane: Accepted for bounded local/CI implementation; hard stops unchanged.
+- ADR 0006 server-authoritative gateway-derived provider transaction id: Accepted.
 - No current implementation blocker.
+
 - Remaining hard stops: production deployment, destructive/irreversible migrations, production/customer-data deletion, real payment destinations/provider credentials, production secrets, test/security weakening, large framework replacement, or core invariant/source-of-truth changes.
 
 ## Next dependency-ready work
 
-1. Wire the sandbox payment/courier adapters into the commerce/logistics services behind a provider-neutral gateway interface (the notification dispatcher is already wired via the injected `dispatchers` contract).
+1. Wire the sandbox courier adapter into the logistics service behind a provider-neutral courier interface (the payment gateway is now wired; the notification dispatcher is already wired via the injected `dispatchers` contract).
 2. Complete safe Stage 2 release slices: container image scan when an image exists.
 3. Production deployment and real provider credentials remain human-approval hard stops.
+
 
 
 

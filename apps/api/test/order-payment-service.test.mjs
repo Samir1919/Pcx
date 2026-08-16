@@ -16,8 +16,10 @@ function fixture(overrides = {}) {
     authService: { async authenticateAccess() { return { userId: "customer-1", status: "ACTIVE", roles: ["CUSTOMER"] }; }, ...overrides.authService },
     repository,
     id: (() => { let n = 0; return () => `id-${++n}`; })(),
-    clock: () => new Date("2026-08-16T12:00:00.000Z")
+    clock: () => new Date("2026-08-16T12:00:00.000Z"),
+    gateway: overrides.gateway
   });
+
   return { service, calls };
 }
 
@@ -40,18 +42,41 @@ test("order creation is customer-gated and derives totals from server-owned unit
   await assert.rejects(inactive.service.createOrder("access", { items: [{ inventoryItemId: "i", productModelId: "m", pcxItemId: "p", productName: "n", unitPrice: 1 }] }), (error) => error.code === "forbidden");
 });
 
-test("payment create maps unique provider txn conflict to 409 and confirm enforces state", async () => {
-  const { service } = fixture();
-  const payment = await service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, provider: "bkash", providerTransactionId: "txn-1", method: "mobile", amount: 1500 });
+test("payment create derives provider txn id from the gateway and confirm enforces state", async () => {
+  const { service, calls } = fixture();
+  const payment = await service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, provider: "bkash", method: "mobile", amount: 1500 });
   assert.equal(payment.status, PaymentStatus.INITIATED);
+  // The provider transaction id is server-authoritative: derived from the sandbox gateway.
+  assert.equal(calls.payments[0].providerTransactionId, "sandbox-pay-id-1");
+  assert.equal(calls.payments[0].provider, "bkash");
 
   const conflict = fixture({ repository: { async createPayment() { const e = new Error("dup"); e.code = "23505"; throw e; } } });
-  await assert.rejects(conflict.service.createPayment("access", { orderId: "o", direction: "INBOUND", provider: "p", providerTransactionId: "x", method: "m", amount: 1 }), (error) => error.code === "conflict");
+  await assert.rejects(conflict.service.createPayment("access", { orderId: "o", direction: "INBOUND", provider: "p", method: "m", amount: 1 }), (error) => error.code === "conflict");
 
   const { service: confirmSvc } = fixture();
-  const confirmed = await confirmSvc.confirmPayment("access", "txn-1");
+  const confirmed = await confirmSvc.confirmPayment("access", "sandbox-pay-id-1");
   assert.equal(confirmed.status, PaymentStatus.CONFIRMED);
 
   const invalidState = fixture({ repository: { async confirmPayment() { return { status: "not_confirmable" }; } } });
-  await assert.rejects(invalidState.service.confirmPayment("access", "txn-1"), (error) => error.code === "invalid_state");
+  await assert.rejects(invalidState.service.confirmPayment("access", "sandbox-pay-id-1"), (error) => error.code === "invalid_state");
 });
+
+test("payment create rejects client-supplied providerTransactionId (server-authoritative)", async () => {
+  const { service } = fixture();
+  await assert.rejects(
+    service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, provider: "bkash", providerTransactionId: "client-forged", method: "mobile", amount: 1500 }),
+    (error) => error.code === "invalid_input"
+  );
+});
+
+test("payment create uses an injected gateway and defaults provider to SANDBOX", async () => {
+  const charges = [];
+  const gateway = { async charge({ amount, currency, reference }) { charges.push({ amount, currency, reference }); return { providerTransactionId: `gw-${reference}`, status: "CONFIRMED" }; } };
+  const { service, calls } = fixture({ gateway });
+  const payment = await service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, method: "mobile", amount: 500 });
+  assert.equal(payment.status, PaymentStatus.INITIATED);
+  assert.equal(calls.payments[0].providerTransactionId, "gw-id-1");
+  assert.equal(calls.payments[0].provider, "SANDBOX");
+  assert.deepEqual(charges, [{ amount: 500, currency: "BDT", reference: "id-1" }]);
+});
+

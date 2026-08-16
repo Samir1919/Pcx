@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createOrder, createOrderItemSnapshot, createPayment } from "../../../../../packages/domain/src/commerce/order-payment.mjs";
-import { Role } from "../../../../../packages/domain/src/index.mjs";
+import { createSandboxPaymentGateway, Role } from "../../../../../packages/domain/src/index.mjs";
+
 
 export class OrderPaymentError extends Error {
   constructor(code) { super(code); this.name = "OrderPaymentError"; this.code = code; }
@@ -8,11 +9,15 @@ export class OrderPaymentError extends Error {
 
 const orderFields = new Set(["items"]);
 const itemFields = new Set(["inventoryItemId", "listingId", "productModelId", "pcxItemId", "productName", "grade", "healthScore", "unitPrice", "specs"]);
-const paymentFields = new Set(["orderId", "direction", "provider", "providerTransactionId", "method", "amount"]);
+// providerTransactionId is intentionally NOT client-authoritative: it is derived
+// from the injected gateway so the server owns the financial fact.
+const paymentFields = new Set(["orderId", "direction", "provider", "method", "amount"]);
 
-export function createOrderPaymentService({ authService, repository, id = randomUUID, clock = () => new Date() }) {
+export function createOrderPaymentService({ authService, repository, id = randomUUID, clock = () => new Date(), gateway = createSandboxPaymentGateway() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
   for (const method of ["createOrder", "createOrderItem", "createPayment", "confirmPayment"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  if (!gateway || typeof gateway.charge !== "function") throw new TypeError("gateway.charge is required");
+
 
   async function customer(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -78,9 +83,28 @@ export function createOrderPaymentService({ authService, repository, id = random
     async createPayment(accessCredential, input) {
       await customer(accessCredential);
       const fields = exact(input, paymentFields);
+      const paymentId = id();
+      let charge;
+      try {
+        // The provider transaction id is server-authoritative: it is derived
+        // from the injected gateway, never accepted from client input.
+        charge = await gateway.charge({ amount: fields.amount, currency: "BDT", reference: paymentId });
+
+      } catch {
+        throw new OrderPaymentError("invalid_input");
+      }
       let record;
       try {
-        record = createPayment({ id: id(), ...fields, initiatedAt: clock() });
+        record = createPayment({
+          id: paymentId,
+          orderId: fields.orderId,
+          direction: fields.direction,
+          provider: fields.provider ?? "SANDBOX",
+          providerTransactionId: charge.providerTransactionId,
+          method: fields.method,
+          amount: fields.amount,
+          initiatedAt: clock()
+        });
       } catch {
         throw new OrderPaymentError("invalid_input");
       }
@@ -92,6 +116,7 @@ export function createOrderPaymentService({ authService, repository, id = random
         throw error;
       }
     },
+
 
     async confirmPayment(accessCredential, providerTransactionId) {
       await customer(accessCredential);
