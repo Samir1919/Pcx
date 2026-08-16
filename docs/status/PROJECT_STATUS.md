@@ -1,7 +1,7 @@
 # PCX Project Status
 
 - Updated: 2026-08-16
-- Current main evidence commit: `3b1d5d5`
+- Current main evidence commit: `c2b5734`
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: E8 search/discovery storefront
 - Current autonomy maturity: Stage 2 in progress
