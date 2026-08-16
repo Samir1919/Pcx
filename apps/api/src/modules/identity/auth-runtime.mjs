@@ -30,6 +30,8 @@ import { createPostgresShipmentRepository } from "../logistics/postgres-shipment
 import { createShipmentService } from "../logistics/shipment-service.mjs";
 import { createPostgresReturnRequestRepository } from "../warranty/postgres-return-request-repository.mjs";
 import { createReturnRequestService } from "../warranty/return-request-service.mjs";
+import { createPostgresWarrantyClaimRepository } from "../warranty/postgres-warranty-claim-repository.mjs";
+import { createWarrantyClaimService } from "../warranty/warranty-claim-service.mjs";
 
 export function parseAllowedOrigins(value) {
   if (typeof value !== "string") throw new TypeError("allowed origins are required");
@@ -80,5 +82,6 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   const orderPaymentService = createOrderPaymentService({ authService, repository: createPostgresOrderPaymentRepository({ pool }) });
   const shipmentService = createShipmentService({ authService, repository: createPostgresShipmentRepository({ pool }) });
   const returnRequestService = createReturnRequestService({ authService, repository: createPostgresReturnRequestRepository({ pool }) });
-  return Object.freeze({ authService, identityActionService, addressService, catalogService, catalogCommandService, catalogSpecCommandService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, listingService, reservationService, orderPaymentService, shipmentService, returnRequestService, allowedOrigins: origins });
+  const warrantyClaimService = createWarrantyClaimService({ authService, repository: createPostgresWarrantyClaimRepository({ pool }) });
+  return Object.freeze({ authService, identityActionService, addressService, catalogService, catalogCommandService, catalogSpecCommandService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, listingService, reservationService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, allowedOrigins: origins });
 }
