@@ -117,10 +117,49 @@ export const validateTaskGraph = (graph) => {
   return Object.freeze({ version: 1, tasks: Object.freeze(tasks) });
 };
 
+const seedCompletedFromGraph = (tasks, completedIds = []) => {
+  const completed = new Set(completedIds);
+  for (const task of tasks) {
+    if (task.status === "PASSED") completed.add(task.id);
+  }
+  return completed;
+};
+
+/**
+ * Dependency-ready task ids. A task already marked PASSED in the graph (durable
+ * status from a prior run) is treated as completed even if it is not present in
+ * `completedIds`, so dependents remain ready across separate process runs.
+ */
 export const readyTasks = (graph, completedIds = []) => {
   const validated = validateTaskGraph(graph);
-  const completed = new Set(completedIds);
+  const completed = seedCompletedFromGraph(validated.tasks, completedIds);
   return validated.tasks.filter((task) => task.status === "PENDING" && !completed.has(task.id) && task.dependsOn.every((dependency) => completed.has(dependency))).map((task) => task.id);
+};
+
+/**
+ * Marks pending tasks whose dependency chain contains a failure as BLOCKED.
+ * This prevents a graph from silently remaining PENDING forever after an
+ * upstream task fails.
+ */
+export const propagateBlockedTasks = (graph) => {
+  const validated = validateTaskGraph(graph);
+  const tasks = validated.tasks.map((task) => ({ ...task }));
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const task of tasks) {
+      if (task.status !== "PENDING") continue;
+      const dependencyFailed = task.dependsOn.some((dependency) => {
+        const upstream = tasks.find((candidate) => candidate.id === dependency);
+        return upstream?.status === "FAILED" || upstream?.status === "BLOCKED";
+      });
+      if (dependencyFailed) {
+        task.status = "BLOCKED";
+        changed = true;
+      }
+    }
+  }
+  return { version: 1, tasks };
 };
 
 const conflictReasons = (left, right) => {
@@ -480,7 +519,9 @@ export const mergeWorktree = async ({ plan, git, into = "integration" } = {}) =>
     branch: validated.branch,
     into,
     merged: outcome?.ok === true,
-    conflicts: Array.isArray(outcome?.conflicts) ? outcome.conflicts : []
+    conflicts: Array.isArray(outcome?.conflicts) ? outcome.conflicts : [],
+    cleanupOk: outcome?.cleanupOk,
+    cleanupError: outcome?.cleanupError
   });
 };
 
@@ -521,13 +562,64 @@ const runWorkerPipeline = async ({ task, executor, gatesExecutor, environment, s
   });
 };
 
+const failedRecord = (taskId, failureClass) => Object.freeze({
+  taskId,
+  status: "FAILED",
+  failureClass,
+  execution: null,
+  qa: null,
+  security: null,
+  review: null,
+  integrated: null,
+  handoff: null
+});
+
+/**
+ * Runs one task's full pipeline inside an isolated worktree when git is
+ * injected. A failed worktree creation or merge is a real task failure (not a
+ * silently-ignored git error): the worktree is still removed for cleanup, and
+ * a merged branch is deleted so agent branches do not accumulate across runs.
+ */
 const runOneWorker = async ({ task, executor, gatesExecutor, git, environment, signal, isKilled }) => {
   const plan = Object.freeze({ taskId: task.id, branch: `agent/${slugTaskId(task.id)}`, worktree: `.worktrees/${slugTaskId(task.id)}` });
-  if (git) await createWorktree({ plan, git });
-  const record = await runWorkerPipeline({ task, executor, gatesExecutor, environment, signal, isKilled });
-  if (git && record.status === "PASSED") await mergeWorktree({ plan, git });
-  if (git) await removeWorktree({ plan, git });
-  return record;
+  if (!git) return runWorkerPipeline({ task, executor, gatesExecutor, environment, signal, isKilled });
+  let created = false;
+  let mergedSuccessfully = false;
+  let record;
+  try {
+    const creation = await createWorktree({ plan, git });
+    created = creation.created;
+    if (!created) return failedRecord(task.id, "worktree_create_failed");
+    record = await runWorkerPipeline({ task, executor, gatesExecutor, environment, signal, isKilled });
+    if (record.status === "PASSED") {
+      const merged = await mergeWorktree({ plan, git });
+      if (!merged.merged) {
+        record = Object.freeze({ ...record, status: "FAILED", failureClass: merged.cleanupOk === false ? "merge_failed_cleanup_failed" : "merge_failed" });
+      } else {
+        mergedSuccessfully = true;
+      }
+    }
+  } catch (error) {
+    record = failedRecord(task.id, error?.failureClass ?? "worker_orchestration_failed");
+  } finally {
+    if (created) {
+      try {
+        const removed = await removeWorktree({ plan, git });
+        if (removed.removed !== true && record?.status === "PASSED") record = failedRecord(task.id, "worktree_cleanup_failed");
+      } catch (error) {
+        if (record?.status === "PASSED") record = failedRecord(task.id, "worktree_cleanup_failed");
+      }
+    }
+  }
+  if (mergedSuccessfully && record?.status === "PASSED" && typeof git.deleteBranch === "function") {
+    try {
+      const deleted = await git.deleteBranch({ branch: plan.branch });
+      if (deleted?.ok !== true) record = failedRecord(task.id, "branch_delete_failed");
+    } catch (error) {
+      record = failedRecord(task.id, "branch_delete_failed");
+    }
+  }
+  return record ?? failedRecord(task.id, "worker_orchestration_failed");
 };
 
 /**
@@ -538,12 +630,19 @@ const runOneWorker = async ({ task, executor, gatesExecutor, git, environment, s
  * its integrated verification reports READY. Failed tasks are recorded and not
  * re-attempted, so the loop always terminates.
  */
-export const runParallelWorkers = async ({ graph, completedIds = [], executor, gatesExecutor, git, logStore, environment = "local", signal, isKilled = () => false } = {}) => {
+export const runParallelWorkers = async ({ graph, completedIds = [], executor, gatesExecutor, git, logStore, environment = "local", signal, isKilled = () => false, maxBatches = null } = {}) => {
   const validated = validateTaskGraph(graph);
   if (typeof executor !== "function") throw new Error("executor must be a function");
   if (typeof gatesExecutor !== "function") throw new Error("gatesExecutor must be a function");
-  const completed = new Set(completedIds);
+  if (maxBatches !== null && (!Number.isInteger(maxBatches) || maxBatches < 1)) throw new Error("maxBatches must be a positive integer or null");
+  if (git && typeof git.assertClean === "function") {
+    const clean = await git.assertClean();
+    if (clean?.ok !== true) throw new Error(clean?.error ?? "git integration state must be clean before orchestration");
+  }
+  const state = { version: 1, tasks: validated.tasks.map((task) => ({ ...task })) };
+  const completed = seedCompletedFromGraph(state.tasks, completedIds);
   const failed = new Set();
+  const blocked = new Set(state.tasks.filter((task) => task.status === "BLOCKED").map((task) => task.id));
   const records = [];
   let batches = 0;
   const persist = async (record) => {
@@ -551,9 +650,13 @@ export const runParallelWorkers = async ({ graph, completedIds = [], executor, g
     if (logStore) await appendRunRecord({ store: logStore, record, batch: batches });
   };
   while (true) {
-    const pending = readyTasks(validated, [...completed]).filter((id) => !failed.has(id));
+    if (maxBatches !== null && batches >= maxBatches) break;
+    const propagated = propagateBlockedTasks(state);
+    state.tasks = propagated.tasks;
+    for (const task of state.tasks) if (task.status === "BLOCKED") blocked.add(task.id);
+    const pending = readyTasks(state, [...completed]).filter((id) => !failed.has(id));
     if (pending.length === 0) break;
-    const plan = planParallelTasks(validated, [...completed]);
+    const plan = planParallelTasks(state, [...completed]);
     const selected = plan.selected.filter((entry) => !failed.has(entry.taskId));
     if (selected.length === 0) {
       const next = plan.deferred.find((entry) => !failed.has(entry.taskId));
@@ -561,7 +664,13 @@ export const runParallelWorkers = async ({ graph, completedIds = [], executor, g
       const task = validated.tasks.find((entry) => entry.id === next.taskId);
       const record = await runOneWorker({ task, executor, gatesExecutor, git, environment, signal, isKilled });
       await persist(record);
-      if (record.status === "PASSED") completed.add(task.id); else failed.add(task.id);
+      if (record.status === "PASSED") {
+        completed.add(task.id);
+        state.tasks.find((candidate) => candidate.id === task.id).status = "PASSED";
+      } else {
+        failed.add(task.id);
+        state.tasks.find((candidate) => candidate.id === task.id).status = "FAILED";
+      }
       batches += 1;
       continue;
     }
@@ -572,14 +681,26 @@ export const runParallelWorkers = async ({ graph, completedIds = [], executor, g
     }));
     for (const { taskId, record } of results) {
       await persist(record);
-      if (record.status === "PASSED") completed.add(taskId); else failed.add(taskId);
+      if (record.status === "PASSED") {
+        completed.add(taskId);
+        state.tasks.find((candidate) => candidate.id === taskId).status = "PASSED";
+      } else {
+        failed.add(taskId);
+        state.tasks.find((candidate) => candidate.id === taskId).status = "FAILED";
+      }
     }
     batches += 1;
   }
+  const finalState = propagateBlockedTasks(state);
+  for (const task of finalState.tasks) if (task.status === "BLOCKED") blocked.add(task.id);
+  const remainingReady = readyTasks(finalState, [...completed]).filter((id) => !failed.has(id));
   return Object.freeze({
     batches,
     completed: Object.freeze([...completed]),
     failed: Object.freeze([...failed]),
+    blocked: Object.freeze([...blocked]),
+    limited: maxBatches !== null && batches >= maxBatches && remainingReady.length > 0,
+    graph: finalState,
     records: Object.freeze(records)
   });
 };
@@ -612,6 +733,12 @@ const asMergeTarget = (into) => {
  */
 export const createShellGit = ({ run = defaultGitRun, cwd = process.cwd() } = {}) => {
   if (typeof run !== "function") throw new Error("run must be a function");
+  const assertClean = async () => {
+    const outcome = await run({ args: ["status", "--porcelain=v1"], cwd });
+    if (outcome.ok !== true) return { ok: false, error: outcome.error ?? "unable to inspect git status" };
+    if (String(outcome.stdout ?? "").trim() !== "") return { ok: false, error: "git integration state must be clean before orchestration" };
+    return { ok: true };
+  };
   const addWorktree = async ({ branch, path }) => {
     const safeBranch = asAgentBranch(branch, "branch");
     const safePath = asWorktreePath(path, "path");
@@ -626,11 +753,27 @@ export const createShellGit = ({ run = defaultGitRun, cwd = process.cwd() } = {}
   const mergeBranch = async ({ branch, into }) => {
     const safeBranch = asAgentBranch(branch, "branch");
     const safeInto = asMergeTarget(into);
+    const current = await run({ args: ["branch", "--show-current"], cwd });
+    if (current.ok !== true) return { ok: false, error: current.error ?? "unable to inspect current branch", conflicts: [] };
+    const currentBranch = String(current.stdout ?? current.branch ?? "").trim();
+    if (currentBranch !== safeInto) {
+      const checkout = await run({ args: ["checkout", safeInto], cwd });
+      if (checkout.ok !== true) return { ok: false, error: checkout.error ?? `unable to checkout ${safeInto}`, conflicts: [] };
+    }
     const outcome = await run({ args: ["merge", "--no-ff", safeBranch], cwd, into: safeInto });
     const conflicts = Array.isArray(outcome.conflicts) ? outcome.conflicts : [];
-    return { ok: outcome.ok === true, error: outcome.error, conflicts };
+    if (outcome.ok !== true) {
+      const abort = await run({ args: ["merge", "--abort"], cwd });
+      return { ok: false, error: outcome.error, conflicts, cleanupOk: abort.ok === true, cleanupError: abort.error };
+    }
+    return { ok: true, error: outcome.error, conflicts: [], cleanupOk: true };
   };
-  return Object.freeze({ addWorktree, removeWorktree, mergeBranch });
+  const deleteBranch = async ({ branch }) => {
+    const safeBranch = asAgentBranch(branch, "branch");
+    const outcome = await run({ args: ["branch", "-D", safeBranch], cwd });
+    return { ok: outcome.ok === true, error: outcome.error };
+  };
+  return Object.freeze({ assertClean, addWorktree, removeWorktree, mergeBranch, deleteBranch });
 };
 
 const defaultGitRun = async ({ args, cwd, into }) => {
@@ -638,8 +781,8 @@ const defaultGitRun = async ({ args, cwd, into }) => {
   const { promisify } = await import("node:util");
   const execFileAsync = promisify(execFile);
   try {
-    await execFileAsync("git", args, { cwd });
-    return { ok: true, conflicts: [] };
+    const result = await execFileAsync("git", args, { cwd });
+    return { ok: true, conflicts: [], stdout: String(result.stdout ?? "").trim() };
   } catch (error) {
     const stderr = String(error?.stderr ?? "");
     const conflicts = into && /conflict/i.test(stderr) ? extractConflicts(stderr) : [];

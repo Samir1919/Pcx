@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { appendRunRecord, buildHandoff, createFileLogStore, createShellGit, createWorktree, evaluateAction, mergeWorktree, planParallelTasks, readyTasks, removeWorktree, reviewTask, runBoundedTask, runParallelWorkers, runQaGates, securityReview, validateTaskGraph, verifyIntegrated } from "./control-plane.mjs";
+import { appendRunRecord, buildHandoff, createFileLogStore, createShellGit, createWorktree, evaluateAction, mergeWorktree, planParallelTasks, propagateBlockedTasks, readyTasks, removeWorktree, reviewTask, runBoundedTask, runParallelWorkers, runQaGates, securityReview, validateTaskGraph, verifyIntegrated } from "./control-plane.mjs";
 
 const task = (id, overrides = {}) => ({
   id,
@@ -16,6 +16,17 @@ test("validates a bounded DAG and returns dependency-ready work", () => {
   const graph = validateTaskGraph({ version: 1, tasks: [task("spec"), task("worker", { dependsOn: ["spec"] }), task("qa", { dependsOn: ["worker"] })] });
   assert.deepEqual(readyTasks(graph), ["spec"]);
   assert.deepEqual(readyTasks(graph, ["spec"]), ["worker"]);
+});
+
+test("readyTasks treats durable PASSED status as completed across process runs", () => {
+  const graph = { version: 1, tasks: [task("spec", { status: "PASSED" }), task("worker", { dependsOn: ["spec"] })] };
+  assert.deepEqual(readyTasks(graph), ["worker"]);
+});
+
+test("failed dependency chains become explicit BLOCKED tasks", () => {
+  const graph = { version: 1, tasks: [task("spec", { status: "FAILED" }), task("api", { dependsOn: ["spec"] }), task("web", { dependsOn: ["api"] })] };
+  const propagated = propagateBlockedTasks(graph);
+  assert.deepEqual(Object.fromEntries(propagated.tasks.map((entry) => [entry.id, entry.status])), { spec: "FAILED", api: "BLOCKED", web: "BLOCKED" });
 });
 
 test("rejects unknown dependencies, cycles, and unsequenced path overlap", () => {
@@ -270,9 +281,12 @@ test("parallel worker driver records failed tasks and does not loop forever", as
     return { artifacts: [{ type: "commit", path: "abc", status: "ok" }] };
   };
   const gatesExecutor = async ({ gate }) => ({ name: gate, command: gate, status: "PASSED", detail: "" });
+  const blocked = task("dependent", { affectedPaths: ["apps/web/src/dependent.mjs"], dependsOn: ["bad"] });
+  graph.tasks.push(blocked);
   const summary = await runParallelWorkers({ graph, executor, gatesExecutor });
   assert.deepEqual([...summary.completed], ["good"]);
   assert.deepEqual([...summary.failed], ["bad"]);
+  assert.deepEqual([...summary.blocked], ["dependent"]);
   assert.equal(summary.records.length, 2);
   const bad = summary.records.find((record) => record.taskId === "bad");
   assert.equal(bad.status, "FAILED");
@@ -302,7 +316,7 @@ test("parallel worker driver persists every run to a durable log store", async (
   assert.ok(entries.every((entry) => Number.isInteger(entry.batch)));
 });
 
-test("parallel worker driver creates, merges, and removes worktrees when git is provided", async () => {
+test("parallel worker driver creates, merges, deletes the merged branch, and removes worktrees when git is provided", async () => {
   const graph = {
     version: 1,
     tasks: [task("api", { affectedPaths: ["apps/api/src/a.mjs"] })]
@@ -311,7 +325,8 @@ test("parallel worker driver creates, merges, and removes worktrees when git is 
   const git = {
     addWorktree: async ({ branch, path }) => { calls.push(["add", branch, path]); return { ok: true }; },
     removeWorktree: async ({ path }) => { calls.push(["remove", path]); return { ok: true }; },
-    mergeBranch: async ({ branch, into }) => { calls.push(["merge", branch, into]); return { ok: true, conflicts: [] }; }
+    mergeBranch: async ({ branch, into }) => { calls.push(["merge", branch, into]); return { ok: true, conflicts: [] }; },
+    deleteBranch: async ({ branch }) => { calls.push(["delete", branch]); return { ok: true }; }
   };
   const executor = async ({ task: t }) => ({ artifacts: [{ type: "commit", path: "abc", status: "ok" }] });
   const gatesExecutor = async ({ gate }) => ({ name: gate, command: gate, status: "PASSED", detail: "" });
@@ -320,36 +335,106 @@ test("parallel worker driver creates, merges, and removes worktrees when git is 
   assert.deepEqual(calls, [
     ["add", "agent/api", ".worktrees/api"],
     ["merge", "agent/api", "integration"],
+    ["remove", ".worktrees/api"],
+    ["delete", "agent/api"]
+  ]);
+});
+
+test("parallel worker driver marks a task FAILED when the merge conflicts, and still removes the worktree", async () => {
+  const graph = {
+    version: 1,
+    tasks: [task("api", { affectedPaths: ["apps/api/src/a.mjs"] })]
+  };
+  const calls = [];
+  const git = {
+    addWorktree: async ({ branch, path }) => { calls.push(["add", branch, path]); return { ok: true }; },
+    removeWorktree: async ({ path }) => { calls.push(["remove", path]); return { ok: true }; },
+    mergeBranch: async () => ({ ok: false, conflicts: ["apps/api/src/a.mjs"] })
+  };
+  const executor = async () => ({ artifacts: [{ type: "commit", path: "abc", status: "ok" }] });
+  const gatesExecutor = async ({ gate }) => ({ name: gate, command: gate, status: "PASSED", detail: "" });
+  const summary = await runParallelWorkers({ graph, executor, gatesExecutor, git });
+  assert.deepEqual([...summary.completed], []);
+  assert.deepEqual([...summary.failed], ["api"]);
+  const record = summary.records.find((entry) => entry.taskId === "api");
+  assert.equal(record.status, "FAILED");
+  assert.equal(record.failureClass, "merge_failed");
+  assert.deepEqual(calls, [
+    ["add", "agent/api", ".worktrees/api"],
     ["remove", ".worktrees/api"]
   ]);
+});
+
+test("parallel worker driver marks a task FAILED when the worktree cannot be created", async () => {
+  const graph = {
+    version: 1,
+    tasks: [task("api", { affectedPaths: ["apps/api/src/a.mjs"] })]
+  };
+  const git = { addWorktree: async () => ({ ok: false }) };
+  const executor = async () => ({ artifacts: [{ type: "commit", path: "abc", status: "ok" }] });
+  const gatesExecutor = async ({ gate }) => ({ name: gate, command: gate, status: "PASSED", detail: "" });
+  const summary = await runParallelWorkers({ graph, executor, gatesExecutor, git });
+  assert.deepEqual([...summary.failed], ["api"]);
+  const record = summary.records.find((entry) => entry.taskId === "api");
+  assert.equal(record.status, "FAILED");
+  assert.equal(record.failureClass, "worktree_create_failed");
 });
 
 test("shell git adapter validates inputs and delegates to injected run", async () => {
   const calls = [];
   const run = async ({ args, cwd, into }) => {
     calls.push({ args, cwd, into });
-    return { ok: true, conflicts: [] };
+    return { ok: true, conflicts: [], stdout: args.join(" ") === "branch --show-current" ? "integration" : "" };
   };
   const git = createShellGit({ run, cwd: "/repo" });
   assert.equal((await git.addWorktree({ branch: "agent/a", path: ".worktrees/a" })).ok, true);
   assert.equal((await git.removeWorktree({ path: ".worktrees/a" })).ok, true);
   assert.equal((await git.mergeBranch({ branch: "agent/a", into: "integration" })).ok, true);
+  assert.equal((await git.deleteBranch({ branch: "agent/a" })).ok, true);
   assert.deepEqual(calls[0].args, ["worktree", "add", ".worktrees/a", "-b", "agent/a"]);
   assert.deepEqual(calls[1].args, ["worktree", "remove", ".worktrees/a"]);
-  assert.deepEqual(calls[2].args, ["merge", "--no-ff", "agent/a"]);
-  assert.equal(calls[2].into, "integration");
+  assert.deepEqual(calls[2].args, ["branch", "--show-current"]);
+  assert.deepEqual(calls[3].args, ["merge", "--no-ff", "agent/a"]);
+  assert.equal(calls[3].into, "integration");
+  assert.deepEqual(calls[4].args, ["branch", "-D", "agent/a"]);
   assert.equal(calls[0].cwd, "/repo");
   await assert.rejects(() => git.addWorktree({ branch: "main", path: ".worktrees/a" }), /agent branch/);
   await assert.rejects(() => git.addWorktree({ branch: "agent/a", path: "apps/a" }), /\.worktrees/);
   await assert.rejects(() => git.mergeBranch({ branch: "agent/a", into: "bad branch!" }), /safe branch/);
+  await assert.rejects(() => git.deleteBranch({ branch: "main" }), /agent branch/);
 });
 
-test("shell git adapter reports merge conflicts from injected run", async () => {
-  const git = createShellGit({ run: async () => ({ ok: false, conflicts: ["apps/api/src/a.mjs"], error: "conflict" }) });
+test("real git orchestration fails fast when the integration working tree is dirty", async () => {
+  const graph = { version: 1, tasks: [task("api")] };
+  const git = createShellGit({ run: async ({ args }) => args[0] === "status" ? { ok: true, stdout: " M dirty.mjs" } : { ok: true } });
+  await assert.rejects(() => runParallelWorkers({ graph, executor: async () => ({ artifacts: [] }), gatesExecutor: async ({ gate }) => ({ name: gate, command: gate, status: "PASSED" }), git }), /must be clean/);
+});
+
+test("shell git adapter checks out the requested target and aborts merge conflicts", async () => {
+  const calls = [];
+  const git = createShellGit({
+    run: async ({ args }) => {
+      calls.push(args);
+      if (args.join(" ") === "branch --show-current") return { ok: true, stdout: "feature" };
+      if (args[0] === "merge" && args[1] !== "--abort") return { ok: false, conflicts: ["apps/api/src/a.mjs"], error: "conflict" };
+      return { ok: true };
+    }
+  });
   const merged = await git.mergeBranch({ branch: "agent/a", into: "integration" });
   assert.equal(merged.ok, false);
   assert.deepEqual(merged.conflicts, ["apps/api/src/a.mjs"]);
-  assert.equal(merged.error, "conflict");
+  assert.equal(merged.cleanupOk, true);
+  assert.deepEqual(calls, [["branch", "--show-current"], ["checkout", "integration"], ["merge", "--no-ff", "agent/a"], ["merge", "--abort"]]);
+});
+
+test("parallel worker driver enforces maxBatches before the next dependency batch", async () => {
+  const graph = { version: 1, tasks: [task("first"), task("second", { dependsOn: ["first"] })] };
+  const executor = async ({ task: current }) => ({ artifacts: [{ type: "commit", path: current.id, status: "ok" }] });
+  const gatesExecutor = async ({ gate }) => ({ name: gate, command: gate, status: "PASSED", detail: "" });
+  const summary = await runParallelWorkers({ graph, executor, gatesExecutor, maxBatches: 1 });
+  assert.deepEqual(summary.completed, ["first"]);
+  assert.equal(summary.limited, true);
+  assert.equal(summary.records.length, 1);
 });
 
 test("file log store sanitizes records and rejects secrets", async () => {

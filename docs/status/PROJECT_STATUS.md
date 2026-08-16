@@ -42,7 +42,9 @@ This file is the central progress index. Approved specifications define what PCX
 |---|---|---|
 | Stage 1 — Lean controlled development | Complete | Project Brain, hard stops, bounded branches/tasks, tests, review, handoffs and safe merge flow |
 | Stage 2 — MVP integration/release discipline | In progress | Locked install, additive migrations, migration checksums, integration tests, CI PostgreSQL service, secret/dependency scanning, staging overlay, E2E smoke path, database backup/restore drill; container image scan and sandbox payment/courier/notification adapters remain |
-| Stage 3 — Multi-agent control plane | Foundation implementation in progress | DAG/default-deny validation, an injected bounded local runner (retry, timeout, budget, cancellation, kill switch, artifact metadata), a deterministic parallel worktree planner with prefix-aware file/module/migration conflict detection, review/QA/security/integrated-verification/handoff adapters, and worktree create/remove/merge orchestration plus a parallel worker driver loop that persists every run to a durable secret-free JSONL log, a real shell git adapter (execFile, no shell interpolation, validated agent branches and `.worktrees/` paths), and a durable secret-free JSONL action/artifact log store with run-record mapping, and deterministic secret-free sandbox vendor adapters (notification dispatcher, idempotent payment gateway, courier) behind injected provider-neutral contracts; the payment and courier adapters are wired into the commerce and logistics services (server-authoritative provider transaction id and tracking id) |
+| Stage 3 — Multi-agent control plane | Foundation implementation in progress | DAG/default-deny validation, an injected bounded local runner (retry, timeout, budget, cancellation, kill switch, artifact metadata), a deterministic parallel worktree planner with prefix-aware file/module/migration conflict detection, review/QA/security/integrated-verification/handoff adapters, and worktree create/remove/merge orchestration plus a parallel worker driver loop that persists every run to a durable secret-free JSONL log, a real shell git adapter (execFile, no shell interpolation, validated agent branches and `.worktrees/` paths, plus branch deletion after merge), and a durable secret-free JSONL action/artifact log store with run-record mapping, and deterministic secret-free sandbox vendor adapters (notification dispatcher, idempotent payment gateway, courier) behind injected provider-neutral contracts; the payment and courier adapters are wired into the commerce and logistics services (server-authoritative provider transaction id and tracking id); a runnable autonomous orchestration loop driver (`scripts/autonomous-loop.mjs`) that loads a bounded task graph, runs every dependency-ready task through the full pipeline with the real shell git adapter and durable log store, persists completed/failed task status back to the graph file for cross-process resume, and reports a durable summary (dry-run mode is CI-safe); stuck-state hardening now adds durable transitive `BLOCKED` propagation, in-loop batch limits, explicit integration-target checkout, merge-conflict abort, cleanup-failure reporting, durable `PASSED` resume, real merge/worktree failure records, and merged-branch deletion |
+
+
 
 
 
@@ -52,13 +54,16 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Current verification baseline
 
-- Root `npm test`: 264 total tests after courier webhook wiring; 242 passed, 22 PostgreSQL integration tests skip without `TEST_DATABASE_URL` by design, 0 failed.
-- Root `npm run verify`: pass with E0, lint, typecheck, 264 tests (242 pass, 22 PostgreSQL skips by design), build, secret scan, and dependency audit.
-- CI-equivalent `npm run verify:ci`: 242 application/unit + 22 PostgreSQL integration + 1 E2E smoke, all passing (0 failures).
+- Root `npm test`: 280 total tests after stuck-state hardening; 258 passed, 22 PostgreSQL integration tests skip without `TEST_DATABASE_URL` by design, 0 failed.
+- Root `npm run verify`: pass for this slice: E0, lint, typecheck, 280 tests, build, and security scan.
+- CI-equivalent `npm run verify:ci`: 254 application/unit + 22 PostgreSQL integration + 1 E2E smoke, all passing (0 failures).
 - E0 artifact verification: 36 required artifacts; latest GitHub merge evidence is PR #1 (`1692049`).
 - Dependency audit (`npm audit --omit=dev --audit-level=high`): 0 known vulnerabilities.
 - Backup/restore drill: seed rows recovered to a throwaway database.
-- Latest detailed evidence: `docs/handoffs/STAGE3_COURIER_WEBHOOK.md`.
+- Autonomous loop dry-run: `node scripts/autonomous-loop.mjs --dry-run --graph work/autonomous-graph.json` completes 2 batches (spec/api/web), 0 failed.
+- Latest detailed evidence: `docs/handoffs/STAGE3_AGENT_STUCK_FIX.md`.
+
+
 
 
 
@@ -80,9 +85,10 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Next dependency-ready work
 
-1. Add webhook retry/outbox delivery guarantees for the courier webhook (explicitly deferred from the courier webhook slice).
-2. Complete safe Stage 2 release slices: container image scan when an image exists.
-3. Production deployment and real provider credentials remain human-approval hard stops.
+1. Define and approve a vendor-neutral external-agent executor contract before wiring Cline or DeepSeek.
+2. Add webhook retry/outbox delivery guarantees for the courier webhook.
+3. Complete safe Stage 2 release slices: container image scan when an image exists.
+4. Production deployment and real provider credentials remain human-approval hard stops.
 
 
 
