@@ -19,6 +19,7 @@ export { assertUniqueInspectionTemplateItems, createInspectionTemplate, createIn
 export { createListing, createListingPrice, createPublicListing, createPublicPassport, ListingStatus, publishListing } from "./listing/listing.mjs";
 export { convertReservation, createReservation, isExpiredReservation, ReservationStatus } from "./commerce/reservation.mjs";
 export { confirmPayment, createOrder, createOrderItemSnapshot, createPayment, OrderStatus, PaymentDirection, PaymentStatus } from "./commerce/order-payment.mjs";
+export { createNotification, markNotificationFailed, markNotificationSent, NotificationChannel, NotificationStatus } from "./notification/notification.mjs";
 export { createShipment, createShipmentEvent, markDelivered, markShipped, ShipmentStatus } from "./logistics/shipment.mjs";
 export { approveReturn, createReturnRequest, markReturnReceived, ReturnRequestStatus, settleRefund } from "./warranty/return-refund.mjs";
 export { createClaim, createClaimResolution, createWarranty, ClaimStatus, ResolutionType, WarrantyStatus } from "./warranty/warranty-claim.mjs";

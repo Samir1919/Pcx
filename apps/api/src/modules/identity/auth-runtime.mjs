@@ -34,6 +34,8 @@ import { createPostgresWarrantyClaimRepository } from "../warranty/postgres-warr
 import { createWarrantyClaimService } from "../warranty/warranty-claim-service.mjs";
 import { createPostgresOperationsReportRepository } from "../reporting/postgres-operations-report-repository.mjs";
 import { createOperationsReportService } from "../reporting/operations-report-service.mjs";
+import { createPostgresNotificationRepository } from "../notification/postgres-notification-repository.mjs";
+import { createNotificationService } from "../notification/notification-service.mjs";
 
 export function parseAllowedOrigins(value) {
   if (typeof value !== "string") throw new TypeError("allowed origins are required");
@@ -86,5 +88,6 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   const returnRequestService = createReturnRequestService({ authService, repository: createPostgresReturnRequestRepository({ pool }) });
   const warrantyClaimService = createWarrantyClaimService({ authService, repository: createPostgresWarrantyClaimRepository({ pool }) });
   const operationsReportService = createOperationsReportService({ authService, repository: createPostgresOperationsReportRepository({ pool }) });
-  return Object.freeze({ authService, identityActionService, addressService, catalogService, catalogCommandService, catalogSpecCommandService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, listingService, reservationService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, operationsReportService, allowedOrigins: origins });
+  const notificationService = createNotificationService({ authService, repository: createPostgresNotificationRepository({ pool }) });
+  return Object.freeze({ authService, identityActionService, addressService, catalogService, catalogCommandService, catalogSpecCommandService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, listingService, reservationService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, operationsReportService, notificationService, allowedOrigins: origins });
 }

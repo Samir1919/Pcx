@@ -1,7 +1,7 @@
 # PCX Project Status
 
 - Updated: 2026-08-16
-- Current main evidence commit: `c748107`
+- Current main evidence commit: `8ed08fb`
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: E8 search/discovery storefront
 - Current autonomy maturity: Stage 2 in progress
@@ -28,7 +28,7 @@ This file is the central progress index. Approved specifications define what PCX
 | E12 — Return & refund | In progress | Customer-gated return request with server-owned REQUESTED→APPROVED→RECEIVED→REFUNDED lifecycle and database-enforced one-refundable-request-per-item (double-refund guard) | Refund gateway execution, physical serial-match intake, carrier pickup |
 | E13 — Warranty & claims | In progress | One warranty per sold order item with a valid window, plus server-owned claim lifecycle (REQUESTED→RESOLVED) and typed resolutions (REPAIR/REPLACE/REFUND/REJECT) recorded with approving identity | Warranty policy authoring, claim inspections, carrier pickup, cost accounting |
 | E14 — Admin operations & reporting | In progress | Admin-gated operations dashboard (`GET /api/v1/admin/reports/operations`) with lifecycle counts and recent orders/sell requests under AUDIT_READ/SYSTEM_CONFIGURE | Full BI/reporting UI, scheduled exports, per-module operational screens |
-| E15 — Notifications | Pending | Specifications approved | Provider-neutral adapters, retries and delivery visibility |
+| E15 — Notifications | In progress | Provider-neutral notification outbox (PENDING→SENT/FAILED) with SYSTEM_CONFIGURE-gated creation and dispatch; delivery failure never rolls back a business transaction | Concrete email/SMS/push providers, retries, delivery visibility |
 | E16 — Audit, observability & jobs | Pending | Specifications approved | Runtime implementation and runbooks |
 | E17 — Security hardening | Pending | Threat model approved; early controls implemented incrementally | Full regression/scanning/headers/upload/MFA gates |
 | E18 — Backup, staging & release readiness | Pending | Infrastructure plan approved | Staging, restore drill, rehearsal, smoke/rollback/launch gates |
@@ -44,12 +44,12 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Current verification baseline
 
-- Root `npm run verify`: 177 application/unit tests pass; 20 PostgreSQL integration tests skip without `TEST_DATABASE_URL` by design; secret scan + dependency audit pass; Next production build passes.
-- CI-equivalent `npm run verify:ci`: 177 application/unit + 20 PostgreSQL integration + 1 E2E smoke, all passing (0 failures).
+- Root `npm run verify`: 203 application/unit tests pass; 21 PostgreSQL integration tests skip without `TEST_DATABASE_URL` by design; secret scan + dependency audit pass; Next production build passes.
+- CI-equivalent `npm run verify:ci`: 203 application/unit + 21 PostgreSQL integration + 1 E2E smoke, all passing (0 failures).
 - E0 artifact verification: 36 required artifacts.
 - Dependency audit (`npm audit --omit=dev --audit-level=high`): 0 known vulnerabilities.
 - Backup/restore drill: seed rows recovered to a throwaway database.
-- Latest detailed evidence: `docs/handoffs/E14_ADMIN_OPERATIONS_REPORTING.md`.
+- Latest detailed evidence: `docs/handoffs/E15_NOTIFICATIONS.md`.
 
 ## Current decisions and hard stops
 
@@ -61,9 +61,9 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Next dependency-ready work
 
-1. E15 notifications (provider-neutral adapters).
-2. E16 audit/observability/jobs.
-3. E17 security hardening.
+1. E16 audit/observability/jobs.
+2. E17 security hardening.
+3. E18 backup/staging/release readiness.
 
 ## Update rule
 
