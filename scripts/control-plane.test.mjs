@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { evaluateAction, planParallelTasks, readyTasks, runBoundedTask, validateTaskGraph } from "./control-plane.mjs";
+import { buildHandoff, evaluateAction, planParallelTasks, readyTasks, reviewTask, runBoundedTask, runQaGates, securityReview, validateTaskGraph, verifyIntegrated } from "./control-plane.mjs";
+
 
 const task = (id, overrides = {}) => ({
   id,
@@ -114,4 +115,68 @@ test("bounded runner times out an unresponsive executor", async () => {
   const outcome = await runBoundedTask({ task: task("timeout", { timeoutMs: 1_000 }), actions: ["read"], executor: async () => new Promise(() => { }) });
   assert.equal(outcome.failureClass, "timeout");
   assert.equal(outcome.attempts, 1);
+});
+
+test("review adapter approves clean work and rejects blocker/major findings", () => {
+  const clean = reviewTask({ task: task("clean"), checks: ["invariants", "authz"], findings: [{ severity: "NIT", code: "style", message: "minor" }] });
+  assert.equal(clean.verdict, "APPROVED");
+  assert.equal(clean.blocked, false);
+  assert.deepEqual(clean.severityCounts, { BLOCKER: 0, MAJOR: 0, MINOR: 0, NIT: 1 });
+  const blocked = reviewTask({ task: task("blocked"), findings: [{ severity: "MAJOR", code: "invariant", message: "violates core invariant" }] });
+  assert.equal(blocked.verdict, "REJECTED");
+  assert.equal(blocked.blocked, true);
+  assert.throws(() => reviewTask({ task: task("bad"), findings: [{ severity: "CRITICAL", code: "x", message: "y" }] }), /severity/);
+});
+
+test("QA adapter runs declared gates and never reports a failing gate as passing", async () => {
+  const outcome = await runQaGates({
+    task: task("qa"),
+    gates: ["npm run verify:e0", "npm test"],
+    executor: async ({ gate }) => ({ name: gate, command: gate, status: gate.includes("verify") ? "PASSED" : "FAILED", detail: "" })
+  });
+  assert.equal(outcome.verdict, "FAILED");
+  assert.equal(outcome.passed, 1);
+  assert.equal(outcome.failed, 1);
+  assert.equal(outcome.notRun, 0);
+  await assert.rejects(() => runQaGates({ task: task("qa"), gates: [], executor: async () => ({}) }), /at least one/);
+});
+
+test("security adapter is mandatory for sensitive surfaces and cannot approve production policy", () => {
+  const sensitive = securityReview({ task: task("auth", { scope: ["auth"], affectedPaths: ["apps/api/src/auth.mjs"] }), findings: [] });
+  assert.equal(sensitive.required, true);
+  assert.equal(sensitive.verdict, "APPROVED");
+  const blocked = securityReview({ task: task("auth", { scope: ["auth"] }), findings: [{ severity: "BLOCKER", code: "pii", message: "exposes PII" }] });
+  assert.equal(blocked.verdict, "REJECTED");
+  const unrelated = securityReview({ task: task("catalog", { scope: ["catalog"] }) });
+  assert.equal(unrelated.required, false);
+  assert.equal(unrelated.verdict, "NOT_REQUIRED");
+});
+
+test("integrated verification requires all gates to pass before readiness", () => {
+  const qa = { taskId: "ready", verdict: "PASSED" };
+  const review = { verdict: "APPROVED" };
+  const security = { verdict: "NOT_REQUIRED" };
+  assert.equal(verifyIntegrated({ task: task("ready"), qa, review, security }).verdict, "READY");
+  assert.equal(verifyIntegrated({ task: task("ready"), qa: { taskId: "ready", verdict: "INCOMPLETE" }, review, security }).verdict, "NOT_READY");
+  assert.throws(() => verifyIntegrated({ task: task("ready"), qa: { taskId: "other", verdict: "PASSED" } }), /taskId mismatch/);
+});
+
+test("handoff adapter produces a durable, secret-free completion record", () => {
+  const record = buildHandoff({
+    task: task("handoff"),
+    branch: "agent/handoff",
+    commit: "abc123",
+    qa: { verdict: "PASSED" },
+    security: { verdict: "NOT_REQUIRED" },
+    review: { verdict: "APPROVED" },
+    sections: { outcome: "done", blockers: "none" }
+  });
+
+  assert.equal(record.status, "Complete");
+  assert.equal(record.qaVerdict, "PASSED");
+  assert.equal(record.securityVerdict, "NOT_REQUIRED");
+  assert.equal(record.reviewVerdict, "APPROVED");
+  assert.deepEqual(record.sections, { outcome: "done", blockers: "none" });
+  assert.throws(() => buildHandoff({ task: task("handoff"), branch: "b", commit: "c", sections: { secret: "leak" } }), /prohibited section/);
+  assert.throws(() => buildHandoff({ task: task("handoff"), branch: "b", commit: "c", sections: { outcome: "" } }), /non-empty/);
 });

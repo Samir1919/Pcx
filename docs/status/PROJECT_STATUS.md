@@ -39,7 +39,7 @@ This file is the central progress index. Approved specifications define what PCX
 |---|---|---|
 | Stage 1 — Lean controlled development | Complete | Project Brain, hard stops, bounded branches/tasks, tests, review, handoffs and safe merge flow |
 | Stage 2 — MVP integration/release discipline | In progress | Locked install, additive migrations, migration checksums, integration tests, CI PostgreSQL service, secret/dependency scanning, staging overlay, E2E smoke path, database backup/restore drill; container image scan and sandbox payment/courier/notification adapters remain |
-| Stage 3 — Multi-agent control plane | Foundation implementation in progress | DAG/default-deny validation, an injected bounded local runner (retry, timeout, budget, cancellation, kill switch, artifact metadata), and a deterministic parallel worktree planner with prefix-aware file/module/migration conflict detection; shell/vendor adapters, worktree creation, review gates, and durable logs remain unavailable |
+| Stage 3 — Multi-agent control plane | Foundation implementation in progress | DAG/default-deny validation, an injected bounded local runner (retry, timeout, budget, cancellation, kill switch, artifact metadata), a deterministic parallel worktree planner with prefix-aware file/module/migration conflict detection, and review/QA/security/integrated-verification/handoff adapters; shell/vendor adapters, worktree creation, and durable logs remain unavailable |
 | Stage 4 — Production delivery/operations | Not started | Requires real staging/production operations and explicit production approval |
 
 ## Current verification baseline
@@ -50,7 +50,7 @@ This file is the central progress index. Approved specifications define what PCX
 - E0 artifact verification: 36 required artifacts; latest GitHub merge evidence is PR #1 (`1692049`).
 - Dependency audit (`npm audit --omit=dev --audit-level=high`): 0 known vulnerabilities.
 - Backup/restore drill: seed rows recovered to a throwaway database.
-- Latest detailed evidence: `docs/handoffs/STAGE3_WORKTREE_CONFLICT_PLANNING.md`.
+- Latest detailed evidence: `docs/handoffs/STAGE3_REVIEW_QA_SECURITY_ADAPTERS.md`.
 
 ## Current decisions and hard stops
 
@@ -64,7 +64,7 @@ This file is the central progress index. Approved specifications define what PCX
 ## Next dependency-ready work
 
 1. Complete safe Stage 2 release slices: container image scan when an image exists, plus sandbox payment/courier/notification adapters.
-2. Add reviewer, QA, security, integrated verification, and handoff adapters, then isolated worktree creation and merge orchestration, before enabling any parallel worker adapter.
+2. Add isolated worktree creation and merge orchestration, then enable parallel worker adapters (review/QA/security/integrated-verification/handoff adapters are now implemented).
 3. Production deployment and real provider credentials remain human-approval hard stops.
 
 ## Update rule

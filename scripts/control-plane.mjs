@@ -243,6 +243,183 @@ export const runBoundedTask = async ({ task, actions, executor, environment = "l
   return result(validated.id, "FAILED", attempts, costUnits, "attempts_exhausted");
 };
 
+const FINDING_SEVERITIES = new Set(["BLOCKER", "MAJOR", "MINOR", "NIT"]);
+const GATE_STATUSES = new Set(["PASSED", "FAILED", "SKIPPED", "NOT_RUN"]);
+const SECURITY_SENSITIVE_SURFACES = [
+  /auth/i,
+  /rbac/i,
+  /role/i,
+  /permission/i,
+  /pii/i,
+  /upload/i,
+  /evidence/i,
+  /payment/i,
+  /refund/i,
+  /passport/i,
+  /privileged/i,
+  /secret/i,
+  /credential/i,
+  /callback/i,
+  /webhook/i
+];
+
+const asFinding = (finding) => {
+  if (!finding || typeof finding !== "object") throw new Error("finding must be an object");
+  const severity = asNonEmptyString(finding.severity, "finding.severity").toUpperCase();
+  if (!FINDING_SEVERITIES.has(severity)) throw new Error(`finding.severity is invalid: ${severity}`);
+  return Object.freeze({
+    severity,
+    code: asNonEmptyString(finding.code, "finding.code"),
+    message: asNonEmptyString(finding.message, "finding.message")
+  });
+};
+
+const asFindings = (findings = []) => {
+  if (!Array.isArray(findings) || findings.length > 100) throw new Error("findings must be an array with at most 100 entries");
+  return findings.map(asFinding);
+};
+
+const asGateResult = (gate) => {
+  if (!gate || typeof gate !== "object") throw new Error("gate result must be an object");
+  const status = asNonEmptyString(gate.status, "gate.status").toUpperCase();
+  if (!GATE_STATUSES.has(status)) throw new Error(`gate.status is invalid: ${status}`);
+  return Object.freeze({
+    name: asNonEmptyString(gate.name, "gate.name"),
+    command: asNonEmptyString(gate.command, "gate.command"),
+    status,
+    detail: typeof gate.detail === "string" ? gate.detail.trim() : ""
+  });
+};
+
+const isSecuritySensitive = (task) => {
+  const haystack = [task.id, task.owner, ...task.scope, ...task.affectedPaths, ...task.tests].join(" ").toLowerCase();
+  return SECURITY_SENSITIVE_SURFACES.some((pattern) => pattern.test(haystack));
+};
+
+/**
+ * Review adapter: evaluates an integrated task result against requirement coverage,
+ * invariants, authorization/ownership, concurrency, idempotency, sensitive-data
+ * exposure, compatibility, and unnecessary complexity. Returns typed findings.
+ * BLOCKER/MAJOR findings must be resolved or explicitly waived by an authorized human.
+ */
+export const reviewTask = ({ task, checks = [], findings = [] } = {}) => {
+  const validated = validateTask(task);
+  const declaredChecks = asStringArray(checks, "checks");
+  const reviewFindings = asFindings(findings);
+  const severityCounts = { BLOCKER: 0, MAJOR: 0, MINOR: 0, NIT: 0 };
+  for (const finding of reviewFindings) severityCounts[finding.severity] += 1;
+  const blocked = severityCounts.BLOCKER > 0 || severityCounts.MAJOR > 0;
+  return Object.freeze({
+    taskId: validated.id,
+    checks: Object.freeze(declaredChecks),
+    findings: Object.freeze(reviewFindings),
+    severityCounts: Object.freeze(severityCounts),
+    blocked,
+    verdict: blocked ? "REJECTED" : "APPROVED"
+  });
+};
+
+/**
+ * QA adapter: runs declared gates through an injected executor and records
+ * commands/results. A failing or unrun gate is never reported as passing.
+ */
+export const runQaGates = async ({ task, gates = [], executor } = {}) => {
+  const validated = validateTask(task);
+  const declaredGates = asStringArray(gates, "gates");
+  if (declaredGates.length === 0) throw new Error("gates must contain at least one declared gate");
+  if (typeof executor !== "function") throw new Error("executor must be a function");
+  const results = [];
+  for (const gate of declaredGates) {
+    const outcome = await executor({ task: validated, gate });
+    const gateResult = asGateResult(outcome);
+    results.push(gateResult);
+  }
+  const failed = results.some((gate) => gate.status === "FAILED");
+  const notRun = results.some((gate) => gate.status === "NOT_RUN" || gate.status === "SKIPPED");
+  return Object.freeze({
+    taskId: validated.id,
+    gates: Object.freeze(results),
+    passed: results.filter((gate) => gate.status === "PASSED").length,
+    failed: results.filter((gate) => gate.status === "FAILED").length,
+    notRun: results.filter((gate) => gate.status === "NOT_RUN" || gate.status === "SKIPPED").length,
+    verdict: failed ? "FAILED" : notRun ? "INCOMPLETE" : "PASSED"
+  });
+};
+
+/**
+ * Security adapter: mandatory for security-sensitive tasks. Reviews threat
+ * boundaries and returns a verdict. It cannot approve production policy.
+ */
+export const securityReview = ({ task, findings = [] } = {}) => {
+  const validated = validateTask(task);
+  const sensitive = isSecuritySensitive(validated);
+  const securityFindings = asFindings(findings);
+  const blockers = securityFindings.filter((finding) => finding.severity === "BLOCKER" || finding.severity === "MAJOR");
+  return Object.freeze({
+    taskId: validated.id,
+    required: sensitive,
+    reviewed: sensitive,
+    findings: Object.freeze(securityFindings),
+    blocked: blockers.length > 0,
+    verdict: blockers.length > 0 ? "REJECTED" : sensitive ? "APPROVED" : "NOT_REQUIRED"
+  });
+};
+
+/**
+ * Integrated verification: requires all declared gates to pass before a candidate
+ * is reported ready. A failing or unrun gate prevents readiness.
+ */
+export const verifyIntegrated = ({ task, qa, security, review } = {}) => {
+  const validated = validateTask(task);
+  if (!qa || typeof qa !== "object") throw new Error("qa result is required");
+  if (qa.taskId !== validated.id) throw new Error(`qa result taskId mismatch: ${qa.taskId}`);
+  const qaVerdict = qa.verdict === "PASSED";
+  const reviewVerdict = review ? review.verdict === "APPROVED" : true;
+  const securityVerdict = security ? security.verdict === "APPROVED" || security.verdict === "NOT_REQUIRED" : true;
+  const ready = qaVerdict && reviewVerdict && securityVerdict;
+  return Object.freeze({
+    taskId: validated.id,
+    qaPassed: qaVerdict,
+    reviewPassed: reviewVerdict,
+    securityPassed: securityVerdict,
+    ready,
+    verdict: ready ? "READY" : "NOT_READY"
+  });
+};
+
+const sanitizeHandoffSections = (sections = {}) => {
+  if (!sections || typeof sections !== "object") throw new Error("sections must be an object");
+  const allowed = ["outcome", "changedAreas", "acceptance", "architecture", "schema", "remaining", "blockers"];
+  const unknown = Object.keys(sections).filter((key) => !allowed.includes(key));
+  if (unknown.length > 0) throw new Error(`handoff contains prohibited section: ${unknown.join(",")}`);
+  const clean = {};
+  for (const key of allowed) {
+    if (sections[key] !== undefined) clean[key] = asNonEmptyString(sections[key], `sections.${key}`);
+  }
+  return Object.freeze(clean);
+};
+
+/**
+ * Handoff adapter: produces a durable, secret-free completion record from the
+ * task and adapter results. Rejects secret-bearing fields.
+ */
+export const buildHandoff = ({ task, branch, commit, qa, security, review, sections = {} } = {}) => {
+  const validated = validateTask(task);
+  const cleanSections = sanitizeHandoffSections(sections);
+  const record = Object.freeze({
+    taskId: validated.id,
+    owner: validated.owner,
+    branch: asNonEmptyString(branch, "branch"),
+    commit: asNonEmptyString(commit, "commit"),
+    status: "Complete",
+    qaVerdict: qa?.verdict ?? "NOT_RUN",
+    securityVerdict: security?.verdict ?? "NOT_RUN",
+    reviewVerdict: review?.verdict ?? "NOT_RUN",
+    sections: cleanSections
+  });
+  return record;
+};
+
 if (process.argv[1] && process.argv[1].endsWith("/control-plane.mjs") && process.argv[2] === "action") {
   const result = evaluateAction({ action: process.argv[3], environment: process.env.PCX_AGENT_ENVIRONMENT ?? "local" });
   process.stdout.write(`${JSON.stringify(result)}\n`);
