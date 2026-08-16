@@ -1,6 +1,6 @@
 # Task: Push and merge API entrypoint fix
 
-- Status: In progress
+- Status: Complete
 - Owner/agent: PCX agent
 - Branch: `agent/api-entrypoint-fix`
 - Risk: Low
@@ -34,11 +34,11 @@ Commit the approved API development entrypoint fix, push it to GitHub on an isol
 
 ## Acceptance criteria
 
-- [ ] Relevant verification passes.
-- [ ] Approved files are committed on an isolated branch.
-- [ ] Branch is pushed to GitHub.
-- [ ] Changes are merged into `main`.
-- [ ] `.continue/agents/*` remains uncommitted.
+- [x] Relevant verification passes.
+- [x] Approved files are committed on an isolated branch.
+- [x] Branch is pushed to GitHub.
+- [x] Changes are merged into `main`.
+- [x] `.continue/agents/*` remains uncommitted.
 
 ## State/API/schema/UI impact
 

@@ -1,7 +1,7 @@
 # PCX Project Status
 
 - Updated: 2026-08-16
-- Current main evidence commit: `c2b5734`
+- Current main evidence commit: `1692049`
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: E8 search/discovery storefront
 - Current autonomy maturity: Stage 2 in progress
@@ -46,7 +46,7 @@ This file is the central progress index. Approved specifications define what PCX
 
 - Root `npm run verify`: 213 application/unit tests pass (incl. 3 storefront adapter tests); 22 PostgreSQL integration tests skip without `TEST_DATABASE_URL` by design; secret scan + dependency audit pass; Next production build passes.
 - CI-equivalent `npm run verify:ci`: 213 application/unit + 22 PostgreSQL integration + 1 E2E smoke, all passing (0 failures).
-- E0 artifact verification: 36 required artifacts.
+- E0 artifact verification: 36 required artifacts; latest GitHub merge evidence is PR #1 (`1692049`).
 - Dependency audit (`npm audit --omit=dev --audit-level=high`): 0 known vulnerabilities.
 - Backup/restore drill: seed rows recovered to a throwaway database.
 - Latest detailed evidence: `docs/handoffs/E18_BACKUP_STAGING_RELEASE_READINESS.md`.
