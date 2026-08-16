@@ -7,6 +7,7 @@ import {
   createAcquisition,
   createOffer,
   createValuation,
+  markAcquisitionPaid,
   OfferStatus,
   ValuationType
 } from "../src/index.mjs";
@@ -38,4 +39,14 @@ test("acquisition captures immutable agreed price and requires idempotency key",
   assert.equal(acquisition.paymentStatus, AcquisitionPaymentStatus.PENDING);
   assert.throws(() => createAcquisition({ id: "a", sellRequestId: "sr", acceptedOfferId: "o", sellerUserId: "u", agreedPrice: 0, idempotencyKey: "k" }), /positive amount/);
   assert.throws(() => createAcquisition({ id: "a", sellRequestId: "sr", acceptedOfferId: "o", sellerUserId: "u", agreedPrice: 1 }), /idempotencyKey/);
+});
+
+test("acquisition payment is server-owned and only PENDING can be marked PAID", () => {
+  const acquisition = createAcquisition({ id: "a1", sellRequestId: "sr1", acceptedOfferId: "o1", sellerUserId: "u2", agreedPrice: 7000, acquiredAt: "2026-08-16T12:00:00.000Z", idempotencyKey: "idem-1" });
+  const paid = markAcquisitionPaid(acquisition, { paidAt: "2026-08-16T13:00:00.000Z" });
+  assert.equal(paid.paymentStatus, AcquisitionPaymentStatus.PAID);
+  assert.equal(paid.paidAt, "2026-08-16T13:00:00.000Z");
+  assert.equal(paid.agreedPrice, 7000);
+  assert.throws(() => markAcquisitionPaid(paid), /PENDING/);
+  assert.throws(() => markAcquisitionPaid(null), /acquisition is required/);
 });

@@ -118,6 +118,19 @@ export function createPostgresAcquisitionRepository({ pool }) {
         [acceptedOfferId]
       );
       return result.rows[0] ? acquisition(result.rows[0]) : null;
+    },
+
+    async markPaid(acquisitionId, now) {
+      return transaction(pool, async (client) => {
+        const updated = await client.query(
+          `UPDATE acquisitions SET payment_status = 'PAID'
+           WHERE id::text = $1 AND payment_status = 'PENDING'
+           RETURNING id, sell_request_id, accepted_offer_id, seller_user_id, source_type, agreed_price, payment_status, ownership_confirmed_at, acquired_at, idempotency_key`,
+          [acquisitionId]
+        );
+        if (updated.rowCount !== 1) return { status: "not_payable" };
+        return { status: "paid", record: acquisition(updated.rows[0]) };
+      });
     }
   });
 }

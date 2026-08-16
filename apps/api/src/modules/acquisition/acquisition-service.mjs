@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createOffer, createValuation, createAcquisition } from "../../../../../packages/domain/src/acquisition/valuation-offer.mjs";
+import { createOffer, createValuation, createAcquisition, markAcquisitionPaid } from "../../../../../packages/domain/src/acquisition/valuation-offer.mjs";
 import { hasPermission, Permission } from "../../../../../packages/domain/src/index.mjs";
 
 export class AcquisitionError extends Error {
@@ -12,7 +12,7 @@ const acquisitionFields = new Set(["sellRequestId", "acceptedOfferId", "sellerUs
 
 export function createAcquisitionService({ authService, repository, id = randomUUID, clock = () => new Date() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  for (const method of ["createValuation", "createOffer", "acceptOffer", "findOfferById", "createAcquisition", "findByOffer"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  for (const method of ["createValuation", "createOffer", "acceptOffer", "findOfferById", "createAcquisition", "findByOffer", "markPaid"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
 
   async function actor(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -100,6 +100,13 @@ export function createAcquisitionService({ authService, repository, id = randomU
         if (error?.code === "23503") throw new AcquisitionError("invalid_reference");
         throw error;
       }
+    },
+
+    async markAcquisitionPaid(accessCredential, acquisitionId) {
+      await actor(accessCredential);
+      const result = await repository.markPaid(acquisitionId, clock().toISOString());
+      if (result.status !== "paid") throw new AcquisitionError("invalid_state");
+      return result.record;
     }
   });
 }

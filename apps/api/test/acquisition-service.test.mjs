@@ -4,7 +4,7 @@ import { createAcquisitionService, AcquisitionError } from "../src/modules/acqui
 import { OfferStatus, ValuationType } from "../../../packages/domain/src/index.mjs";
 
 function fixture(overrides = {}) {
-  const calls = { valuations: [], offers: [], accepts: [], acquisitions: [], foundOffers: [], foundAcq: [] };
+  const calls = { valuations: [], offers: [], accepts: [], acquisitions: [], foundOffers: [], foundAcq: [], paid: [] };
   const offer = { id: "o1", sellRequestId: "sr1", valuationId: "v1", amount: 7000, status: OfferStatus.ACCEPTED, expiresAt: "2026-08-17T00:00:00.000Z" };
   const repository = {
     async createValuation(record) { calls.valuations.push(record); return record; },
@@ -13,6 +13,7 @@ function fixture(overrides = {}) {
     async findOfferById(id) { calls.foundOffers.push(id); return id === "o1" ? offer : null; },
     async createAcquisition(record, acceptedOffer) { calls.acquisitions.push({ record, acceptedOffer }); return record; },
     async findByOffer() { calls.foundAcq.push(); return null; },
+    async markPaid(acquisitionId, now) { calls.paid.push({ acquisitionId, now }); return { status: "paid", record: { id: acquisitionId, paymentStatus: "PAID" } }; },
     ...overrides.repository
   };
   const service = createAcquisitionService({
@@ -56,4 +57,18 @@ test("acquisition rejects unknown fields, non-admin, and non-accepted offer", as
 
   const denied = fixture({ authService: { async authenticateAccess() { return { userId: "u", status: "ACTIVE", roles: ["CUSTOMER"] }; } } });
   await assert.rejects(denied.service.createValuation("access", { sellRequestId: "sr", valuationType: "MANUAL" }), (error) => error.code === "forbidden");
+});
+
+test("markAcquisitionPaid is permission-gated and rejects non-payable state", async () => {
+  const { service, calls } = fixture();
+  const paid = await service.markAcquisitionPaid("access", "a1");
+  assert.equal(paid.paymentStatus, "PAID");
+  assert.equal(calls.paid.length, 1);
+  assert.equal(calls.paid[0].acquisitionId, "a1");
+
+  const notPayable = fixture({ repository: { async markPaid() { return { status: "not_payable" }; } } });
+  await assert.rejects(notPayable.service.markAcquisitionPaid("access", "a1"), (error) => error.code === "invalid_state");
+
+  const denied = fixture({ authService: { async authenticateAccess() { return { userId: "u", status: "ACTIVE", roles: ["CUSTOMER"] }; } } });
+  await assert.rejects(denied.service.markAcquisitionPaid("access", "a1"), (error) => error.code === "forbidden");
 });

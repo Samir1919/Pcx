@@ -159,3 +159,16 @@ export function createAcquisition({
   });
 }
 
+// Server-owned payment transition: only a PENDING acquisition can be marked
+// PAID. The client never sets payment state; this is the single authoritative
+// path to record that the seller has been paid.
+export function markAcquisitionPaid(acquisition, { paidAt = new Date() } = {}) {
+  if (!acquisition || typeof acquisition !== "object") throw new TypeError("acquisition is required");
+  if (acquisition.paymentStatus !== AcquisitionPaymentStatus.PENDING) throw new TypeError("only a PENDING acquisition can be marked PAID");
+  return Object.freeze({
+    ...acquisition,
+    paymentStatus: AcquisitionPaymentStatus.PAID,
+    paidAt: timestamp(paidAt, "paidAt")
+  });
+}
+

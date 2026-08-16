@@ -11,6 +11,7 @@ function service(overrides = {}) {
     async createOffer() { return { id: "o1", status: "ACTIVE" }; },
     async acceptOffer() { return { id: "o1", status: "ACCEPTED" }; },
     async createAcquisition() { return { id: "a1", agreedPrice: 7000 }; },
+    async markAcquisitionPaid() { return { id: "a1", paymentStatus: "PAID" }; },
     ...overrides
   };
 }
@@ -54,6 +55,18 @@ test("acquisition maps forbidden, conflict, and invalid state", async () => {
   assert.equal(conflict.status, 409);
 
   const state = await invoke("/api/v1/admin/offers/o/accept", { headers: csrf(), acquisitionService: service({ async acceptOffer() { throw new AcquisitionError("invalid_state"); } }) });
+  assert.equal(state.status, 409);
+});
+
+test("acquisition payment route requires CSRF and returns 201", async () => {
+  const noCsrf = await invoke("/api/v1/admin/acquisitions/a1/pay");
+  assert.equal(noCsrf.status, 403);
+
+  const paid = await invoke("/api/v1/admin/acquisitions/a1/pay", { headers: csrf() });
+  assert.equal(paid.status, 201);
+  assert.equal(paid.body.data.paymentStatus, "PAID");
+
+  const state = await invoke("/api/v1/admin/acquisitions/a1/pay", { headers: csrf(), acquisitionService: service({ async markAcquisitionPaid() { throw new AcquisitionError("invalid_state"); } }) });
   assert.equal(state.status, 409);
 });
 
