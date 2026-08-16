@@ -36,6 +36,8 @@ import { createPostgresOperationsReportRepository } from "../reporting/postgres-
 import { createOperationsReportService } from "../reporting/operations-report-service.mjs";
 import { createPostgresNotificationRepository } from "../notification/postgres-notification-repository.mjs";
 import { createNotificationService } from "../notification/notification-service.mjs";
+import { createPostgresAuditLogRepository } from "../audit/postgres-audit-log-repository.mjs";
+import { createAuditLogService } from "../audit/audit-log-service.mjs";
 
 export function parseAllowedOrigins(value) {
   if (typeof value !== "string") throw new TypeError("allowed origins are required");
@@ -89,5 +91,6 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   const warrantyClaimService = createWarrantyClaimService({ authService, repository: createPostgresWarrantyClaimRepository({ pool }) });
   const operationsReportService = createOperationsReportService({ authService, repository: createPostgresOperationsReportRepository({ pool }) });
   const notificationService = createNotificationService({ authService, repository: createPostgresNotificationRepository({ pool }) });
-  return Object.freeze({ authService, identityActionService, addressService, catalogService, catalogCommandService, catalogSpecCommandService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, listingService, reservationService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, operationsReportService, notificationService, allowedOrigins: origins });
+  const auditLogService = createAuditLogService({ authService, repository: createPostgresAuditLogRepository({ pool }) });
+  return Object.freeze({ authService, identityActionService, addressService, catalogService, catalogCommandService, catalogSpecCommandService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, listingService, reservationService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, operationsReportService, notificationService, auditLogService, allowedOrigins: origins });
 }

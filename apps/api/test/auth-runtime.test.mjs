@@ -67,5 +67,6 @@ test("runtime composition requires PostgreSQL and trusted origins", () => {
   assert.equal(typeof runtime.warrantyClaimService.createWarranty, "function");
   assert.equal(typeof runtime.operationsReportService.dashboard, "function");
   assert.equal(typeof runtime.notificationService.create, "function");
+  assert.equal(typeof runtime.auditLogService.list, "function");
   assert.deepEqual([...runtime.allowedOrigins], ["https://pcx.example"]);
 });

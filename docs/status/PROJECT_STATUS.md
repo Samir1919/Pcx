@@ -29,7 +29,7 @@ This file is the central progress index. Approved specifications define what PCX
 | E13 — Warranty & claims | In progress | One warranty per sold order item with a valid window, plus server-owned claim lifecycle (REQUESTED→RESOLVED) and typed resolutions (REPAIR/REPLACE/REFUND/REJECT) recorded with approving identity | Warranty policy authoring, claim inspections, carrier pickup, cost accounting |
 | E14 — Admin operations & reporting | In progress | Admin-gated operations dashboard (`GET /api/v1/admin/reports/operations`) with lifecycle counts and recent orders/sell requests under AUDIT_READ/SYSTEM_CONFIGURE | Full BI/reporting UI, scheduled exports, per-module operational screens |
 | E15 — Notifications | In progress | Provider-neutral notification outbox (PENDING→SENT/FAILED) with SYSTEM_CONFIGURE-gated creation and dispatch; delivery failure never rolls back a business transaction | Concrete email/SMS/push providers, retries, delivery visibility |
-| E16 — Audit, observability & jobs | Pending | Specifications approved | Runtime implementation and runbooks |
+| E16 — Audit, observability & jobs | In progress | Append-only audit logs (`audit_logs`) with AUDIT_READ-gated filtered listing, plus existing notification `dispatchDue` as the jobs pattern; liveness/readiness endpoints | Full audit retention/rotation, BI dashboards, external SIEM |
 | E17 — Security hardening | Pending | Threat model approved; early controls implemented incrementally | Full regression/scanning/headers/upload/MFA gates |
 | E18 — Backup, staging & release readiness | Pending | Infrastructure plan approved | Staging, restore drill, rehearsal, smoke/rollback/launch gates |
 
@@ -49,7 +49,7 @@ This file is the central progress index. Approved specifications define what PCX
 - E0 artifact verification: 36 required artifacts.
 - Dependency audit (`npm audit --omit=dev --audit-level=high`): 0 known vulnerabilities.
 - Backup/restore drill: seed rows recovered to a throwaway database.
-- Latest detailed evidence: `docs/handoffs/E15_NOTIFICATIONS.md`.
+- Latest detailed evidence: `docs/handoffs/E16_AUDIT_OBSERVABILITY_JOBS.md`.
 
 ## Current decisions and hard stops
 
@@ -61,9 +61,9 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Next dependency-ready work
 
-1. E16 audit/observability/jobs.
-2. E17 security hardening.
-3. E18 backup/staging/release readiness.
+1. E17 security hardening.
+2. E18 backup/staging/release readiness.
+3. E18 release rehearsal/smoke/rollback gates.
 
 ## Update rule
 
