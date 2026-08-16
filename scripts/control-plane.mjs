@@ -420,7 +420,168 @@ export const buildHandoff = ({ task, branch, commit, qa, security, review, secti
   return record;
 };
 
+const asWorktreePlan = (plan) => {
+  if (!plan || typeof plan !== "object") throw new Error("plan must be an object");
+  const taskId = asNonEmptyString(plan.taskId, "plan.taskId");
+  const branch = asNonEmptyString(plan.branch, "plan.branch");
+  if (!/^agent\//.test(branch)) throw new Error(`plan.branch must be an agent branch: ${branch}`);
+  const worktree = normalizeRepositoryPath(plan.worktree, "plan.worktree");
+  if (!worktree.startsWith(".worktrees/")) throw new Error(`plan.worktree must live under .worktrees/: ${worktree}`);
+  return Object.freeze({ taskId, branch, worktree });
+};
+
+const requireGit = (git, method) => {
+  if (!git || typeof git[method] !== "function") throw new Error(`git.${method} must be a function`);
+};
+
+/**
+ * Worktree orchestration primitive: creates an isolated worktree for a planned
+ * agent branch. Git operations are injected so the logic stays deterministic
+ * and testable; no shell command is executed here.
+ */
+export const createWorktree = async ({ plan, git } = {}) => {
+  const validated = asWorktreePlan(plan);
+  requireGit(git, "addWorktree");
+  const outcome = await git.addWorktree({ branch: validated.branch, path: validated.worktree });
+  return Object.freeze({
+    taskId: validated.taskId,
+    branch: validated.branch,
+    worktree: validated.worktree,
+    created: outcome?.ok === true
+  });
+};
+
+/**
+ * Worktree orchestration primitive: removes an isolated worktree after a task
+ * completes. Git operations are injected.
+ */
+export const removeWorktree = async ({ plan, git } = {}) => {
+  const validated = asWorktreePlan(plan);
+  requireGit(git, "removeWorktree");
+  const outcome = await git.removeWorktree({ path: validated.worktree });
+  return Object.freeze({
+    taskId: validated.taskId,
+    worktree: validated.worktree,
+    removed: outcome?.ok === true
+  });
+};
+
+/**
+ * Merge orchestration primitive: merges a completed agent branch into an
+ * integration candidate branch. Reports conflicts deterministically. Merge is
+ * not a production deployment and remains governed by the existing policy.
+ */
+export const mergeWorktree = async ({ plan, git, into = "integration" } = {}) => {
+  const validated = asWorktreePlan(plan);
+  requireGit(git, "mergeBranch");
+  const outcome = await git.mergeBranch({ branch: validated.branch, into });
+  return Object.freeze({
+    taskId: validated.taskId,
+    branch: validated.branch,
+    into,
+    merged: outcome?.ok === true,
+    conflicts: Array.isArray(outcome?.conflicts) ? outcome.conflicts : []
+  });
+};
+
+const runWorkerPipeline = async ({ task, executor, gatesExecutor, environment, signal, isKilled }) => {
+  const actions = ["read", "edit", "run_test", "run_lint", "run_typecheck", "run_build", "create_branch", "create_commit", "create_handoff"];
+  const execution = await runBoundedTask({ task, actions, executor, environment, signal, isKilled });
+  if (execution.status !== "PASSED") {
+    return Object.freeze({
+      taskId: task.id,
+      status: execution.status,
+      failureClass: execution.failureClass,
+      execution,
+      qa: null,
+      security: null,
+      review: null,
+      integrated: null,
+      handoff: null
+    });
+  }
+  const qa = await runQaGates({ task, gates: task.tests, executor: gatesExecutor });
+  const security = securityReview({ task });
+  const review = reviewTask({ task });
+  const integrated = verifyIntegrated({ task, qa, security, review });
+  const commit = execution.artifacts.find((artifact) => artifact.type === "commit")?.path ?? "pending";
+  const handoff = integrated.verdict === "READY"
+    ? buildHandoff({ task, branch: `agent/${slugTaskId(task.id)}`, commit, qa, security, review, sections: { outcome: "complete" } })
+    : null;
+  return Object.freeze({
+    taskId: task.id,
+    status: integrated.verdict === "READY" ? "PASSED" : "FAILED",
+    failureClass: integrated.verdict === "READY" ? null : "gate_failure",
+    execution,
+    qa,
+    security,
+    review,
+    integrated,
+    handoff
+  });
+};
+
+const runOneWorker = async ({ task, executor, gatesExecutor, git, environment, signal, isKilled }) => {
+  const plan = Object.freeze({ taskId: task.id, branch: `agent/${slugTaskId(task.id)}`, worktree: `.worktrees/${slugTaskId(task.id)}` });
+  if (git) await createWorktree({ plan, git });
+  const record = await runWorkerPipeline({ task, executor, gatesExecutor, environment, signal, isKilled });
+  if (git && record.status === "PASSED") await mergeWorktree({ plan, git });
+  if (git) await removeWorktree({ plan, git });
+  return record;
+};
+
+/**
+ * Parallel worker driver: enables the review/QA/security/verification/handoff
+ * adapters by running each dependency-ready, non-conflicting task through the
+ * full pipeline. Tasks are executed in parallel batches; conflicting ready
+ * tasks are deferred and run sequentially. A task is only marked completed when
+ * its integrated verification reports READY. Failed tasks are recorded and not
+ * re-attempted, so the loop always terminates.
+ */
+export const runParallelWorkers = async ({ graph, completedIds = [], executor, gatesExecutor, git, environment = "local", signal, isKilled = () => false } = {}) => {
+  const validated = validateTaskGraph(graph);
+  if (typeof executor !== "function") throw new Error("executor must be a function");
+  if (typeof gatesExecutor !== "function") throw new Error("gatesExecutor must be a function");
+  const completed = new Set(completedIds);
+  const failed = new Set();
+  const records = [];
+  let batches = 0;
+  while (true) {
+    const pending = readyTasks(validated, [...completed]).filter((id) => !failed.has(id));
+    if (pending.length === 0) break;
+    const plan = planParallelTasks(validated, [...completed]);
+    const selected = plan.selected.filter((entry) => !failed.has(entry.taskId));
+    if (selected.length === 0) {
+      const next = plan.deferred.find((entry) => !failed.has(entry.taskId));
+      if (!next) break;
+      const task = validated.tasks.find((entry) => entry.id === next.taskId);
+      const record = await runOneWorker({ task, executor, gatesExecutor, git, environment, signal, isKilled });
+      records.push(record);
+      if (record.status === "PASSED") completed.add(task.id); else failed.add(task.id);
+      batches += 1;
+      continue;
+    }
+    const results = await Promise.all(selected.map(async (entry) => {
+      const task = validated.tasks.find((candidate) => candidate.id === entry.taskId);
+      const record = await runOneWorker({ task, executor, gatesExecutor, git, environment, signal, isKilled });
+      return { taskId: entry.taskId, record };
+    }));
+    for (const { taskId, record } of results) {
+      records.push(record);
+      if (record.status === "PASSED") completed.add(taskId); else failed.add(taskId);
+    }
+    batches += 1;
+  }
+  return Object.freeze({
+    batches,
+    completed: Object.freeze([...completed]),
+    failed: Object.freeze([...failed]),
+    records: Object.freeze(records)
+  });
+};
+
 if (process.argv[1] && process.argv[1].endsWith("/control-plane.mjs") && process.argv[2] === "action") {
+
   const result = evaluateAction({ action: process.argv[3], environment: process.env.PCX_AGENT_ENVIRONMENT ?? "local" });
   process.stdout.write(`${JSON.stringify(result)}\n`);
   if (!result.allowed) process.exitCode = 1;
