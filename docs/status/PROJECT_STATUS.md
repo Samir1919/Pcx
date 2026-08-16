@@ -1,10 +1,10 @@
 # PCX Project Status
 
 - Updated: 2026-08-16
-- Current main evidence commit: `1692049`
+- Current main evidence commit: `39f71e6`
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
-- Current engineering focus: E8 search/discovery storefront
-- Current autonomy maturity: Stage 2 in progress
+- Current engineering focus: Stage 2 completion and Stage 3 control-plane foundation
+- Current autonomy maturity: Stage 2 in progress; Stage 3 foundation planned
 - Production deployment: not authorized
 
 This file is the central progress index. Approved specifications define what PCX must become; task files, handoffs, tests, migrations, and Git commits prove what is complete. Percentages are intentionally omitted because they are not reliable acceptance evidence.
@@ -39,7 +39,7 @@ This file is the central progress index. Approved specifications define what PCX
 |---|---|---|
 | Stage 1 — Lean controlled development | Complete | Project Brain, hard stops, bounded branches/tasks, tests, review, handoffs and safe merge flow |
 | Stage 2 — MVP integration/release discipline | In progress | Locked install, additive migrations, migration checksums, integration tests, CI PostgreSQL service, secret/dependency scanning, staging overlay, E2E smoke path, database backup/restore drill; container image scan and sandbox payment/courier/notification adapters remain |
-| Stage 3 — Multi-agent control plane | Not started | Entry criteria not yet evidenced; no custom orchestration platform justified |
+| Stage 3 — Multi-agent control plane | Foundation planned, implementation not started | `docs/tasks/STAGE3_CONTROL_PLANE_FOUNDATION.md` and proposed ADR 0005 define an evidence-gated, policy-constrained rollout; executable control plane is not yet available |
 | Stage 4 — Production delivery/operations | Not started | Requires real staging/production operations and explicit production approval |
 
 ## Current verification baseline
@@ -61,9 +61,9 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Next dependency-ready work
 
-1. Production deployment (requires explicit human approval — hard stop).
-2. Real payment/courier/notification provider credentials (hard stop).
-3. Container image scan + sandbox adapters.
+1. Complete safe Stage 2 release slices: container image scan when an image exists, plus sandbox payment/courier/notification adapters.
+2. Implement Stage 3 task/DAG validator and default-deny policy foundation from `docs/tasks/STAGE3_CONTROL_PLANE_FOUNDATION.md` and proposed ADR 0005.
+3. Production deployment and real provider credentials remain human-approval hard stops.
 
 ## Update rule
 
