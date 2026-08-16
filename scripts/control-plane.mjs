@@ -217,6 +217,25 @@ const sanitizeArtifacts = (artifacts = []) => {
   });
 };
 
+/**
+ * Validates an external-agent executor's result against the vendor-neutral
+ * executor contract (ADR 0007). Any vendor executor (Cline, DeepSeek, or future
+ * automation) must conform to this contract before its output is trusted.
+ *
+ * The result must be an object with an `artifacts` array of at most 100 entries.
+ * Each artifact must have exactly `type`, `path`, `status`; any other field is
+ * rejected (secret-free output). Paths must be repository-relative without
+ * traversal. When `requireArtifacts` is true, at least one artifact is required
+ * (a PASSED task must produce verifiable output).
+ */
+export const validateExecutorResult = (result, { requireArtifacts = false } = {}) => {
+  if (!result || typeof result !== "object" || Array.isArray(result)) throw new Error("executor result must be an object");
+  const artifacts = sanitizeArtifacts(result.artifacts);
+  if (requireArtifacts && artifacts.length === 0) throw new Error("executor result must contain at least one artifact");
+  return Object.freeze({ artifacts });
+};
+
+
 const result = (taskId, status, attempts, costUnits, failureClass, artifacts = []) => Object.freeze({
   taskId,
   status,
@@ -268,8 +287,11 @@ export const runBoundedTask = async ({ task, actions, executor, environment = "l
       });
       const execution = Promise.resolve().then(() => executor({ task: validated, actions: requestedActions, attempt: attempts, signal: attemptController.signal }));
       const executionResult = await Promise.race([execution, timeout, cancellation]);
-      const artifacts = sanitizeArtifacts(executionResult?.artifacts);
-      return result(validated.id, "PASSED", attempts, costUnits, null, artifacts);
+      // Validate the executor's output against the vendor-neutral executor
+      // contract (ADR 0007): secret-free, repository-relative, verifiable.
+      const validatedResult = validateExecutorResult(executionResult, { requireArtifacts: true });
+      return result(validated.id, "PASSED", attempts, costUnits, null, validatedResult.artifacts);
+
     } catch (error) {
       const failureClass = error?.failureClass ?? "execution_failure";
       if (failureClass === "cancelled") return result(validated.id, "BLOCKED", attempts, costUnits, failureClass);

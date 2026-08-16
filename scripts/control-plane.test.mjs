@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { appendRunRecord, buildHandoff, createFileLogStore, createShellGit, createWorktree, evaluateAction, mergeWorktree, planParallelTasks, propagateBlockedTasks, readyTasks, removeWorktree, reviewTask, runBoundedTask, runParallelWorkers, runQaGates, securityReview, validateTaskGraph, verifyIntegrated } from "./control-plane.mjs";
+import { appendRunRecord, buildHandoff, createFileLogStore, createShellGit, createWorktree, evaluateAction, mergeWorktree, planParallelTasks, propagateBlockedTasks, readyTasks, removeWorktree, reviewTask, runBoundedTask, runParallelWorkers, runQaGates, securityReview, validateExecutorResult, validateTaskGraph, verifyIntegrated } from "./control-plane.mjs";
+
 
 const task = (id, overrides = {}) => ({
   id,
@@ -126,6 +127,41 @@ test("bounded runner times out an unresponsive executor", async () => {
   assert.equal(outcome.failureClass, "timeout");
   assert.equal(outcome.attempts, 1);
 });
+
+test("validateExecutorResult accepts a valid secret-free, repository-relative result", () => {
+  const validated = validateExecutorResult({ artifacts: [{ type: "commit", path: "abc123", status: "ok" }, { type: "handoff", path: "docs/handoffs/x.md", status: "ok" }] });
+  assert.deepEqual(validated.artifacts, [
+    { type: "commit", path: "abc123", status: "ok" },
+    { type: "handoff", path: "docs/handoffs/x.md", status: "ok" }
+  ]);
+});
+
+test("validateExecutorResult rejects non-object results and non-array artifacts", () => {
+  assert.throws(() => validateExecutorResult(null), /must be an object/);
+  assert.throws(() => validateExecutorResult([]), /must be an object/);
+  assert.throws(() => validateExecutorResult({ artifacts: "nope" }), /array/);
+  assert.throws(() => validateExecutorResult({ artifacts: [null] }), /must be an object/);
+});
+
+test("validateExecutorResult rejects secret-bearing and traversal artifacts", () => {
+  assert.throws(() => validateExecutorResult({ artifacts: [{ type: "log", path: "x", status: "ok", token: "secret" }] }), /prohibited metadata/);
+  assert.throws(() => validateExecutorResult({ artifacts: [{ type: "log", path: "../escape", status: "ok" }] }), /repository-relative/);
+  assert.throws(() => validateExecutorResult({ artifacts: [{ type: "log", path: "/abs", status: "ok" }] }), /repository-relative/);
+  assert.throws(() => validateExecutorResult({ artifacts: [{ type: "", path: "x", status: "ok" }] }), /non-empty/);
+  assert.throws(() => validateExecutorResult({ artifacts: [{ type: "log", path: "x", status: "" }] }), /non-empty/);
+});
+
+test("validateExecutorResult requires at least one artifact when requireArtifacts is set", () => {
+  assert.throws(() => validateExecutorResult({ artifacts: [] }, { requireArtifacts: true }), /at least one artifact/);
+  assert.doesNotThrow(() => validateExecutorResult({ artifacts: [] }));
+});
+
+test("bounded runner rejects a PASSED executor that returns no artifacts", async () => {
+  const outcome = await runBoundedTask({ task: task("no-artifacts"), actions: ["read"], executor: async () => ({ artifacts: [] }) });
+  assert.equal(outcome.status, "FAILED");
+  assert.equal(outcome.failureClass, "execution_failure");
+});
+
 
 test("review adapter approves clean work and rejects blocker/major findings", () => {
   const clean = reviewTask({ task: task("clean"), checks: ["invariants", "authz"], findings: [{ severity: "NIT", code: "style", message: "minor" }] });
