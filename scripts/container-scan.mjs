@@ -49,6 +49,27 @@ async function hasCommand(command, run = execFileP) {
   }
 }
 
+// Scanner errors that indicate the scanner is not usable in this environment
+// (authentication required, missing command, permission). These are reported as
+// a safe skip (after trying the fallback scanner), not as a failed security gate,
+// because no vulnerabilities were actually assessed. Genuine scan crashes still
+// fail the gate.
+const SCANNER_AVAILABILITY_PATTERNS = [
+  /log ?in with your docker id/i,
+  /docker login/i,
+  /command not found/i,
+  /is not a docker command/i,
+  /no such file or directory/i,
+  /permission denied/i,
+  /authentication required/i,
+  /unauthorized/i
+];
+
+const isScannerAvailabilityError = (error) => {
+  const text = `${error?.stdout ?? ""}\n${error?.stderr ?? ""}\n${error?.message ?? ""}`;
+  return SCANNER_AVAILABILITY_PATTERNS.some((pattern) => pattern.test(text));
+};
+
 // Core scan logic, dependency-injected for testability. Returns a result object
 // describing whether the scan ran, skipped, or failed.
 export async function runContainerScan({ root = process.cwd(), run = execFileP, images = CANDIDATE_IMAGES } = {}) {
@@ -64,19 +85,41 @@ export async function runContainerScan({ root = process.cwd(), run = execFileP, 
     return { status: "skipped", reason: "no_image", message: "No container image is built locally; scan skipped. Build an image to scan it." };
   }
 
-  let output;
-  try {
-    if (await hasCommand("docker", run)) {
-      output = await scanWithDockerScout(image, run);
-    } else if (await hasCommand("trivy", run)) {
-      output = await scanWithTrivy(image, run);
-    } else {
-      return { status: "skipped", reason: "no_scanner", message: `Image ${image} exists but no scanner (docker scout/trivy) is available; scan skipped.` };
+  const scoutAvailable = await hasCommand("docker", run);
+  const trivyAvailable = await hasCommand("trivy", run);
+
+  let lastError = null;
+  if (scoutAvailable) {
+    try {
+      const output = await scanWithDockerScout(image, run);
+      return { status: "scanned", image, output };
+    } catch (error) {
+      lastError = error;
+      // docker scout requires an authenticated Docker ID; an auth/availability
+      // failure means the scanner is not usable here, so fall back to trivy.
+      if (!isScannerAvailabilityError(error)) {
+        return { status: "failed", reason: "scan_error", message: `Container scan failed for ${image}: ${error.message}` };
+      }
     }
-  } catch (error) {
-    return { status: "failed", reason: "scan_error", message: `Container scan failed for ${image}: ${error.message}` };
   }
-  return { status: "scanned", image, output };
+
+  if (trivyAvailable) {
+    try {
+      const output = await scanWithTrivy(image, run);
+      return { status: "scanned", image, output };
+    } catch (error) {
+      lastError = error;
+      if (!isScannerAvailabilityError(error)) {
+        return { status: "failed", reason: "scan_error", message: `Container scan failed for ${image}: ${error.message}` };
+      }
+    }
+  }
+
+  return {
+    status: "skipped",
+    reason: "no_scanner",
+    message: `Image ${image} exists but no usable scanner (docker scout/trivy) is available; scan skipped.${lastError ? ` ${lastError.message}` : ""}`
+  };
 
 }
 

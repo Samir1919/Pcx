@@ -1,0 +1,16 @@
+# Keep secrets, local state, and build-time noise out of the image build context.
+.env
+.env.*
+!.env.example
+node_modules
+.git
+.gitignore
+*.log
+.worktrees
+work
+outputs
+coverage
+dist
+.next
+tmp
+.DS_Store

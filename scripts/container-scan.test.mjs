@@ -76,6 +76,28 @@ test("container scan falls back to trivy when docker scout is unavailable", asyn
   }
 });
 
+test("container scan skips safely when docker scout requires login and trivy is absent", async () => {
+  const root = tempRoot(true);
+  try {
+    const run = async (cmd, args) => {
+      if (cmd === "docker" && args[0] === "image") return { stdout: "" };
+      if (cmd === "docker" && args[0] === "--version") return { stdout: "" };
+      if (cmd === "docker" && args[0] === "scout") {
+        const error = new Error("scout requires login");
+        error.stdout = "Log in with your Docker ID or email address to use docker scout.";
+        throw error;
+      }
+      if (cmd === "trivy" && args[0] === "--version") throw new Error("command not found");
+      throw new Error("unexpected");
+    };
+    const result = await runContainerScan({ root, images: ["pcx-worker:latest"], run });
+    assert.equal(result.status, "skipped");
+    assert.equal(result.reason, "no_scanner");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("container scan reports a scan failure without crashing", async () => {
   const root = tempRoot(true);
   try {
