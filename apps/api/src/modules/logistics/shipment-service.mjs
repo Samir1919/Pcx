@@ -1,16 +1,20 @@
 import { randomUUID } from "node:crypto";
 import { createShipment, createShipmentEvent, markShipped, markDelivered } from "../../../../../packages/domain/src/logistics/shipment.mjs";
-import { hasPermission, Permission } from "../../../../../packages/domain/src/index.mjs";
+import { createSandboxCourier, hasPermission, Permission } from "../../../../../packages/domain/src/index.mjs";
 
 export class ShipmentError extends Error {
   constructor(code) { super(code); this.name = "ShipmentError"; this.code = code; }
 }
 
-const createFields = new Set(["orderId", "courier", "trackingId", "packageType", "weight", "codAmount", "shippingCharge"]);
+const createFields = new Set(["orderId", "courier", "packageType", "weight", "codAmount", "shippingCharge"]);
+// trackingId is intentionally NOT client-authoritative: it is derived from the
+// injected courier so the server owns the logistics fact.
 
-export function createShipmentService({ authService, repository, id = randomUUID, clock = () => new Date() }) {
+export function createShipmentService({ authService, repository, id = randomUUID, clock = () => new Date(), courier = createSandboxCourier() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
   for (const method of ["create", "markShipped", "markDelivered", "recordEvent"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  if (!courier || typeof courier.createShipment !== "function") throw new TypeError("courier.createShipment is required");
+
 
   async function actor(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -42,13 +46,22 @@ export function createShipmentService({ authService, repository, id = randomUUID
       }
     },
 
-    async ship(accessCredential, shipmentId, trackingId) {
+    async ship(accessCredential, shipmentId, address) {
       await actor(accessCredential);
-      const result = await repository.markShipped(shipmentId, trackingId, clock().toISOString());
+      let shipment;
+      try {
+        // The tracking id is server-authoritative: it is derived from the
+        // injected courier, never accepted from client input.
+        shipment = await courier.createShipment({ reference: shipmentId, address });
+      } catch {
+        throw new ShipmentError("invalid_input");
+      }
+      const result = await repository.markShipped(shipmentId, shipment.trackingId, clock().toISOString());
       if (result.status !== "shipped") throw new ShipmentError("invalid_state");
-      await repository.recordEvent(createShipmentEvent({ id: id(), shipmentId, status: "SHIPPED", providerStatusRaw: null, occurredAt: clock() }));
+      await repository.recordEvent(createShipmentEvent({ id: id(), shipmentId, status: "SHIPPED", providerStatusRaw: shipment.status ?? null, occurredAt: clock() }));
       return result.record;
     },
+
 
     async deliver(accessCredential, shipmentId) {
       await actor(accessCredential);

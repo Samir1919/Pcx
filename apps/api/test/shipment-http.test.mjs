@@ -43,18 +43,25 @@ test("shipment create requires CSRF and returns 201", async () => {
   assert.equal(response.status, 201);
 });
 
-test("shipment ship requires trackingId and deliver maps invalid state", async () => {
-  const ok = await invoke("/api/v1/admin/shipments/s1/ship", { body: { trackingId: "TRK-1" }, headers: csrf() });
+test("shipment ship requires an address and deliver maps invalid state", async () => {
+  const ok = await invoke("/api/v1/admin/shipments/s1/ship", { body: { address: { line1: "1 Main St", city: "Dhaka", country: "BD" } }, headers: csrf() });
   assert.equal(ok.status, 200);
 
-  const missingTracking = await invoke("/api/v1/admin/shipments/s1/ship", { body: {}, headers: csrf() });
-  assert.equal(missingTracking.status, 422);
+  const missingAddress = await invoke("/api/v1/admin/shipments/s1/ship", { body: {}, headers: csrf() });
+  assert.equal(missingAddress.status, 422);
+
+  // A client-supplied trackingId is not accepted: the HTTP layer only reads the
+  // address and derives the tracking id server-side from the courier.
+  const forgedTracking = await invoke("/api/v1/admin/shipments/s1/ship", { body: { trackingId: "FORGED", address: { line1: "1 Main St", city: "Dhaka", country: "BD" } }, headers: csrf() });
+  assert.equal(forgedTracking.status, 200);
+
 
   assert.equal((await invoke("/api/v1/admin/shipments/s1/deliver", { body: {}, headers: csrf() })).status, 200);
 
   const invalidState = await invoke("/api/v1/admin/shipments/s1/deliver", { body: {}, headers: csrf(), shipmentService: service({ async deliver() { throw new ShipmentError("invalid_state"); } }) });
   assert.equal(invalidState.status, 409);
 });
+
 
 test("shipment route rejects unknown methods and missing service", async () => {
   assert.equal((await invoke("/api/v1/admin/shipments", { method: "GET" })).status, 405);

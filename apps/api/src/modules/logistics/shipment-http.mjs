@@ -92,9 +92,10 @@ export async function handleShipmentRequest(request, response, { shipmentService
     if (!suffix) send(response, 201, { data: await shipmentService.create(cookies.pcx_access, await jsonBody(request)) });
     else if (op === "ship") {
       const body = await jsonBody(request);
-      if (typeof body.trackingId !== "string" || !body.trackingId) throw new ShipmentError("invalid_input");
-      send(response, 200, { data: await shipmentService.ship(cookies.pcx_access, id(shipmentId), body.trackingId) });
+      if (!body.address || typeof body.address !== "object" || Array.isArray(body.address)) throw new ShipmentError("invalid_input");
+      send(response, 200, { data: await shipmentService.ship(cookies.pcx_access, id(shipmentId), body.address) });
     } else {
+
       send(response, 200, { data: await shipmentService.deliver(cookies.pcx_access, id(shipmentId)) });
     }
   } catch (error) {

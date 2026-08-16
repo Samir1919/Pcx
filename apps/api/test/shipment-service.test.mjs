@@ -3,8 +3,10 @@ import test from "node:test";
 import { createShipmentService } from "../src/modules/logistics/shipment-service.mjs";
 import { ShipmentStatus } from "../../../packages/domain/src/index.mjs";
 
+const address = { line1: "1 Main St", city: "Dhaka", country: "BD" };
+
 function fixture(overrides = {}) {
-  const calls = { creates: [], ships: [], delivers: [], events: [] };
+  const calls = { creates: [], ships: [], delivers: [], events: [], courierCalls: [] };
   const repository = {
     async create(record) { calls.creates.push(record); return record; },
     async markShipped(id, trackingId, now) { calls.ships.push({ id, trackingId, now }); return { status: "shipped", record: { id, status: ShipmentStatus.SHIPPED, trackingId } }; },
@@ -12,9 +14,14 @@ function fixture(overrides = {}) {
     async recordEvent(event) { calls.events.push(event); return { id: event.id }; },
     ...overrides.repository
   };
+  const courier = {
+    async createShipment({ reference, address: addr }) { calls.courierCalls.push({ reference, address: addr }); return { trackingId: `sandbox-trk-${reference}`, status: "CREATED" }; },
+    ...overrides.courier
+  };
   const service = createShipmentService({
     authService: { async authenticateAccess() { return { userId: "admin-1", status: "ACTIVE", roles: ["ADMIN"] }; }, ...overrides.authService },
     repository,
+    courier,
     id: (() => { let n = 0; return () => `id-${++n}`; })(),
     clock: () => new Date("2026-08-16T12:00:00.000Z")
   });
@@ -31,9 +38,45 @@ test("shipment create requires inventory/system permission", async () => {
   await assert.rejects(denied.service.create("access", { orderId: "o", courier: "c", packageType: "box", weight: 1 }), (error) => error.code === "forbidden");
 });
 
+test("shipment ship derives tracking id from the courier and records the provider status", async () => {
+  const { service, calls } = fixture();
+  const shipped = await service.ship("access", "s1", address);
+  assert.equal(shipped.status, ShipmentStatus.SHIPPED);
+  assert.equal(calls.courierCalls.length, 1);
+  assert.equal(calls.courierCalls[0].reference, "s1");
+  assert.equal(calls.courierCalls[0].address, address);
+  assert.equal(calls.ships[0].trackingId, "sandbox-trk-s1");
+  assert.equal(calls.events.length, 1);
+  assert.equal(calls.events[0].providerStatusRaw, "CREATED");
+});
+
+test("shipment ship ignores a client-supplied tracking id and derives it from the courier", async () => {
+  const { service, calls } = fixture();
+  const shipped = await service.ship("access", "s1", { ...address, trackingId: "FORGED" });
+  assert.equal(shipped.status, ShipmentStatus.SHIPPED);
+  assert.equal(calls.ships[0].trackingId, "sandbox-trk-s1");
+  assert.notEqual(calls.ships[0].trackingId, "FORGED");
+});
+
+
+test("shipment ship supports an injected custom courier", async () => {
+  const { service, calls } = fixture({
+    courier: { async createShipment({ reference }) { return { trackingId: `custom-${reference}`, status: "PICKED_UP" }; } }
+  });
+  const shipped = await service.ship("access", "s1", address);
+  assert.equal(shipped.status, ShipmentStatus.SHIPPED);
+  assert.equal(calls.ships[0].trackingId, "custom-s1");
+  assert.equal(calls.events[0].providerStatusRaw, "PICKED_UP");
+});
+
+test("shipment ship maps a courier failure to invalid_input", async () => {
+  const { service } = fixture({ courier: { async createShipment() { throw new Error("courier down"); } } });
+  await assert.rejects(service.ship("access", "s1", address), (error) => error.code === "invalid_input");
+});
+
 test("shipment ship and deliver enforce state transitions and record events", async () => {
   const { service, calls } = fixture();
-  const shipped = await service.ship("access", "s1", "TRK-123");
+  const shipped = await service.ship("access", "s1", address);
   assert.equal(shipped.status, ShipmentStatus.SHIPPED);
   assert.equal(calls.events.length, 1);
 
@@ -42,5 +85,6 @@ test("shipment ship and deliver enforce state transitions and record events", as
   assert.equal(calls.events.length, 2);
 
   const notShippable = fixture({ repository: { async markShipped() { return { status: "not_shippable" }; } } });
-  await assert.rejects(notShippable.service.ship("access", "s1", "TRK"), (error) => error.code === "invalid_state");
+  await assert.rejects(notShippable.service.ship("access", "s1", address), (error) => error.code === "invalid_state");
 });
+
