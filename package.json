@@ -11,7 +11,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev:api": "node apps/api/src/server.mjs",
+    "dev:api": "node apps/api/src/index.mjs",
     "dev:worker": "node apps/worker/src/worker.mjs",
     "verify:e0": "node scripts/e0-check.mjs",
     "test": "node --test",
