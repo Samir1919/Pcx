@@ -14,6 +14,7 @@ import { handleOrderPaymentRequest } from "./modules/commerce/order-payment-http
 import { handleShipmentRequest } from "./modules/logistics/shipment-http.mjs";
 import { handleReturnRequest } from "./modules/warranty/return-request-http.mjs";
 import { handleWarrantyClaimRequest } from "./modules/warranty/warranty-claim-http.mjs";
+import { handleOperationsReportRequest } from "./modules/reporting/operations-report-http.mjs";
 
 const catalogQueryKeys = new Set(["categoryId", "brandId", "q", "cursor", "limit", "sort"]);
 const catalogSorts = new Set(["name_asc", "name_desc"]);
@@ -57,7 +58,7 @@ function catalogFilters(url) {
   });
 }
 
-export function createRequestHandler({ readiness = () => ({ ok: true }), catalogService, catalogCommandService, catalogSpecCommandService, authService, identityActionService, addressService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, listingService, reservationService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, allowedOrigins } = {}) {
+export function createRequestHandler({ readiness = () => ({ ok: true }), catalogService, catalogCommandService, catalogSpecCommandService, authService, identityActionService, addressService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, listingService, reservationService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, operationsReportService, allowedOrigins } = {}) {
   return async (request, response) => {
     response.setHeader("content-type", "application/json; charset=utf-8");
     const url = new URL(request.url, "http://pcx.local");
@@ -86,6 +87,7 @@ export function createRequestHandler({ readiness = () => ({ ok: true }), catalog
     if (await handleShipmentRequest(request, response, { shipmentService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleReturnRequest(request, response, { returnRequestService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleWarrantyClaimRequest(request, response, { warrantyClaimService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleOperationsReportRequest(request, response, { operationsReportService, requestId: requestId(request) })) return;
     if (await handleSelfRequest(request, response, { authService, requestId: requestId(request) })) return;
 
     const publicCatalogPath = url.pathname === "/api/v1/categories"
