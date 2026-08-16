@@ -2,8 +2,9 @@
 
 - Status: Complete
 - Branch: `agent/stage3-control-plane-foundation`
-- Latest commit: (fill after merge)
+- Latest commit: `5939bd7`
 - Date: 2026-08-16
+
 
 ## Outcome
 
