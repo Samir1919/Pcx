@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { appendRunRecord, buildHandoff, createFileLogStore, createShellGit, createWorktree, evaluateAction, mergeWorktree, planParallelTasks, propagateBlockedTasks, readyTasks, removeWorktree, reviewTask, runBoundedTask, runParallelWorkers, runQaGates, securityReview, validateExecutorResult, validateTaskGraph, verifyIntegrated } from "./control-plane.mjs";
+import { appendRunRecord, buildHandoff, createFileLogStore, createShellGit, createWorktree, evaluateAction, mergeWorktree, planParallelTasks, propagateBlockedTasks, readyTasks, removeWorktree, reviewTask, runBoundedTask, runParallelWorkers, runQaGates, securityReview, summarizeRuns, validateExecutorResult, validateTaskGraph, verifyIntegrated } from "./control-plane.mjs";
+
 
 
 const task = (id, overrides = {}) => ({
@@ -427,18 +428,46 @@ test("shell git adapter validates inputs and delegates to injected run", async (
   assert.equal((await git.removeWorktree({ path: ".worktrees/a" })).ok, true);
   assert.equal((await git.mergeBranch({ branch: "agent/a", into: "integration" })).ok, true);
   assert.equal((await git.deleteBranch({ branch: "agent/a" })).ok, true);
+  assert.equal((await git.commit({ message: "feat: single line" })).ok, true);
   assert.deepEqual(calls[0].args, ["worktree", "add", ".worktrees/a", "-b", "agent/a"]);
   assert.deepEqual(calls[1].args, ["worktree", "remove", ".worktrees/a"]);
   assert.deepEqual(calls[2].args, ["branch", "--show-current"]);
   assert.deepEqual(calls[3].args, ["merge", "--no-ff", "agent/a"]);
   assert.equal(calls[3].into, "integration");
   assert.deepEqual(calls[4].args, ["branch", "-D", "agent/a"]);
+  assert.deepEqual(calls[5].args, ["commit", "-m", "feat: single line"]);
   assert.equal(calls[0].cwd, "/repo");
   await assert.rejects(() => git.addWorktree({ branch: "main", path: ".worktrees/a" }), /agent branch/);
   await assert.rejects(() => git.addWorktree({ branch: "agent/a", path: "apps/a" }), /\.worktrees/);
   await assert.rejects(() => git.mergeBranch({ branch: "agent/a", into: "bad branch!" }), /safe branch/);
   await assert.rejects(() => git.deleteBranch({ branch: "main" }), /agent branch/);
 });
+
+test("shell git commit rejects multi-line messages to prevent a shell hang", async () => {
+  const calls = [];
+  const run = async ({ args, cwd }) => {
+    calls.push({ args, cwd });
+    return { ok: true, conflicts: [], stdout: "" };
+  };
+  const git = createShellGit({ run, cwd: "/repo" });
+  await assert.rejects(() => git.commit({ message: "feat: subject\nbody line" }), /single line/);
+  assert.equal(calls.length, 0);
+});
+
+test("shell git commit stages files before committing", async () => {
+  const calls = [];
+  const run = async ({ args, cwd }) => {
+    calls.push({ args, cwd });
+    return { ok: true, conflicts: [], stdout: "" };
+  };
+  const git = createShellGit({ run, cwd: "/repo" });
+  assert.equal((await git.commit({ message: "feat: add file", files: ["apps/api/src/a.mjs", "docs/b.md"] })).ok, true);
+  assert.deepEqual(calls[0].args, ["add", "apps/api/src/a.mjs", "docs/b.md"]);
+  assert.deepEqual(calls[1].args, ["commit", "-m", "feat: add file"]);
+  assert.equal(calls[0].cwd, "/repo");
+  await assert.rejects(() => git.commit({ message: "feat: bad", files: ["../escape.mjs"] }), /repository-relative/);
+});
+
 
 test("real git orchestration fails fast when the integration working tree is dirty", async () => {
   const graph = { version: 1, tasks: [task("api")] };
@@ -521,3 +550,81 @@ test("appendRunRecord maps a worker record to a sanitized durable entry", async 
   assert.equal(entry.batch, 3);
   assert.equal(await appendRunRecord({ record }), null);
 });
+
+test("summarizeRuns aggregates cost, runtime, retry rate, and status counts", () => {
+  const records = [
+    { ts: "2026-01-01T00:00:00.000Z", taskId: "a", status: "PASSED", attempts: 1, costUnits: 1, batch: 0 },
+    { ts: "2026-01-01T00:00:05.000Z", taskId: "b", status: "PASSED", attempts: 2, costUnits: 2, batch: 0 },
+    { ts: "2026-01-01T00:00:10.000Z", taskId: "c", status: "FAILED", attempts: 1, costUnits: 1, batch: 1 },
+    { ts: "2026-01-01T00:00:15.000Z", taskId: "d", status: "BLOCKED", attempts: 0, costUnits: 0, batch: 1 }
+  ];
+  const report = summarizeRuns(records);
+  assert.equal(report.taskCount, 4);
+  assert.equal(report.totalCostUnits, 4);
+  assert.equal(report.totalRuntimeMs, 15_000);
+  assert.equal(report.retryRate, 0.25);
+  assert.equal(report.passed, 2);
+  assert.equal(report.failed, 1);
+  assert.equal(report.blocked, 1);
+  assert.deepEqual(report.batches, [0, 1]);
+  assert.equal(report.perTask.b.attempts, 2);
+  assert.equal(report.perTask.b.costUnits, 2);
+  assert.equal(report.perTask.d.status, "BLOCKED");
+});
+
+test("summarizeRuns handles empty input and rejects malformed records", () => {
+  const empty = summarizeRuns([]);
+  assert.equal(empty.taskCount, 0);
+  assert.equal(empty.totalCostUnits, 0);
+  assert.equal(empty.totalRuntimeMs, 0);
+  assert.equal(empty.retryRate, 0);
+  assert.deepEqual(empty.batches, []);
+  assert.throws(() => summarizeRuns("nope"), /array/);
+  assert.throws(() => summarizeRuns([null]), /must be an object/);
+  assert.throws(() => summarizeRuns([{ status: "PASSED" }]), /taskId/);
+});
+
+test("bounded runner blocks an action that requires approval when not approved", async () => {
+  let calls = 0;
+  const outcome = await runBoundedTask({
+    task: task("approval"),
+    actions: ["create_commit"],
+    executor: async () => { calls += 1; return { artifacts: [{ type: "commit", path: "abc", status: "ok" }] }; },
+    approvalBoundary: { requiresApproval: ["create_commit"], approved: [] }
+  });
+  assert.equal(calls, 0);
+  assert.equal(outcome.status, "BLOCKED");
+  assert.equal(outcome.failureClass, "approval_required");
+});
+
+test("bounded runner allows an action that requires approval when approved", async () => {
+  const outcome = await runBoundedTask({
+    task: task("approval"),
+    actions: ["create_commit"],
+    executor: async () => ({ artifacts: [{ type: "commit", path: "abc", status: "ok" }] }),
+    approvalBoundary: { requiresApproval: ["create_commit"], approved: ["create_commit"] }
+  });
+  assert.equal(outcome.status, "PASSED");
+});
+
+test("parallel worker driver blocks tasks whose actions require unapproved approval", async () => {
+  const graph = {
+    version: 1,
+    tasks: [task("api", { affectedPaths: ["apps/api/src/a.mjs"] })]
+  };
+  const executor = async () => ({ artifacts: [{ type: "commit", path: "abc", status: "ok" }] });
+  const gatesExecutor = async ({ gate }) => ({ name: gate, command: gate, status: "PASSED", detail: "" });
+  const summary = await runParallelWorkers({
+    graph,
+    executor,
+    gatesExecutor,
+    approvalBoundary: { requiresApproval: ["create_commit"], approved: [] }
+  });
+  assert.deepEqual([...summary.completed], []);
+  assert.deepEqual([...summary.failed], ["api"]);
+  const record = summary.records.find((entry) => entry.taskId === "api");
+  assert.equal(record.status, "BLOCKED");
+  assert.equal(record.failureClass, "approval_required");
+});
+
+

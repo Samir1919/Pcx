@@ -245,17 +245,22 @@ const result = (taskId, status, attempts, costUnits, failureClass, artifacts = [
   artifacts: Object.freeze(artifacts)
 });
 
-export const runBoundedTask = async ({ task, actions, executor, environment = "local", signal, isKilled = () => false } = {}) => {
+export const runBoundedTask = async ({ task, actions, executor, environment = "local", signal, isKilled = () => false, approvalBoundary } = {}) => {
   const validated = validateTask(task);
   const requestedActions = asStringArray(actions, "actions").map((action) => action.toLowerCase());
   if (requestedActions.length === 0) throw new Error("actions must contain at least one declared action");
   if (typeof executor !== "function") throw new Error("executor must be a function");
   const prohibitedActions = new Set(validated.prohibitedActions.map((entry) => entry.toLowerCase()));
+  const requiresApproval = new Set((approvalBoundary?.requiresApproval ?? []).map((entry) => entry.toLowerCase()));
+  const approved = new Set((approvalBoundary?.approved ?? []).map((entry) => entry.toLowerCase()));
   for (const action of requestedActions) {
     if (prohibitedActions.has(action)) return result(validated.id, "BLOCKED", 0, 0, "task_prohibited_action");
-    const policy = evaluateAction({ action, environment });
+    const isApproved = approved.has(action);
+    const policy = evaluateAction({ action, environment, approved: isApproved });
     if (!policy.allowed) return result(validated.id, "BLOCKED", 0, 0, policy.basis);
+    if (requiresApproval.has(action) && !isApproved) return result(validated.id, "BLOCKED", 0, 0, "approval_required");
   }
+
   let attempts = 0;
   let costUnits = 0;
   while (attempts < validated.maxAttempts) {
@@ -547,9 +552,10 @@ export const mergeWorktree = async ({ plan, git, into = "integration" } = {}) =>
   });
 };
 
-const runWorkerPipeline = async ({ task, executor, gatesExecutor, environment, signal, isKilled }) => {
+const runWorkerPipeline = async ({ task, executor, gatesExecutor, environment, signal, isKilled, approvalBoundary }) => {
   const actions = ["read", "edit", "run_test", "run_lint", "run_typecheck", "run_build", "create_branch", "create_commit", "create_handoff"];
-  const execution = await runBoundedTask({ task, actions, executor, environment, signal, isKilled });
+  const execution = await runBoundedTask({ task, actions, executor, environment, signal, isKilled, approvalBoundary });
+
   if (execution.status !== "PASSED") {
     return Object.freeze({
       taskId: task.id,
@@ -602,9 +608,9 @@ const failedRecord = (taskId, failureClass) => Object.freeze({
  * silently-ignored git error): the worktree is still removed for cleanup, and
  * a merged branch is deleted so agent branches do not accumulate across runs.
  */
-const runOneWorker = async ({ task, executor, gatesExecutor, git, environment, signal, isKilled }) => {
+const runOneWorker = async ({ task, executor, gatesExecutor, git, environment, signal, isKilled, approvalBoundary }) => {
   const plan = Object.freeze({ taskId: task.id, branch: `agent/${slugTaskId(task.id)}`, worktree: `.worktrees/${slugTaskId(task.id)}` });
-  if (!git) return runWorkerPipeline({ task, executor, gatesExecutor, environment, signal, isKilled });
+  if (!git) return runWorkerPipeline({ task, executor, gatesExecutor, environment, signal, isKilled, approvalBoundary });
   let created = false;
   let mergedSuccessfully = false;
   let record;
@@ -612,7 +618,8 @@ const runOneWorker = async ({ task, executor, gatesExecutor, git, environment, s
     const creation = await createWorktree({ plan, git });
     created = creation.created;
     if (!created) return failedRecord(task.id, "worktree_create_failed");
-    record = await runWorkerPipeline({ task, executor, gatesExecutor, environment, signal, isKilled });
+    record = await runWorkerPipeline({ task, executor, gatesExecutor, environment, signal, isKilled, approvalBoundary });
+
     if (record.status === "PASSED") {
       const merged = await mergeWorktree({ plan, git });
       if (!merged.merged) {
@@ -652,7 +659,8 @@ const runOneWorker = async ({ task, executor, gatesExecutor, git, environment, s
  * its integrated verification reports READY. Failed tasks are recorded and not
  * re-attempted, so the loop always terminates.
  */
-export const runParallelWorkers = async ({ graph, completedIds = [], executor, gatesExecutor, git, logStore, environment = "local", signal, isKilled = () => false, maxBatches = null } = {}) => {
+export const runParallelWorkers = async ({ graph, completedIds = [], executor, gatesExecutor, git, logStore, environment = "local", signal, isKilled = () => false, maxBatches = null, approvalBoundary } = {}) => {
+
   const validated = validateTaskGraph(graph);
   if (typeof executor !== "function") throw new Error("executor must be a function");
   if (typeof gatesExecutor !== "function") throw new Error("gatesExecutor must be a function");
@@ -684,7 +692,8 @@ export const runParallelWorkers = async ({ graph, completedIds = [], executor, g
       const next = plan.deferred.find((entry) => !failed.has(entry.taskId));
       if (!next) break;
       const task = validated.tasks.find((entry) => entry.id === next.taskId);
-      const record = await runOneWorker({ task, executor, gatesExecutor, git, environment, signal, isKilled });
+      const record = await runOneWorker({ task, executor, gatesExecutor, git, environment, signal, isKilled, approvalBoundary });
+
       await persist(record);
       if (record.status === "PASSED") {
         completed.add(task.id);
@@ -698,9 +707,10 @@ export const runParallelWorkers = async ({ graph, completedIds = [], executor, g
     }
     const results = await Promise.all(selected.map(async (entry) => {
       const task = validated.tasks.find((candidate) => candidate.id === entry.taskId);
-      const record = await runOneWorker({ task, executor, gatesExecutor, git, environment, signal, isKilled });
+      const record = await runOneWorker({ task, executor, gatesExecutor, git, environment, signal, isKilled, approvalBoundary });
       return { taskId: entry.taskId, record };
     }));
+
     for (const { taskId, record } of results) {
       await persist(record);
       if (record.status === "PASSED") {
@@ -795,8 +805,32 @@ export const createShellGit = ({ run = defaultGitRun, cwd = process.cwd() } = {}
     const outcome = await run({ args: ["branch", "-D", safeBranch], cwd });
     return { ok: outcome.ok === true, error: outcome.error };
   };
-  return Object.freeze({ assertClean, addWorktree, removeWorktree, mergeBranch, deleteBranch });
+  /**
+   * Creates a commit without risking a shell hang. A multi-line `-m` argument is
+   * the most common cause of a stuck agent terminal: the newline reaches the
+   * shell before the closing quote, the shell drops to a `dquote>` continuation
+   * prompt, and the command never returns. To fail fast instead of hanging, this
+   * method rejects any message containing a newline. Multi-line commit messages
+   * must be written to a file and committed with `git commit -F <file>`.
+   *
+   * When `files` are provided they are staged first (`git add <files>`), then a
+   * single-line message is committed with `git commit -m <message>`. All commands
+   * run through execFile with explicit argument arrays (no shell interpolation).
+   */
+  const commit = async ({ message, files = [], cwd: commitCwd = cwd } = {}) => {
+    const safeMessage = asNonEmptyString(message, "message");
+    if (safeMessage.includes("\n")) throw new Error("commit message must be a single line; write multi-line messages to a file and use git commit -F <file>");
+    const safeFiles = asStringArray(files, "files").map((file) => normalizeRepositoryPath(file, "files"));
+    if (safeFiles.length > 0) {
+      const add = await run({ args: ["add", ...safeFiles], cwd: commitCwd });
+      if (add.ok !== true) return { ok: false, error: add.error ?? "unable to stage files" };
+    }
+    const outcome = await run({ args: ["commit", "-m", safeMessage], cwd: commitCwd });
+    return { ok: outcome.ok === true, error: outcome.error };
+  };
+  return Object.freeze({ assertClean, addWorktree, removeWorktree, mergeBranch, deleteBranch, commit });
 };
+
 
 const defaultGitRun = async ({ args, cwd, into }) => {
   const { execFile } = await import("node:child_process");
@@ -884,7 +918,74 @@ export const appendRunRecord = async ({ store, record, batch = 0 } = {}) => {
   return store.append(entry);
 };
 
+/**
+ * Aggregates durable run records into a cost/runtime/retry report. Records are
+ * the sanitized entries produced by `appendRunRecord` (or raw worker records).
+ * The report is secret-free: it only sums allow-listed numeric and status
+ * fields. `totalRuntimeMs` is the wall-clock span from the earliest to the
+ * latest record timestamp; `retryRate` is the fraction of runs that needed more
+ * than one attempt. This satisfies the ADR 0005 success metric to measure
+ * runtime, retry rate, and cost before expanding parallelism.
+ */
+export const summarizeRuns = (records = []) => {
+  if (!Array.isArray(records)) throw new Error("records must be an array");
+  const perTask = {};
+  let totalCostUnits = 0;
+  let totalAttempts = 0;
+  let retried = 0;
+  let passed = 0;
+  let failed = 0;
+  let blocked = 0;
+  let earliest = null;
+  let latest = null;
+  const batches = new Set();
+  for (const record of records) {
+    if (!record || typeof record !== "object") throw new Error("each record must be an object");
+    const taskId = record.taskId;
+    if (typeof taskId !== "string" || taskId.trim() === "") throw new Error("record.taskId must be a non-empty string");
+    const status = String(record.status ?? "").toUpperCase();
+    // Worker records nest attempts/costUnits under `execution`; sanitized log
+    // entries carry them at the top level. Accept both so the report works on
+    // either shape.
+    const execution = record.execution && typeof record.execution === "object" ? record.execution : {};
+    const costUnits = Number.isFinite(record.costUnits) ? record.costUnits : Number.isFinite(execution.costUnits) ? execution.costUnits : 0;
+    const attempts = Number.isFinite(record.attempts) ? record.attempts : Number.isFinite(execution.attempts) ? execution.attempts : 0;
+
+    totalCostUnits += costUnits;
+    totalAttempts += attempts;
+    if (attempts > 1) retried += 1;
+    if (status === "PASSED") passed += 1;
+    else if (status === "FAILED") failed += 1;
+    else if (status === "BLOCKED") blocked += 1;
+    if (Number.isInteger(record.batch)) batches.add(record.batch);
+    const ts = typeof record.ts === "string" ? Date.parse(record.ts) : NaN;
+    if (Number.isFinite(ts)) {
+      if (earliest === null || ts < earliest) earliest = ts;
+      if (latest === null || ts > latest) latest = ts;
+    }
+    const entry = perTask[taskId] ?? { attempts: 0, costUnits: 0, status };
+    entry.attempts += attempts;
+    entry.costUnits += costUnits;
+    entry.status = status;
+    perTask[taskId] = entry;
+  }
+  const totalRuntimeMs = earliest !== null && latest !== null ? Math.max(0, latest - earliest) : 0;
+  const taskCount = records.length;
+  return Object.freeze({
+    taskCount,
+    totalCostUnits,
+    totalRuntimeMs,
+    retryRate: taskCount > 0 ? retried / taskCount : 0,
+    passed,
+    failed,
+    blocked,
+    batches: Object.freeze([...batches].sort((a, b) => a - b)),
+    perTask: Object.freeze(Object.fromEntries(Object.entries(perTask).map(([id, entry]) => [id, Object.freeze(entry)])))
+  });
+};
+
 if (process.argv[1] && process.argv[1].endsWith("/control-plane.mjs") && process.argv[2] === "action") {
+
 
   const result = evaluateAction({ action: process.argv[3], environment: process.env.PCX_AGENT_ENVIRONMENT ?? "local" });
   process.stdout.write(`${JSON.stringify(result)}\n`);

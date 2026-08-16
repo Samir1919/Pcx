@@ -10,3 +10,5 @@ outputs/
 .DS_Store
 tmp/
 work/
+.worktrees/
+

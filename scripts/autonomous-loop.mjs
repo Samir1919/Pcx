@@ -13,8 +13,10 @@
  * worktrees, so it is safe to run in CI.
  */
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+
 import { dirname } from "node:path";
-import { createFileLogStore, createShellGit, runParallelWorkers, validateTaskGraph } from "./control-plane.mjs";
+import { createFileLogStore, createShellGit, runParallelWorkers, summarizeRuns, validateTaskGraph } from "./control-plane.mjs";
+
 
 
 
@@ -27,7 +29,7 @@ const asNonEmptyString = (value, field) => {
 };
 
 const parseArgs = (argv = []) => {
-  const args = { graph: DEFAULT_GRAPH, log: DEFAULT_LOG, dryRun: false, maxBatches: null, noPersistGraph: false };
+  const args = { graph: DEFAULT_GRAPH, log: DEFAULT_LOG, dryRun: false, maxBatches: null, noPersistGraph: false, realExecutor: false, approvalRequired: false };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--graph") {
@@ -40,6 +42,10 @@ const parseArgs = (argv = []) => {
       args.dryRun = true;
     } else if (arg === "--no-persist-graph") {
       args.noPersistGraph = true;
+    } else if (arg === "--real-executor") {
+      args.realExecutor = true;
+    } else if (arg === "--approval-required") {
+      args.approvalRequired = true;
     } else if (arg === "--max-batches") {
       const value = Number(argv[index + 1]);
       if (!Number.isInteger(value) || value < 1) throw new Error("--max-batches must be a positive integer");
@@ -51,6 +57,7 @@ const parseArgs = (argv = []) => {
   }
   return Object.freeze(args);
 };
+
 
 
 const loadGraph = async (path) => {
@@ -101,8 +108,33 @@ const defaultGatesExecutor = async ({ gate }) => ({
 });
 
 /**
+ * Real (non-noop) executor factory. Unlike `defaultExecutor`, this executor
+ * performs a real, verifiable side effect: it writes a task-scoped marker file
+ * under `.worktrees/executor-output/` and returns a real artifact path. It is
+ * the demonstration path for a vendor-neutral executor (ADR 0007): it only
+ * emits allow-listed artifacts, never performs a hard-stop action, and is safe
+ * to run locally or in CI. A `writeFile` may be injected for deterministic
+ * testing; the default uses node:fs/promises.
+ */
+export const createRealExecutor = ({ writeFile: write = writeFile, mkdir: makeDir = mkdir, outputDir = ".worktrees/executor-output" } = {}) => {
+  if (typeof write !== "function") throw new Error("writeFile must be a function");
+  if (typeof makeDir !== "function") throw new Error("mkdir must be a function");
+  const safeOutputDir = outputDir.replace(/^\.\//, "").replace(/\/$/, "");
+  if (safeOutputDir.startsWith("/") || safeOutputDir.split("/").includes("..")) throw new Error("outputDir must be repository-relative without traversal");
+  return async ({ task }) => {
+    const slug = task.id.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "task";
+    const path = `${safeOutputDir}/${slug}.marker`;
+    await makeDir(safeOutputDir, { recursive: true });
+    await write(path, `completed:${task.id}\n`, "utf8");
+    return { artifacts: [{ type: "commit", path, status: "ok" }] };
+  };
+};
+
+
+/**
  * Runs the autonomous orchestration loop. Returns a durable summary.
  */
+
 export const runAutonomousLoop = async ({
   graph,
   executor = defaultExecutor,
@@ -112,7 +144,8 @@ export const runAutonomousLoop = async ({
   environment = "local",
   signal,
   isKilled = () => false,
-  maxBatches = null
+  maxBatches = null,
+  approvalBoundary
 } = {}) => {
   const validated = validateTaskGraph(graph);
   if (typeof executor !== "function") throw new Error("executor must be a function");
@@ -126,9 +159,11 @@ export const runAutonomousLoop = async ({
     environment,
     signal,
     isKilled,
-    maxBatches
+    maxBatches,
+    approvalBoundary
   });
   const limited = summary.limited;
+  const report = summarizeRuns(summary.records);
   return Object.freeze({
     graphPath: null,
     batches: summary.batches,
@@ -136,12 +171,15 @@ export const runAutonomousLoop = async ({
     failed: Object.freeze([...summary.failed]),
     blocked: Object.freeze([...(summary.blocked ?? [])]),
     records: summary.records,
+    report,
     limited,
     logPath: logStore?.path ?? null
   });
 };
 
+
 const writeSummary = (summary) => {
+  const report = summary.report;
   const lines = [
     "Autonomous orchestration loop complete.",
     `Batches: ${summary.batches}`,
@@ -151,6 +189,19 @@ const writeSummary = (summary) => {
     `Limited: ${summary.limited ? "yes" : "no"}`,
     `Log: ${summary.logPath ?? "(none)"}`
   ];
+  if (report) {
+    lines.push(
+      "--- Run report ---",
+      `Tasks: ${report.taskCount}`,
+      `Passed: ${report.passed}`,
+      `Failed: ${report.failed}`,
+      `Blocked: ${report.blocked}`,
+      `Total cost units: ${report.totalCostUnits}`,
+      `Total runtime (ms): ${report.totalRuntimeMs}`,
+      `Retry rate: ${report.retryRate.toFixed(3)}`,
+      `Batches: ${report.batches.length > 0 ? report.batches.join(", ") : "(none)"}`
+    );
+  }
   return lines.join("\n");
 };
 
@@ -160,7 +211,9 @@ const main = async () => {
   await mkdir(dirname(args.log), { recursive: true });
   const logStore = createFileLogStore({ path: args.log });
   const git = args.dryRun ? null : createShellGit();
-  const summary = await runAutonomousLoop({ graph, git, logStore, maxBatches: args.maxBatches });
+  const executor = args.realExecutor ? createRealExecutor() : undefined;
+  const approvalBoundary = args.approvalRequired ? { requiresApproval: ["create_commit"], approved: [] } : undefined;
+  const summary = await runAutonomousLoop({ graph, git, logStore, maxBatches: args.maxBatches, executor, approvalBoundary });
   process.stdout.write(`${writeSummary(summary)}\n`);
   if (!args.noPersistGraph) {
     const updatedGraph = applyRunSummaryToGraph(graph, summary);
@@ -168,6 +221,7 @@ const main = async () => {
   }
   if (summary.failed.length > 0 || summary.blocked.length > 0 || summary.limited) process.exitCode = 1;
 };
+
 
 
 if (process.argv[1] && process.argv[1].endsWith("/autonomous-loop.mjs")) {

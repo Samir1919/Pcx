@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createFileLogStore } from "./control-plane.mjs";
-import { applyRunSummaryToGraph, runAutonomousLoop } from "./autonomous-loop.mjs";
+import { applyRunSummaryToGraph, createRealExecutor, runAutonomousLoop } from "./autonomous-loop.mjs";
+
 
 
 const task = (id, overrides = {}) => ({
@@ -152,3 +153,65 @@ test("autonomous loop exposes and persists blocked dependents without falsely re
   const updated = applyRunSummaryToGraph(graph, summary);
   assert.equal(updated.tasks.find((entry) => entry.id === "dependent").status, "BLOCKED");
 });
+
+test("real executor writes a verifiable marker file and returns a real artifact", async () => {
+  const written = [];
+  const madeDirs = [];
+  const executor = createRealExecutor({
+    writeFile: async (path, content) => { written.push({ path, content }); },
+    mkdir: async (dir) => { madeDirs.push(dir); }
+  });
+  const result = await executor({ task: task("api") });
+  assert.deepEqual(result.artifacts, [{ type: "commit", path: ".worktrees/executor-output/api.marker", status: "ok" }]);
+  assert.deepEqual(madeDirs, [".worktrees/executor-output"]);
+  assert.equal(written.length, 1);
+  assert.equal(written[0].path, ".worktrees/executor-output/api.marker");
+  assert.equal(written[0].content, "completed:api\n");
+});
+
+test("real executor rejects traversal output directories", () => {
+  assert.throws(() => createRealExecutor({ outputDir: "../escape" }), /repository-relative/);
+  assert.throws(() => createRealExecutor({ outputDir: "/abs" }), /repository-relative/);
+  assert.throws(() => createRealExecutor({ writeFile: "not-a-function" }), /writeFile must be a function/);
+  assert.throws(() => createRealExecutor({ mkdir: "not-a-function" }), /mkdir must be a function/);
+});
+
+
+test("autonomous loop exposes a cost/runtime report from run records", async () => {
+  const graph = {
+    version: 1,
+    tasks: [
+      task("spec", { affectedPaths: ["docs/spec.md"] }),
+      task("api", { affectedPaths: ["apps/api/src/a.mjs"], dependsOn: ["spec"] })
+    ]
+  };
+  const summary = await runAutonomousLoop({ graph, executor: passingExecutor, gatesExecutor: passingGates });
+  assert.ok(summary.report);
+  assert.equal(summary.report.taskCount, 2);
+  assert.equal(summary.report.passed, 2);
+  assert.equal(summary.report.failed, 0);
+  assert.equal(summary.report.blocked, 0);
+  assert.equal(summary.report.totalCostUnits, 2);
+  assert.ok(summary.report.totalRuntimeMs >= 0);
+  assert.equal(summary.report.retryRate, 0);
+});
+
+test("autonomous loop blocks tasks whose actions require unapproved approval", async () => {
+  const graph = {
+    version: 1,
+    tasks: [task("api", { affectedPaths: ["apps/api/src/a.mjs"] })]
+  };
+  const summary = await runAutonomousLoop({
+    graph,
+    executor: passingExecutor,
+    gatesExecutor: passingGates,
+    approvalBoundary: { requiresApproval: ["create_commit"], approved: [] }
+  });
+  assert.deepEqual([...summary.completed], []);
+  assert.deepEqual([...summary.failed], ["api"]);
+  const record = summary.records.find((entry) => entry.taskId === "api");
+  assert.equal(record.status, "BLOCKED");
+  assert.equal(record.failureClass, "approval_required");
+});
+
+
