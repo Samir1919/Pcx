@@ -21,6 +21,7 @@
     "typecheck": "node scripts/typecheck-check.mjs",
     "build": "node scripts/build-check.mjs",
     "security": "node scripts/security-check.mjs",
+    "container:scan": "node scripts/container-scan.mjs",
     "smoke": "node scripts/smoke.mjs",
     "db:backup": "sh scripts/db-backup.sh",
     "db:restore-drill": "sh scripts/db-restore-drill.sh",
