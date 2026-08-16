@@ -31,7 +31,7 @@ This file is the central progress index. Approved specifications define what PCX
 | E15 — Notifications | In progress | Provider-neutral notification outbox (PENDING→SENT/FAILED) with SYSTEM_CONFIGURE-gated creation and dispatch; delivery failure never rolls back a business transaction | Concrete email/SMS/push providers, retries, delivery visibility |
 | E16 — Audit, observability & jobs | In progress | Append-only audit logs (`audit_logs`) with AUDIT_READ-gated filtered listing, plus existing notification `dispatchDue` as the jobs pattern; liveness/readiness endpoints | Full audit retention/rotation, BI dashboards, external SIEM |
 | E17 — Security hardening | In progress | Baseline response security headers (`nosniff`, `DENY`, `no-referrer`, restrictive CSP) with regression coverage | Upload scanning, HSTS, CSP allowlisting for admin UI, MFA gates |
-| E18 — Backup, staging & release readiness | Pending | Infrastructure plan approved | Staging, restore drill, rehearsal, smoke/rollback/launch gates |
+| E18 — Backup, staging & release readiness | In progress | Release preflight (`npm run release:preflight`) verifying staging/backup/restore artifacts and no placeholder secrets; runbook in handoff | Real production deployment and real secrets (hard stop) |
 
 ## Agentic maturity
 
@@ -49,7 +49,7 @@ This file is the central progress index. Approved specifications define what PCX
 - E0 artifact verification: 36 required artifacts.
 - Dependency audit (`npm audit --omit=dev --audit-level=high`): 0 known vulnerabilities.
 - Backup/restore drill: seed rows recovered to a throwaway database.
-- Latest detailed evidence: `docs/handoffs/E17_SECURITY_HARDENING.md`.
+- Latest detailed evidence: `docs/handoffs/E18_BACKUP_STAGING_RELEASE_READINESS.md`.
 
 ## Current decisions and hard stops
 
@@ -61,8 +61,9 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Next dependency-ready work
 
-1. E18 backup/staging/release readiness.
-2. E18 release rehearsal/smoke/rollback gates.
+1. Production deployment (requires explicit human approval — hard stop).
+2. Real payment/courier/notification provider credentials (hard stop).
+3. Container image scan + sandbox adapters.
 
 ## Update rule
 

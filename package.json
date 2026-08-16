@@ -24,6 +24,7 @@
     "smoke": "node scripts/smoke.mjs",
     "db:backup": "sh scripts/db-backup.sh",
     "db:restore-drill": "sh scripts/db-restore-drill.sh",
+    "release:preflight": "node scripts/release-preflight.mjs",
     "verify": "npm run verify:e0 && npm run lint && npm run typecheck && npm test && npm run build && npm run security",
     "verify:ci": "npm run verify && npm run test:integration && npm run smoke"
   }
