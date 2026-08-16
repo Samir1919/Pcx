@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildHandoff, createWorktree, evaluateAction, mergeWorktree, planParallelTasks, readyTasks, removeWorktree, reviewTask, runBoundedTask, runParallelWorkers, runQaGates, securityReview, validateTaskGraph, verifyIntegrated } from "./control-plane.mjs";
-
-
+import { appendRunRecord, buildHandoff, createFileLogStore, createShellGit, createWorktree, evaluateAction, mergeWorktree, planParallelTasks, readyTasks, removeWorktree, reviewTask, runBoundedTask, runParallelWorkers, runQaGates, securityReview, validateTaskGraph, verifyIntegrated } from "./control-plane.mjs";
 
 const task = (id, overrides = {}) => ({
   id,
@@ -279,7 +277,6 @@ test("parallel worker driver records failed tasks and does not loop forever", as
   const bad = summary.records.find((record) => record.taskId === "bad");
   assert.equal(bad.status, "FAILED");
   assert.equal(bad.failureClass, "execution_failure");
-
 });
 
 test("parallel worker driver creates, merges, and removes worktrees when git is provided", async () => {
@@ -302,4 +299,81 @@ test("parallel worker driver creates, merges, and removes worktrees when git is 
     ["merge", "agent/api", "integration"],
     ["remove", ".worktrees/api"]
   ]);
+});
+
+test("shell git adapter validates inputs and delegates to injected run", async () => {
+  const calls = [];
+  const run = async ({ args, cwd, into }) => {
+    calls.push({ args, cwd, into });
+    return { ok: true, conflicts: [] };
+  };
+  const git = createShellGit({ run, cwd: "/repo" });
+  assert.equal((await git.addWorktree({ branch: "agent/a", path: ".worktrees/a" })).ok, true);
+  assert.equal((await git.removeWorktree({ path: ".worktrees/a" })).ok, true);
+  assert.equal((await git.mergeBranch({ branch: "agent/a", into: "integration" })).ok, true);
+  assert.deepEqual(calls[0].args, ["worktree", "add", ".worktrees/a", "-b", "agent/a"]);
+  assert.deepEqual(calls[1].args, ["worktree", "remove", ".worktrees/a"]);
+  assert.deepEqual(calls[2].args, ["merge", "--no-ff", "agent/a"]);
+  assert.equal(calls[2].into, "integration");
+  assert.equal(calls[0].cwd, "/repo");
+  await assert.rejects(() => git.addWorktree({ branch: "main", path: ".worktrees/a" }), /agent branch/);
+  await assert.rejects(() => git.addWorktree({ branch: "agent/a", path: "apps/a" }), /\.worktrees/);
+  await assert.rejects(() => git.mergeBranch({ branch: "agent/a", into: "bad branch!" }), /safe branch/);
+});
+
+test("shell git adapter reports merge conflicts from injected run", async () => {
+  const git = createShellGit({ run: async () => ({ ok: false, conflicts: ["apps/api/src/a.mjs"], error: "conflict" }) });
+  const merged = await git.mergeBranch({ branch: "agent/a", into: "integration" });
+  assert.equal(merged.ok, false);
+  assert.deepEqual(merged.conflicts, ["apps/api/src/a.mjs"]);
+  assert.equal(merged.error, "conflict");
+});
+
+test("file log store sanitizes records and rejects secrets", async () => {
+  const lines = [];
+  const store = createFileLogStore({ path: ".worktrees/control-plane.log", write: async ({ line }) => { lines.push(line); }, read: async () => lines.map((line) => JSON.parse(line)) });
+  const clean = await store.append({ ts: "2026-01-01T00:00:00.000Z", taskId: "a", status: "PASSED", attempts: 1, costUnits: 1, qaVerdict: "PASSED", batch: 0 });
+  assert.equal(clean.taskId, "a");
+  assert.equal(clean.status, "PASSED");
+  assert.equal(lines.length, 1);
+  const parsed = JSON.parse(lines[0]);
+  assert.equal(parsed.taskId, "a");
+  assert.equal(parsed.status, "PASSED");
+  await assert.rejects(() => store.append({ taskId: "a", status: "PASSED", token: "secret" }), /prohibited field/);
+  await assert.rejects(() => store.append({ taskId: "a", status: "PASSED", commit: "abc-secret" }), /secret/);
+
+  const all = await store.readAll();
+  assert.equal(all.length, 1);
+  assert.equal(all[0].taskId, "a");
+});
+
+test("file log store requires a .worktrees path", () => {
+  assert.throws(() => createFileLogStore({ path: "logs/control-plane.log" }), /\.worktrees/);
+  assert.throws(() => createFileLogStore({ path: "../escape.log" }), /repository-relative/);
+});
+
+test("appendRunRecord maps a worker record to a sanitized durable entry", async () => {
+  const lines = [];
+  const store = createFileLogStore({ path: ".worktrees/control-plane.log", write: async ({ line }) => { lines.push(line); }, read: async () => lines.map((line) => JSON.parse(line)) });
+  const record = {
+    taskId: "a",
+    status: "PASSED",
+    failureClass: null,
+    execution: { attempts: 2, costUnits: 2 },
+    qa: { verdict: "PASSED" },
+    security: { verdict: "NOT_REQUIRED" },
+    review: { verdict: "APPROVED" },
+    handoff: { commit: "abc123" }
+  };
+  const entry = await appendRunRecord({ store, record, batch: 3 });
+  assert.equal(entry.taskId, "a");
+  assert.equal(entry.status, "PASSED");
+  assert.equal(entry.attempts, 2);
+  assert.equal(entry.costUnits, 2);
+  assert.equal(entry.qaVerdict, "PASSED");
+  assert.equal(entry.securityVerdict, "NOT_REQUIRED");
+  assert.equal(entry.reviewVerdict, "APPROVED");
+  assert.equal(entry.commit, "abc123");
+  assert.equal(entry.batch, 3);
+  assert.equal(await appendRunRecord({ record }), null);
 });

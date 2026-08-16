@@ -39,19 +39,21 @@ This file is the central progress index. Approved specifications define what PCX
 |---|---|---|
 | Stage 1 — Lean controlled development | Complete | Project Brain, hard stops, bounded branches/tasks, tests, review, handoffs and safe merge flow |
 | Stage 2 — MVP integration/release discipline | In progress | Locked install, additive migrations, migration checksums, integration tests, CI PostgreSQL service, secret/dependency scanning, staging overlay, E2E smoke path, database backup/restore drill; container image scan and sandbox payment/courier/notification adapters remain |
-| Stage 3 — Multi-agent control plane | Foundation implementation in progress | DAG/default-deny validation, an injected bounded local runner (retry, timeout, budget, cancellation, kill switch, artifact metadata), a deterministic parallel worktree planner with prefix-aware file/module/migration conflict detection, review/QA/security/integrated-verification/handoff adapters, and worktree create/remove/merge orchestration plus a parallel worker driver loop; shell/vendor adapters and durable logs remain unavailable |
+| Stage 3 — Multi-agent control plane | Foundation implementation in progress | DAG/default-deny validation, an injected bounded local runner (retry, timeout, budget, cancellation, kill switch, artifact metadata), a deterministic parallel worktree planner with prefix-aware file/module/migration conflict detection, review/QA/security/integrated-verification/handoff adapters, and worktree create/remove/merge orchestration plus a parallel worker driver loop, a real shell git adapter (execFile, no shell interpolation, validated agent branches and `.worktrees/` paths), and a durable secret-free JSONL action/artifact log store with run-record mapping; vendor adapters and driver log wiring remain |
+
 | Stage 4 — Production delivery/operations | Not started | Requires real staging/production operations and explicit production approval |
 
 
 ## Current verification baseline
 
-- Root `npm test`: 235 total tests after worktree-orchestration coverage; 213 passed, 22 PostgreSQL integration tests skip without `TEST_DATABASE_URL` by design, 0 failed.
-- Root `npm run verify`: pass with E0, lint, typecheck, 235 tests (213 pass, 22 PostgreSQL skips by design), build, secret scan, and dependency audit.
-- CI-equivalent `npm run verify:ci`: 213 application/unit + 22 PostgreSQL integration + 1 E2E smoke, all passing (0 failures).
+- Root `npm test`: 240 total tests after shell-adapter/log-store coverage; 218 passed, 22 PostgreSQL integration tests skip without `TEST_DATABASE_URL` by design, 0 failed.
+- Root `npm run verify`: pass with E0, lint, typecheck, 240 tests (218 pass, 22 PostgreSQL skips by design), build, secret scan, and dependency audit.
+- CI-equivalent `npm run verify:ci`: 218 application/unit + 22 PostgreSQL integration + 1 E2E smoke, all passing (0 failures).
 - E0 artifact verification: 36 required artifacts; latest GitHub merge evidence is PR #1 (`1692049`).
 - Dependency audit (`npm audit --omit=dev --audit-level=high`): 0 known vulnerabilities.
 - Backup/restore drill: seed rows recovered to a throwaway database.
-- Latest detailed evidence: `docs/handoffs/STAGE3_WORKTREE_ORCHESTRATION.md`.
+- Latest detailed evidence: `docs/handoffs/STAGE3_SHELL_ADAPTERS_LOGS.md`.
+
 
 
 ## Current decisions and hard stops
@@ -65,9 +67,10 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Next dependency-ready work
 
-1. Add real shell/vendor adapters and durable action/artifact log persistence for the parallel worker driver.
+1. Wire the durable log store into the parallel worker driver so every run is persisted, and add vendor adapters (sandbox payment/courier/notification) behind the injected adapter contract.
 2. Complete safe Stage 2 release slices: container image scan when an image exists, plus sandbox payment/courier/notification adapters.
 3. Production deployment and real provider credentials remain human-approval hard stops.
+
 
 
 ## Update rule

@@ -580,6 +580,140 @@ export const runParallelWorkers = async ({ graph, completedIds = [], executor, g
   });
 };
 
+const asAgentBranch = (branch, field) => {
+  const value = asNonEmptyString(branch, field);
+  if (!/^agent\//.test(value)) throw new Error(`${field} must be an agent branch: ${value}`);
+  return value;
+};
+
+const asWorktreePath = (path, field) => {
+  const value = normalizeRepositoryPath(path, field);
+  if (!value.startsWith(".worktrees/")) throw new Error(`${field} must live under .worktrees/: ${value}`);
+  return value;
+};
+
+const asMergeTarget = (into) => {
+  const value = asNonEmptyString(into, "into");
+  if (!/^[a-z0-9][a-z0-9._/-]*$/.test(value)) throw new Error(`into must be a safe branch name: ${value}`);
+  return value;
+};
+
+/**
+ * Real shell git adapter factory. Returns a git adapter object matching the
+ * injected contract used by createWorktree/removeWorktree/mergeWorktree. Commands
+ * are executed with execFile (no shell interpolation) using explicit argument
+ * arrays. A `run` function may be injected for deterministic testing; the default
+ * executes real git commands. All inputs are validated before execution.
+ */
+export const createShellGit = ({ run = defaultGitRun, cwd = process.cwd() } = {}) => {
+  if (typeof run !== "function") throw new Error("run must be a function");
+  const addWorktree = async ({ branch, path }) => {
+    const safeBranch = asAgentBranch(branch, "branch");
+    const safePath = asWorktreePath(path, "path");
+    const outcome = await run({ args: ["worktree", "add", safePath, "-b", safeBranch], cwd });
+    return { ok: outcome.ok === true, error: outcome.error };
+  };
+  const removeWorktree = async ({ path }) => {
+    const safePath = asWorktreePath(path, "path");
+    const outcome = await run({ args: ["worktree", "remove", safePath], cwd });
+    return { ok: outcome.ok === true, error: outcome.error };
+  };
+  const mergeBranch = async ({ branch, into }) => {
+    const safeBranch = asAgentBranch(branch, "branch");
+    const safeInto = asMergeTarget(into);
+    const outcome = await run({ args: ["merge", "--no-ff", safeBranch], cwd, into: safeInto });
+    const conflicts = Array.isArray(outcome.conflicts) ? outcome.conflicts : [];
+    return { ok: outcome.ok === true, error: outcome.error, conflicts };
+  };
+  return Object.freeze({ addWorktree, removeWorktree, mergeBranch });
+};
+
+const defaultGitRun = async ({ args, cwd, into }) => {
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const execFileAsync = promisify(execFile);
+  try {
+    await execFileAsync("git", args, { cwd });
+    return { ok: true, conflicts: [] };
+  } catch (error) {
+    const stderr = String(error?.stderr ?? "");
+    const conflicts = into && /conflict/i.test(stderr) ? extractConflicts(stderr) : [];
+    return { ok: false, error: stderr.trim() || String(error?.message ?? "git command failed"), conflicts };
+  }
+};
+
+const extractConflicts = (stderr) => {
+  const lines = stderr.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
+  return lines.slice(0, 20);
+};
+
+const LOG_ALLOWED_KEYS = new Set(["ts", "taskId", "status", "failureClass", "attempts", "costUnits", "qaVerdict", "securityVerdict", "reviewVerdict", "commit", "batch"]);
+const LOG_SECRET_PATTERNS = [/token/i, /secret/i, /credential/i, /password/i, /api[_ -]?key/i, /authorization/i, /bearer/i];
+
+const sanitizeLogRecord = (record) => {
+  if (!record || typeof record !== "object") throw new Error("log record must be an object");
+  const unknown = Object.keys(record).filter((key) => !LOG_ALLOWED_KEYS.has(key));
+  if (unknown.length > 0) throw new Error(`log record contains prohibited field: ${unknown.join(",")}`);
+  const clean = {};
+  for (const key of LOG_ALLOWED_KEYS) {
+    if (record[key] === undefined) continue;
+    const value = typeof record[key] === "string" ? record[key] : JSON.stringify(record[key]);
+    if (LOG_SECRET_PATTERNS.some((pattern) => pattern.test(value))) throw new Error(`log record field ${key} may contain a secret`);
+    clean[key] = record[key];
+  }
+  return Object.freeze(clean);
+};
+
+/**
+ * Durable, secret-free log store factory. Appends JSONL records to a
+ * repository-local file and reads them back. Records are sanitized to an
+ * allow-list and reject secret-bearing fields. A `write`/`read` pair may be
+ * injected for deterministic testing; the default uses node:fs.
+ */
+export const createFileLogStore = ({ path = ".worktrees/control-plane.log", write, read } = {}) => {
+  const safePath = asWorktreePath(path, "path");
+  const append = async (record) => {
+    const clean = sanitizeLogRecord(record);
+    const line = `${JSON.stringify(clean)}\n`;
+    if (write) {
+      await write({ path: safePath, line });
+      return clean;
+    }
+    const { appendFile } = await import("node:fs/promises");
+    await appendFile(safePath, line, "utf8");
+    return clean;
+  };
+  const readAll = async () => {
+    if (read) return read({ path: safePath });
+    const { readFile } = await import("node:fs/promises");
+    const content = await readFile(safePath, "utf8");
+    return content.split("\n").filter((line) => line.trim().length > 0).map((line) => JSON.parse(line));
+  };
+  return Object.freeze({ path: safePath, append, readAll });
+};
+
+/**
+ * Records a completed worker run to a durable log store. Returns the sanitized
+ * record. Never throws on a missing store; it is best-effort observability.
+ */
+export const appendRunRecord = async ({ store, record, batch = 0 } = {}) => {
+  if (!store || typeof store.append !== "function") return null;
+  const entry = {
+    ts: new Date().toISOString(),
+    taskId: record?.taskId,
+    status: record?.status,
+    failureClass: record?.failureClass ?? null,
+    attempts: record?.execution?.attempts ?? null,
+    costUnits: record?.execution?.costUnits ?? null,
+    qaVerdict: record?.qa?.verdict ?? null,
+    securityVerdict: record?.security?.verdict ?? null,
+    reviewVerdict: record?.review?.verdict ?? null,
+    commit: record?.handoff?.commit ?? null,
+    batch
+  };
+  return store.append(entry);
+};
+
 if (process.argv[1] && process.argv[1].endsWith("/control-plane.mjs") && process.argv[2] === "action") {
 
   const result = evaluateAction({ action: process.argv[3], environment: process.env.PCX_AGENT_ENVIRONMENT ?? "local" });
