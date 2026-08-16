@@ -105,7 +105,7 @@ This file is the central progress index. Approved specifications define what PCX
 
 1. Merge or supersede `agent/e1-identity-rbac` (holds valuable unmerged identity/RBAC work).
 2. Install/authenticate a real container scanner (docker scout login or trivy) to produce an actual image vulnerability report.
-3. Link the `/payments` admin route from the sidebar and implement a real bKash HTTP adapter behind the injected gateway contract.
+3. Implement a real bKash HTTP adapter behind the injected gateway contract (sandbox-only until real credentials are approved).
 4. Production deployment and real provider credentials remain human-approval hard stops.
 
 
