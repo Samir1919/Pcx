@@ -279,6 +279,29 @@ test("parallel worker driver records failed tasks and does not loop forever", as
   assert.equal(bad.failureClass, "execution_failure");
 });
 
+test("parallel worker driver persists every run to a durable log store", async () => {
+  const graph = {
+    version: 1,
+    tasks: [
+      task("spec", { affectedPaths: ["docs/spec.md"] }),
+      task("api", { affectedPaths: ["apps/api/src/a.mjs"], dependsOn: ["spec"] }),
+      task("web", { affectedPaths: ["apps/web/src/b.mjs"], dependsOn: ["spec"] })
+    ]
+  };
+  const lines = [];
+  const logStore = createFileLogStore({ path: ".worktrees/control-plane.log", write: async ({ line }) => { lines.push(line); }, read: async () => lines.map((entry) => JSON.parse(entry)) });
+  const executor = async ({ task: t }) => ({ artifacts: [{ type: "commit", path: "abc123", status: "ok" }] });
+  const gatesExecutor = async ({ gate }) => ({ name: gate, command: gate, status: "PASSED", detail: "" });
+  const summary = await runParallelWorkers({ graph, executor, gatesExecutor, logStore });
+  assert.deepEqual([...summary.completed].sort(), ["api", "spec", "web"]);
+  assert.equal(lines.length, 3);
+  const entries = lines.map((line) => JSON.parse(line));
+  assert.deepEqual(entries.map((entry) => entry.taskId).sort(), ["api", "spec", "web"]);
+  assert.ok(entries.every((entry) => entry.status === "PASSED"));
+  assert.ok(entries.every((entry) => entry.commit === "abc123"));
+  assert.ok(entries.every((entry) => Number.isInteger(entry.batch)));
+});
+
 test("parallel worker driver creates, merges, and removes worktrees when git is provided", async () => {
   const graph = {
     version: 1,

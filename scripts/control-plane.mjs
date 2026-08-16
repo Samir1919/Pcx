@@ -538,7 +538,7 @@ const runOneWorker = async ({ task, executor, gatesExecutor, git, environment, s
  * its integrated verification reports READY. Failed tasks are recorded and not
  * re-attempted, so the loop always terminates.
  */
-export const runParallelWorkers = async ({ graph, completedIds = [], executor, gatesExecutor, git, environment = "local", signal, isKilled = () => false } = {}) => {
+export const runParallelWorkers = async ({ graph, completedIds = [], executor, gatesExecutor, git, logStore, environment = "local", signal, isKilled = () => false } = {}) => {
   const validated = validateTaskGraph(graph);
   if (typeof executor !== "function") throw new Error("executor must be a function");
   if (typeof gatesExecutor !== "function") throw new Error("gatesExecutor must be a function");
@@ -546,6 +546,10 @@ export const runParallelWorkers = async ({ graph, completedIds = [], executor, g
   const failed = new Set();
   const records = [];
   let batches = 0;
+  const persist = async (record) => {
+    records.push(record);
+    if (logStore) await appendRunRecord({ store: logStore, record, batch: batches });
+  };
   while (true) {
     const pending = readyTasks(validated, [...completed]).filter((id) => !failed.has(id));
     if (pending.length === 0) break;
@@ -556,7 +560,7 @@ export const runParallelWorkers = async ({ graph, completedIds = [], executor, g
       if (!next) break;
       const task = validated.tasks.find((entry) => entry.id === next.taskId);
       const record = await runOneWorker({ task, executor, gatesExecutor, git, environment, signal, isKilled });
-      records.push(record);
+      await persist(record);
       if (record.status === "PASSED") completed.add(task.id); else failed.add(task.id);
       batches += 1;
       continue;
@@ -567,7 +571,7 @@ export const runParallelWorkers = async ({ graph, completedIds = [], executor, g
       return { taskId: entry.taskId, record };
     }));
     for (const { taskId, record } of results) {
-      records.push(record);
+      await persist(record);
       if (record.status === "PASSED") completed.add(taskId); else failed.add(taskId);
     }
     batches += 1;
@@ -579,6 +583,7 @@ export const runParallelWorkers = async ({ graph, completedIds = [], executor, g
     records: Object.freeze(records)
   });
 };
+
 
 const asAgentBranch = (branch, field) => {
   const value = asNonEmptyString(branch, field);
