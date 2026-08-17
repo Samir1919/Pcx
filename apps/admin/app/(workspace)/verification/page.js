@@ -12,17 +12,31 @@ export default function VerificationPage() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    let cancelled = false;
     catalogApi.categories()
       .then((payload) => {
+        if (cancelled) return;
         const list = payload.data ?? [];
         setCategories(list);
-        if (list.length > 0) setCategoryId(list[0].id);
+        if (list.length > 0) {
+          setCategoryId(list[0].id);
+        } else {
+          // No categories: land in a resolved (non-loading) state instead of
+          // hanging on "Loading templates…" forever.
+          setLoading(false);
+        }
       })
-      .catch(() => { });
+      .catch(() => {
+        if (cancelled) return;
+        // Surface a stable error and clear loading so the page never hangs.
+        setError("Unable to load verification categories.");
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
   }, []);
 
   const load = useCallback(async () => {
-    if (!categoryId) return;
+    if (!categoryId) { setLoading(false); return; }
     setLoading(true);
     setError(null);
     try {
