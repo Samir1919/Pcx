@@ -26,11 +26,31 @@ export function createOrderPaymentService({ authService, repository, id = random
   // The resolved provider name is returned alongside the gateway: it records
   // WHICH provider took the money (e.g. "bkash"), which is a different fact
   // from the credential mode (SANDBOX / REAL) the gateway ran under.
+  //
+  // Resolved gateways are cached by activation identity (provider + mode +
+  // credentials) so a single gateway instance — and therefore its per-reference
+  // idempotency cache — is reused across payment calls instead of starting empty
+  // on every request.
+  const gatewayCache = new Map();
   async function resolveGateway() {
     if (!paymentProviderConfigService || typeof paymentProviderConfigService.getActiveCredentials !== "function") return { gateway, provider: "SANDBOX" };
     const active = await paymentProviderConfigService.getActiveCredentials(provider);
     if (!active) return { gateway, provider: "SANDBOX" };
-    return { gateway: createBkashGateway({ mode: active.mode, credentials: active.credentials }), provider };
+    const cacheKey = `${provider}:${active.mode}:${JSON.stringify(active.credentials)}`;
+    let resolved = gatewayCache.get(cacheKey);
+    if (!resolved) {
+      resolved = createBkashGateway({ mode: active.mode, credentials: active.credentials });
+      gatewayCache.set(cacheKey, resolved);
+    }
+    return { gateway: resolved, provider };
+  }
+
+  // The charge reference is a deterministic idempotency key derived from the
+  // order and amount: a client retry after a timeout reuses the same reference,
+  // so the cached gateway dedupes it against the in-flight/prior charge instead
+  // of initiating a brand-new charge under a fresh random id.
+  function chargeReference(fields) {
+    return `payment-${fields.orderId}-${fields.amount}`;
   }
 
   async function customer(accessCredential) {
@@ -102,7 +122,7 @@ export function createOrderPaymentService({ authService, repository, id = random
         // never accepted from client input.
         const resolved = await resolveGateway();
         resolvedProvider = resolved.provider;
-        charge = await resolved.gateway.charge({ amount: fields.amount, currency: "BDT", reference: paymentId });
+        charge = await resolved.gateway.charge({ amount: fields.amount, currency: "BDT", reference: chargeReference(fields) });
       } catch {
         throw new OrderPaymentError("invalid_input");
       }

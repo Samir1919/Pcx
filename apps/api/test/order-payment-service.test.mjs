@@ -50,8 +50,9 @@ test("payment create derives provider txn id from the gateway and confirm enforc
   const { service, calls } = fixture();
   const payment = await service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, provider: "bkash", method: "mobile", amount: 1500 });
   assert.equal(payment.status, PaymentStatus.INITIATED);
-  // The provider transaction id is server-authoritative: derived from the sandbox gateway.
-  assert.equal(calls.payments[0].providerTransactionId, "sandbox-pay-id-1");
+  // The provider transaction id is server-authoritative: derived from the
+  // sandbox gateway from the deterministic order+amount reference.
+  assert.equal(calls.payments[0].providerTransactionId, "sandbox-pay-payment-o1-1500");
   assert.equal(calls.payments[0].provider, "bkash");
 
   const conflict = fixture({ repository: { async createPayment() { const e = new Error("dup"); e.code = "23505"; throw e; } } });
@@ -79,9 +80,9 @@ test("payment create uses an injected gateway and defaults provider to SANDBOX",
   const { service, calls } = fixture({ gateway });
   const payment = await service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, method: "mobile", amount: 500 });
   assert.equal(payment.status, PaymentStatus.INITIATED);
-  assert.equal(calls.payments[0].providerTransactionId, "gw-id-1");
+  assert.equal(calls.payments[0].providerTransactionId, "gw-payment-o1-500");
   assert.equal(calls.payments[0].provider, "SANDBOX");
-  assert.deepEqual(charges, [{ amount: 500, currency: "BDT", reference: "id-1" }]);
+  assert.deepEqual(charges, [{ amount: 500, currency: "BDT", reference: "payment-o1-500" }]);
 });
 
 test("payment create records the provider identity, not the credential mode, for active credentials", async () => {
@@ -97,7 +98,7 @@ test("payment create records the provider identity, not the credential mode, for
     const { service, calls } = fixture({ paymentProviderConfigService });
     await service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, method: "mobile", amount: 500 });
     assert.equal(calls.payments[0].provider, "bkash");
-    assert.equal(calls.payments[0].providerTransactionId, `bkash-${mode.toLowerCase()}-id-1`);
+    assert.equal(calls.payments[0].providerTransactionId, `bkash-${mode.toLowerCase()}-payment-o1-500`);
   }
 });
 
@@ -106,5 +107,17 @@ test("payment create falls back to the sandbox provider when no credentials are 
   const { service, calls } = fixture({ paymentProviderConfigService });
   await service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, method: "mobile", amount: 500 });
   assert.equal(calls.payments[0].provider, "SANDBOX");
+});
+
+test("payment create derives a deterministic idempotency reference from order and amount", async () => {
+  const references = [];
+  const gateway = {
+    async charge({ amount, currency, reference }) { references.push(reference); return { providerTransactionId: `gw-${reference}`, status: "CONFIRMED" }; }
+  };
+  const { service, calls } = fixture({ gateway });
+  await service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, method: "mobile", amount: 500 });
+  await service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, method: "mobile", amount: 500 });
+  assert.deepEqual(references, ["payment-o1-500", "payment-o1-500"], "a retry must reuse the same charge reference, not a fresh random id");
+  assert.equal(calls.payments[0].providerTransactionId, calls.payments[1].providerTransactionId);
 });
 
