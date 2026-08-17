@@ -46,3 +46,18 @@ test("worker surfaces job errors through onError without crashing", async () => 
   assert.equal(result.status, "ran");
   assert.deepEqual(errors, ["boom"]);
 });
+
+test("worker default onError logs tick errors instead of swallowing them", async () => {
+  const original = console.error;
+  const logged = [];
+  console.error = (error) => logged.push(error.message);
+  try {
+    const shipmentService = { async dispatchDueWebhookEvents() { throw new Error("silent-boom"); } };
+    const worker = startWorker({ shipmentService });
+    const result = await worker.runOnce();
+    assert.equal(result.status, "ran");
+    assert.deepEqual(logged, ["silent-boom"]);
+  } finally {
+    console.error = original;
+  }
+});

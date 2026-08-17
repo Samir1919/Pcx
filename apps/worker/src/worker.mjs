@@ -9,7 +9,7 @@
 // The worker never owns business truth; it only advances durable state that the
 // services already own. Jobs are idempotent and safe to run repeatedly.
 
-export function startWorker({ shipmentService, notificationService, intervalMs = 5_000, onError = () => { }, unref = true } = {}) {
+export function startWorker({ shipmentService, notificationService, intervalMs = 5_000, onError = console.error, unref = true } = {}) {
   if (shipmentService && typeof shipmentService.dispatchDueWebhookEvents !== "function") throw new TypeError("shipmentService.dispatchDueWebhookEvents is required");
   if (notificationService && typeof notificationService.dispatchDue !== "function") throw new TypeError("notificationService.dispatchDue is required");
 
