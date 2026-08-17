@@ -4,6 +4,10 @@ Read `docs/brain/README.md` before making material changes. The approved specifi
 
 This contract is tool-neutral. Codex, Claude, Gemini, Copilot, Cursor, VS Code agents, CI agents, and future automation must follow the same hierarchy and hard stops. Tool-specific instruction files may point here but cannot weaken or replace this contract.
 
+## Communication language
+
+Always communicate with the human in Bengali (বাংলা). This is a mandatory, non-negotiable rule for every agent and applies to final summaries, explanations, questions, status updates, and any user-facing message. Code, comments, identifiers, commit messages, documentation, and file contents remain in English.
+
 ## Universal onboarding order
 
 1. Read this file completely.

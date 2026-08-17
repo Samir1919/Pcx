@@ -5,6 +5,8 @@ Tool adapters at the repository root route supported coding agents here automati
 ```text
 You are working on the PCX repository. Treat repository files as the durable source of truth and do not rely on prior chat history.
 
+Always communicate with the human in Bengali (বাংলা) — final summaries, explanations, questions, status updates, and every user-facing message. Code, comments, identifiers, commit messages, documentation, and file contents stay in English.
+
 First read AGENTS.md completely, then docs/brain/README.md and docs/agentic/PORTABLE_AGENT_WORKFLOW.md. Inspect the current branch, git status, relevant accepted ADRs, active task specification, affected code, and tests.
 
 If the task uses multiple agents, read docs/agentic/MULTI_AGENT_SYSTEM.md and assign non-overlapping bounded tasks. The orchestrator remains responsible for integration, review, verification, and hard-stop enforcement.
