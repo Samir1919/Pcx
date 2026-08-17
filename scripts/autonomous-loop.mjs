@@ -32,7 +32,7 @@ const asNonEmptyString = (value, field) => {
 };
 
 const parseArgs = (argv = []) => {
-  const args = { graph: DEFAULT_GRAPH, log: DEFAULT_LOG, dryRun: false, maxBatches: null, noPersistGraph: false, realExecutor: false, approvalRequired: false, deepseekExecutor: false, openAiReview: false };
+  const args = { graph: DEFAULT_GRAPH, log: DEFAULT_LOG, dryRun: false, maxBatches: null, noPersistGraph: false, realExecutor: false, approvalRequired: false, deepseekExecutor: false, openAiReview: false, integrationTarget: "main" };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--graph") {
@@ -57,6 +57,11 @@ const parseArgs = (argv = []) => {
       const value = Number(argv[index + 1]);
       if (!Number.isInteger(value) || value < 1) throw new Error("--max-batches must be a positive integer");
       args.maxBatches = value;
+      index += 1;
+    } else if (arg === "--integration-target") {
+      const value = argv[index + 1];
+      if (typeof value !== "string" || !/^[a-z0-9][a-z0-9._/-]*$/.test(value)) throw new Error("--integration-target must be a safe branch name");
+      args.integrationTarget = value;
       index += 1;
     } else {
       throw new Error(`unknown argument: ${arg}`);
@@ -154,7 +159,8 @@ export const runAutonomousLoop = async ({
   isKilled = () => false,
   maxBatches = null,
   approvalBoundary,
-  reviewer
+  reviewer,
+  integrationTarget = "main"
 } = {}) => {
   const validated = validateTaskGraph(graph);
   if (typeof executor !== "function") throw new Error("executor must be a function");
@@ -170,7 +176,8 @@ export const runAutonomousLoop = async ({
     isKilled,
     maxBatches,
     approvalBoundary,
-    reviewer
+    reviewer,
+    integrationTarget
   });
 
   const limited = summary.limited;
@@ -231,7 +238,7 @@ const main = async () => {
   // deterministic local review adapter is used.
   const reviewer = args.openAiReview ? createOpenAiReviewer() : undefined;
   const approvalBoundary = args.approvalRequired ? { requiresApproval: ["create_commit"], approved: [] } : undefined;
-  const summary = await runAutonomousLoop({ graph, git, logStore, maxBatches: args.maxBatches, executor, reviewer, approvalBoundary });
+  const summary = await runAutonomousLoop({ graph, git, logStore, maxBatches: args.maxBatches, executor, reviewer, approvalBoundary, integrationTarget: args.integrationTarget });
   process.stdout.write(`${writeSummary(summary)}\n`);
   if (!args.noPersistGraph) {
     const updatedGraph = applyRunSummaryToGraph(graph, summary);

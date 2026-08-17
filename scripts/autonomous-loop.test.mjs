@@ -88,6 +88,26 @@ test("autonomous loop creates, merges, and removes worktrees when git is provide
   assert.deepEqual([...summary.completed], ["api"]);
   assert.deepEqual(calls, [
     ["add", "agent/api", ".worktrees/api"],
+    ["merge", "agent/api", "main"],
+    ["remove", ".worktrees/api"]
+  ]);
+});
+
+test("autonomous loop merges into the configured integration target", async () => {
+  const graph = {
+    version: 1,
+    tasks: [task("api", { affectedPaths: ["apps/api/src/a.mjs"] })]
+  };
+  const calls = [];
+  const git = {
+    addWorktree: async ({ branch, path }) => { calls.push(["add", branch, path]); return { ok: true }; },
+    removeWorktree: async ({ path }) => { calls.push(["remove", path]); return { ok: true }; },
+    mergeBranch: async ({ branch, into }) => { calls.push(["merge", branch, into]); return { ok: true, conflicts: [] }; }
+  };
+  const summary = await runAutonomousLoop({ graph, executor: passingExecutor, gatesExecutor: passingGates, git, integrationTarget: "integration" });
+  assert.deepEqual([...summary.completed], ["api"]);
+  assert.deepEqual(calls, [
+    ["add", "agent/api", ".worktrees/api"],
     ["merge", "agent/api", "integration"],
     ["remove", ".worktrees/api"]
   ]);

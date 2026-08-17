@@ -62,14 +62,14 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Current verification baseline
 
-- Root `npm test`: 319 pass, 0 fail, 22 skipped (DB integration) after the worker containerization slice (container-scan fallback test adds 1).
+- Root `npm test`: 343 total, 321 pass, 0 fail, 22 skipped (DB integration) after the Stage 3 integration-target fix.
 - Root `npm run verify`: pass for this slice: E0, lint, typecheck, tests, build, and security scan (secrets + dependencies + container).
 - CI-equivalent `npm run verify:ci`: application/unit + PostgreSQL integration + E2E smoke, all passing (0 failures).
 - E0 artifact verification: 36 required artifacts; latest GitHub merge evidence is PR #1 (`1692049`).
 - Dependency audit (`npm audit --omit=dev --audit-level=high`): 0 known vulnerabilities.
 - Backup/restore drill: seed rows recovered to a throwaway database.
 - Autonomous loop dry-run: `node scripts/autonomous-loop.mjs --dry-run --real-executor --no-persist-graph` completes spec/api/web with a surfaced cost/runtime report (Tasks 3, Passed 3, Cost 3); `--approval-required` blocks commit-creating tasks with `approval_required`; `--deepseek-executor` and `--openai-review` opt into AI-backed adapters.
-- Latest detailed evidence: `docs/handoffs/STAGE3_AI_EXECUTOR_REVIEWER_ADAPTERS.md` (and `STAGE3_ORCHESTRATOR_REPORTING_APPROVAL.md`, `AUTONOMOUS_TASK5_BKASH_CREDENTIALS_ADMIN.md`, `AUTONOMOUS_TASK1_EXECUTOR_CONTRACT.md`, `AUTONOMOUS_TASK2_COURIER_WEBHOOK_OUTBOX.md`, `AUTONOMOUS_TASK3_CONTAINER_SCAN.md`, `AUTONOMOUS_TASK4_BRANCH_CLEANUP.md`).
+- Latest detailed evidence: `docs/handoffs/STAGE3_AI_EXECUTOR_REVIEWER_ADAPTERS.md` (and `STAGE3_ORCHESTRATOR_REPORTING_APPROVAL.md`, `AUTONOMOUS_TASK5_BKASH_CREDENTIALS_ADMIN.md`, `AUTONOMOUS_TASK1_EXECUTOR_CONTRACT.md`, `AUTONOMOUS_TASK2_COURIER_WEBHOOK_OUTBOX.md`, `AUTONOMOUS_TASK3_CONTAINER_SCAN.md`, `AUTONOMOUS_TASK4_BRANCH_CLEANUP.md`, `STAGE3_INTEGRATION_TARGET_FIX.md`).
 
 
 
@@ -103,10 +103,9 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Next dependency-ready work
 
-1. Merge or supersede `agent/e1-identity-rbac` (holds valuable unmerged identity/RBAC work).
-2. Install/authenticate a real container scanner (docker scout login or trivy) to produce an actual image vulnerability report.
-3. Implement a real bKash HTTP adapter behind the injected gateway contract (sandbox-only until real credentials are approved).
-4. Production deployment and real provider credentials remain human-approval hard stops.
+1. Install/authenticate a real container scanner (docker scout login or trivy) to produce an actual image vulnerability report.
+2. Implement a real bKash HTTP adapter behind the injected gateway contract (sandbox-only until real credentials are approved).
+3. Production deployment and real provider credentials remain human-approval hard stops.
 
 
 

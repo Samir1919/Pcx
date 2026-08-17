@@ -371,6 +371,30 @@ test("parallel worker driver creates, merges, deletes the merged branch, and rem
   assert.deepEqual([...summary.completed], ["api"]);
   assert.deepEqual(calls, [
     ["add", "agent/api", ".worktrees/api"],
+    ["merge", "agent/api", "main"],
+    ["remove", ".worktrees/api"],
+    ["delete", "agent/api"]
+  ]);
+});
+
+test("parallel worker driver merges into the configured integration target", async () => {
+  const graph = {
+    version: 1,
+    tasks: [task("api", { affectedPaths: ["apps/api/src/a.mjs"] })]
+  };
+  const calls = [];
+  const git = {
+    addWorktree: async ({ branch, path }) => { calls.push(["add", branch, path]); return { ok: true }; },
+    removeWorktree: async ({ path }) => { calls.push(["remove", path]); return { ok: true }; },
+    mergeBranch: async ({ branch, into }) => { calls.push(["merge", branch, into]); return { ok: true, conflicts: [] }; },
+    deleteBranch: async ({ branch }) => { calls.push(["delete", branch]); return { ok: true }; }
+  };
+  const executor = async () => ({ artifacts: [{ type: "commit", path: "abc", status: "ok" }] });
+  const gatesExecutor = async ({ gate }) => ({ name: gate, command: gate, status: "PASSED", detail: "" });
+  const summary = await runParallelWorkers({ graph, executor, gatesExecutor, git, integrationTarget: "integration" });
+  assert.deepEqual([...summary.completed], ["api"]);
+  assert.deepEqual(calls, [
+    ["add", "agent/api", ".worktrees/api"],
     ["merge", "agent/api", "integration"],
     ["remove", ".worktrees/api"],
     ["delete", "agent/api"]

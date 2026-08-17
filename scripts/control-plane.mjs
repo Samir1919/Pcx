@@ -537,7 +537,7 @@ export const removeWorktree = async ({ plan, git } = {}) => {
  * integration candidate branch. Reports conflicts deterministically. Merge is
  * not a production deployment and remains governed by the existing policy.
  */
-export const mergeWorktree = async ({ plan, git, into = "integration" } = {}) => {
+export const mergeWorktree = async ({ plan, git, into = "main" } = {}) => {
   const validated = asWorktreePlan(plan);
   requireGit(git, "mergeBranch");
   const outcome = await git.mergeBranch({ branch: validated.branch, into });
@@ -612,7 +612,7 @@ const failedRecord = (taskId, failureClass) => Object.freeze({
  * silently-ignored git error): the worktree is still removed for cleanup, and
  * a merged branch is deleted so agent branches do not accumulate across runs.
  */
-const runOneWorker = async ({ task, executor, gatesExecutor, git, environment, signal, isKilled, approvalBoundary, reviewer }) => {
+const runOneWorker = async ({ task, executor, gatesExecutor, git, environment, signal, isKilled, approvalBoundary, reviewer, integrationTarget = "main" }) => {
   const plan = Object.freeze({ taskId: task.id, branch: `agent/${slugTaskId(task.id)}`, worktree: `.worktrees/${slugTaskId(task.id)}` });
   if (!git) return runWorkerPipeline({ task, executor, gatesExecutor, environment, signal, isKilled, approvalBoundary, reviewer });
   let created = false;
@@ -626,7 +626,7 @@ const runOneWorker = async ({ task, executor, gatesExecutor, git, environment, s
 
 
     if (record.status === "PASSED") {
-      const merged = await mergeWorktree({ plan, git });
+      const merged = await mergeWorktree({ plan, git, into: integrationTarget });
       if (!merged.merged) {
         record = Object.freeze({ ...record, status: "FAILED", failureClass: merged.cleanupOk === false ? "merge_failed_cleanup_failed" : "merge_failed" });
       } else {
@@ -664,7 +664,7 @@ const runOneWorker = async ({ task, executor, gatesExecutor, git, environment, s
  * its integrated verification reports READY. Failed tasks are recorded and not
  * re-attempted, so the loop always terminates.
  */
-export const runParallelWorkers = async ({ graph, completedIds = [], executor, gatesExecutor, git, logStore, environment = "local", signal, isKilled = () => false, maxBatches = null, approvalBoundary, reviewer } = {}) => {
+export const runParallelWorkers = async ({ graph, completedIds = [], executor, gatesExecutor, git, logStore, environment = "local", signal, isKilled = () => false, maxBatches = null, approvalBoundary, reviewer, integrationTarget = "main" } = {}) => {
 
 
   const validated = validateTaskGraph(graph);
@@ -698,7 +698,7 @@ export const runParallelWorkers = async ({ graph, completedIds = [], executor, g
       const next = plan.deferred.find((entry) => !failed.has(entry.taskId));
       if (!next) break;
       const task = validated.tasks.find((entry) => entry.id === next.taskId);
-      const record = await runOneWorker({ task, executor, gatesExecutor, git, environment, signal, isKilled, approvalBoundary, reviewer });
+      const record = await runOneWorker({ task, executor, gatesExecutor, git, environment, signal, isKilled, approvalBoundary, reviewer, integrationTarget });
 
 
       await persist(record);
@@ -714,7 +714,7 @@ export const runParallelWorkers = async ({ graph, completedIds = [], executor, g
     }
     const results = await Promise.all(selected.map(async (entry) => {
       const task = validated.tasks.find((candidate) => candidate.id === entry.taskId);
-      const record = await runOneWorker({ task, executor, gatesExecutor, git, environment, signal, isKilled, approvalBoundary, reviewer });
+      const record = await runOneWorker({ task, executor, gatesExecutor, git, environment, signal, isKilled, approvalBoundary, reviewer, integrationTarget });
       return { taskId: entry.taskId, record };
     }));
 
