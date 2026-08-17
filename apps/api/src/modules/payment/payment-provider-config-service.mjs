@@ -56,7 +56,7 @@ export function createPaymentProviderConfigService({ authService, repository, ci
   return Object.freeze({
     async saveConfig(accessCredential, input) {
       await admin(accessCredential);
-      const fields = exact(input, new Set(["provider", "mode", "credentials", "active"]));
+      const fields = exact(input, new Set(["provider", "mode", "credentials"]));
       const provider = safeProvider(fields.provider);
       const mode = safeMode(fields.mode);
       let incoming;
@@ -82,6 +82,10 @@ export function createPaymentProviderConfigService({ authService, repository, ci
         throw new PaymentProviderConfigError("invalid_input");
       }
       const now = clock();
+      // Activation is server-owned and can only change through setActiveMode().
+      // A save never mutates it: an existing config keeps its current flag and
+      // a brand-new config stays inactive until explicitly activated.
+      const active = existing ? existing.active === true : false;
       let record;
       try {
         record = createPaymentProviderConfig({
@@ -89,7 +93,7 @@ export function createPaymentProviderConfigService({ authService, repository, ci
           provider,
           mode,
           credentials,
-          active: fields.active === true,
+          active,
           createdAt: now
         });
       } catch {

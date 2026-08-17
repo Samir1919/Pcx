@@ -55,7 +55,7 @@ export default function PaymentsWorkspace() {
       if (value) credentials[field.key] = value;
     }
     try {
-      await paymentApi.saveConfig(provider, { mode, credentials, active: false });
+      await paymentApi.saveConfig(provider, { mode, credentials });
       event.currentTarget.reset();
       setNotice({ kind: "success", message: `${mode === "SANDBOX" ? "Sandbox" : "Live"} credentials saved and encrypted.` });
       await load();

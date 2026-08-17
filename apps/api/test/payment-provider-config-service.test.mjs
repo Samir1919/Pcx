@@ -57,6 +57,24 @@ test("saveConfig rejects unknown credential fields and invalid input", async () 
   await assert.rejects(service.saveConfig("access", { provider: "bkash", mode: "PROD", credentials: { appKey: "k" } }), (error) => error.code === "invalid_input");
 });
 
+test("saveConfig rejects a client-supplied active flag (activation is server-owned)", async () => {
+  const { service } = fixture();
+  await assert.rejects(service.saveConfig("access", { provider: "bkash", mode: "SANDBOX", credentials: { appKey: "k" }, active: true }), (error) => error.code === "invalid_input");
+});
+
+test("saveConfig preserves the active state of an already-active config", async () => {
+  const { service } = fixture();
+  await service.saveConfig("access", { provider: "bkash", mode: "SANDBOX", credentials: { appKey: "sandbox-key" } });
+  await service.setActiveMode("access", { provider: "bkash", mode: "SANDBOX" });
+  // Re-saving credentials must keep SANDBOX active rather than silently
+  // deactivating it.
+  const result = await service.saveConfig("access", { provider: "bkash", mode: "SANDBOX", credentials: { appKey: "rotated-key" } });
+  assert.equal(result.active, true);
+  const active = await service.getActiveCredentials("bkash");
+  assert.equal(active.mode, "SANDBOX");
+  assert.equal(active.credentials.appKey, "rotated-key");
+});
+
 test("listConfigs returns masked credentials and never plaintext", async () => {
   const { service } = fixture();
   await service.saveConfig("access", { provider: "bkash", mode: "SANDBOX", credentials: { appKey: "sandbox-key", appSecret: "sandbox-secret" } });
