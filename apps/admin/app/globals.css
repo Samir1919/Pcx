@@ -359,6 +359,33 @@ label>span {
   overflow: auto
 }
 
+.pager {
+  display: flex;
+  gap: 8px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--line);
+}
+
+.pager button {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pager button:hover:not(:disabled) {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.pager button:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
