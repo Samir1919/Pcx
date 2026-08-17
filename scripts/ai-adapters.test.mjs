@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createDeepSeekExecutor } from "./ai-executor.mjs";
-import { createOpenAiReviewer } from "./ai-review.mjs";
+import { createDeepSeekExecutor, createProviderExecutor } from "./ai-executor.mjs";
+import { createOpenAiReviewer, createProviderReviewer } from "./ai-review.mjs";
+import { resolveProvider } from "./ai-providers.mjs";
 
 const task = (id, overrides = {}) => ({
   id,
@@ -39,7 +40,9 @@ test("deepseek executor sends the task to the API and returns a validated artifa
   assert.equal(calls[0].options.headers.Authorization, "Bearer test-key");
   const body = JSON.parse(calls[0].options.body);
   assert.equal(body.model, "deepseek-chat");
-  assert.match(body.messages[0].content, /Task id: api/);
+  assert.equal(body.messages[0].role, "system");
+  assert.equal(body.messages[1].role, "user");
+  assert.match(body.messages[1].content, /Task id: api/);
 });
 
 test("deepseek executor rejects a missing API key", () => {
@@ -126,6 +129,76 @@ test("deepseek executor tolerates fenced JSON in the model output", async () => 
 
 test("deepseek executor rejects an invalid reasoning effort", () => {
   assert.throws(() => createDeepSeekExecutor({ apiKey: "k", reasoningEffort: "extreme", fetchImpl: async () => okResponse("{}") }), /reasoningEffort must be low, medium, or high/);
+});
+
+test("provider executor sends an OpenAI-compatible request and returns a validated artifact", async () => {
+  const provider = resolveProvider({ name: "kimi", env: { KIMI_API_KEY: "k", KIMI_MODEL: "kimi-k2" } });
+  let captured;
+  const executor = createProviderExecutor({
+    provider,
+    fetchImpl: async (url, options) => {
+      captured = { url, options };
+      return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: JSON.stringify({ artifactPath: "apps/api/src/a.mjs" }) } }] }) };
+    }
+  });
+  const result = await executor({ task: task("api"), actions: ["read"] });
+  assert.deepEqual(result.artifacts, [{ type: "commit", path: "apps/api/src/a.mjs", status: "ok" }]);
+  assert.equal(captured.url, "https://api.moonshot.cn/v1/chat/completions");
+  assert.equal(JSON.parse(captured.options.body).model, "kimi-k2");
+  assert.equal(captured.options.headers.Authorization, "Bearer k");
+});
+
+test("provider executor uses the Anthropic x-api-key dialect", async () => {
+  const provider = resolveProvider({ name: "anthropic", env: { ANTHROPIC_API_KEY: "ant" } });
+  let captured;
+  const executor = createProviderExecutor({
+    provider,
+    fetchImpl: async (url, options) => {
+      captured = { url, options };
+      return { ok: true, status: 200, json: async () => ({ content: [{ type: "text", text: JSON.stringify({ artifactPath: "apps/api/src/a.mjs" }) }] }) };
+    }
+  });
+  await executor({ task: task("api") });
+  assert.equal(captured.url, "https://api.anthropic.com/v1/messages");
+  assert.equal(captured.options.headers["x-api-key"], "ant");
+  assert.equal(captured.options.headers["anthropic-version"], "2023-06-01");
+  assert.ok(JSON.parse(captured.options.body).max_tokens > 0);
+  assert.equal(JSON.parse(captured.options.body).system, "You are a coding agent working on the PCX repository.");
+});
+
+test("provider executor self-heals once from a leaked tool-call when thinking is on", async () => {
+  const provider = resolveProvider({ name: "deepseek", env: { DEEPSEEK_API_KEY: "k" } });
+  const enriched = Object.freeze({ ...provider, thinkingEnabled: true, reasoningEffort: "high" });
+  const bodies = [];
+  let call = 0;
+  const executor = createProviderExecutor({
+    provider: enriched,
+    fetchImpl: async (_url, options) => {
+      bodies.push(JSON.parse(options.body));
+      call += 1;
+      if (call === 1) {
+        return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: "<｜tool_calls｜>..." } }] }) };
+      }
+      return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: JSON.stringify({ artifactPath: "apps/api/src/a.mjs" }) } }] }) };
+    }
+  });
+  const result = await executor({ task: task("api") });
+  assert.deepEqual(result.artifacts, [{ type: "commit", path: "apps/api/src/a.mjs", status: "ok" }]);
+  assert.equal(bodies.length, 2);
+  assert.deepEqual(bodies[0].thinking, { type: "enabled" });
+  assert.equal("thinking" in bodies[1], false);
+  assert.deepEqual(bodies[1].response_format, { type: "json_object" });
+});
+
+test("provider reviewer returns a reviewTask-shaped result and rejects blockers", async () => {
+  const provider = resolveProvider({ name: "openai", env: { OPENAI_API_KEY: "k" } });
+  const reviewer = createProviderReviewer({
+    provider,
+    fetchImpl: async () => ({ ok: true, status: 200, json: async () => ({ choices: [{ message: { content: JSON.stringify({ findings: [{ severity: "MAJOR", code: "inv", message: "bad" }] }) } }] }) })
+  });
+  const result = await reviewer({ task: task("api"), checks: ["test:api"] });
+  assert.equal(result.verdict, "REJECTED");
+  assert.equal(result.blocked, true);
 });
 
 test("openai reviewer sends the task and checks to the API and returns a reviewTask result", async () => {

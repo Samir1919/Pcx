@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createFileLogStore } from "./control-plane.mjs";
-import { applyRunSummaryToGraph, createRealExecutor, runAutonomousLoop } from "./autonomous-loop.mjs";
+import { applyRunSummaryToGraph, createRealExecutor, parseArgs, runAutonomousLoop } from "./autonomous-loop.mjs";
 
 
 
@@ -214,6 +214,14 @@ test("autonomous loop exposes a cost/runtime report from run records", async () 
   assert.equal(summary.report.totalCostUnits, 2);
   assert.ok(summary.report.totalRuntimeMs >= 0);
   assert.equal(summary.report.retryRate, 0);
+});
+
+test("parseArgs accepts provider flags and rejects unknown providers", () => {
+  const args = parseArgs(["--executor-provider", "anthropic", "--reviewer-provider", "kimi"]);
+  assert.equal(args.executorProvider, "anthropic");
+  assert.equal(args.reviewerProvider, "kimi");
+  assert.throws(() => parseArgs(["--executor-provider", "unknown"]), /--executor-provider must be one of/);
+  assert.throws(() => parseArgs(["--reviewer-provider", "unknown"]), /--reviewer-provider must be one of/);
 });
 
 test("autonomous loop blocks tasks whose actions require unapproved approval", async () => {

@@ -1,32 +1,32 @@
 /**
- * DeepSeek executor adapter.
+ * Provider-neutral AI executor adapters.
  *
- * Implements the vendor-neutral executor contract (ADR 0007) using the DeepSeek
- * chat-completions API. The executor sends a bounded task description to
- * DeepSeek and maps the model's structured response into allow-listed artifacts.
+ * `createProviderExecutor` implements the vendor-neutral executor contract
+ * (ADR 0007) for any registered provider (DeepSeek, OpenAI, Anthropic, Kimi).
+ * It sends a bounded task description to the provider and maps the model's
+ * structured response into allow-listed artifacts validated by
+ * `validateExecutorResult`.
  *
- * The API key, model, and endpoint are read from environment variables
- * (`DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL`, `DEEPSEEK_ENDPOINT`) so secrets never
- * appear in source, logs, or artifacts. `DEEPSEEK_ENDPOINT` is optional and
- * defaults to the official DeepSeek chat-completions URL; set it to the full
- * `/chat/completions` URL (or an OpenAI-compatible aggregator endpoint) when
- * routing a model variant such as `deepseek-v4-pro`.
+ * Reasoning-capable providers (e.g. `deepseek-v4-pro` with `thinking` enabled)
+ * can leak their native tool-call tokens instead of emitting the requested JSON.
+ * The executor detects that once and retries a single time with thinking
+ * disabled (deterministic `reply_format: json_object`), so the provider remains
+ * usable without looping. It never exceeds one fallback attempt.
  *
- * DeepSeek's reasoning-capable models accept two optional request fields:
- * `thinking: { type: "enabled" }` (set `DEEPSEEK_THINKING=enabled`) and
- * `reasoning_effort` (`low|medium|high`, set `DEEPSEEK_REASONING_EFFORT`). Both
- * are opt-in and omitted by default, so the default request shape is unchanged.
- * When native thinking is enabled the adapter omits `response_format:
- * json_object` (that mode conflicts with thinking on some serving paths) and
- * tolerates fenced JSON in the model output.
+ * `createDeepSeekExecutor` is kept as a thin, backward-compatible wrapper over
+ * `createProviderExecutor`, preserving its historical option names
+ * (`apiKey`/`model`/`endpoint`/`thinkingEnabled`/`reasoningEffort`) for existing
+ * callers and tests.
  *
- * A `fetchImpl` may be injected for deterministic testing; the default uses the
- * global `fetch`. When no API key is present the factory throws, so a real run
- * fails fast instead of silently degrading.
+ * All credentials/models/endpoints are read from environment variables by the
+ * provider registry (`ai-providers.mjs`) unless explicitly overridden; secrets
+ * never appear in source, logs, or artifacts. When a required key is missing the
+ * factory throws, so a real run fails fast instead of silently degrading.
  *
  * This adapter never performs a hard-stop action and only emits allow-listed
  * artifacts, so it is safe to run locally or in CI (with a mocked fetch).
  */
+import { buildChatRequest, extractContent, parseProviderJson, resolveProvider } from "./ai-providers.mjs";
 import { validateExecutorResult } from "./control-plane.mjs";
 
 const asNonEmptyString = (value, field) => {
@@ -35,50 +35,49 @@ const asNonEmptyString = (value, field) => {
 };
 
 const DEFAULT_ENDPOINT = "https://api.deepseek.com/chat/completions";
-
-// Some deepseek model-serving paths leak their reserved tool-call template
-// tokens back as plain assistant text (the `｜` fullwidth bars plus
-// `<invoke>`/`<tool_calls>` wrappers). The repo's executor is prompt-based and
-// expects a single JSON object, so that text is a smoking gun for a broken
-// tool-calling/harness configuration. Rather than looping on an unparseable
-// response, fail fast with a specific, non-retryable error naming the cause.
-const assertNoLeakedToolCalls = (content) => {
-  if (content.includes("\uFF5C") || /<\s*(?:invoke|tool_calls|tool)\b/i.test(content)) {
-    const error = new Error("DeepSeek returned leaked tool-call syntax instead of JSON; the model endpoint is emitting its reserved special tokens (fullwidth bars / <invoke>/<tool_calls>). Point DEEPSEEK_ENDPOINT at an endpoint that implements native tool calling, or use a model variant that does not emit these tokens.");
-    error.retryable = false;
-    throw error;
-  }
-};
-
-const parseJson = (content) => {
-  const stripped = content.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
-  return JSON.parse(stripped);
-};
+const REASONING_EFFORTS = new Set(["low", "medium", "high"]);
 
 /**
- * Builds the DeepSeek executor. Reads credentials from the environment unless
- * explicitly overridden (for tests). Returns an async function matching the
- * executor contract: `({ task, actions, attempt, signal }) => { artifacts }`.
+ * Builds a provider-backed executor. `provider` may be a pre-resolved config
+ * (for tests); otherwise it is resolved from the environment by `name`.
  */
-export const createDeepSeekExecutor = ({
-  apiKey = process.env.DEEPSEEK_API_KEY,
-  model = process.env.DEEPSEEK_MODEL ?? "deepseek-chat",
-  endpoint = process.env.DEEPSEEK_ENDPOINT ?? DEFAULT_ENDPOINT,
-  thinkingEnabled = process.env.DEEPSEEK_THINKING === "enabled",
-  reasoningEffort = process.env.DEEPSEEK_REASONING_EFFORT ?? null,
+export const createProviderExecutor = ({
+  name = "deepseek",
+  provider,
   fetchImpl = fetch,
   timeoutMs = 120_000
 } = {}) => {
-  const key = asNonEmptyString(apiKey, "DEEPSEEK_API_KEY");
-  const safeModel = asNonEmptyString(model, "DEEPSEEK_MODEL");
+  const resolved = provider ?? resolveProvider({ name });
+  if (!resolved || typeof resolved !== "object") throw new Error("provider must be a resolved provider config");
   if (typeof fetchImpl !== "function") throw new Error("fetchImpl must be a function");
   if (!Number.isInteger(timeoutMs) || timeoutMs < 1_000) throw new Error("timeoutMs must be a positive integer");
-  if (reasoningEffort != null && !["low", "medium", "high"].includes(reasoningEffort)) throw new Error("reasoningEffort must be low, medium, or high");
+  if (resolved.reasoningEffort != null && !REASONING_EFFORTS.has(resolved.reasoningEffort)) throw new Error("reasoningEffort must be low, medium, or high");
+
+  // Perform a single completion with a given provider config and return the
+  // extracted assistant text.
+  const complete = async (config, user, controller) => {
+    const { body, headers } = buildChatRequest(config, {
+      system: "You are a coding agent working on the PCX repository.",
+      user
+    });
+    const response = await fetchImpl(config.endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      const error = new Error(`${config.name} API error: ${response.status}`);
+      error.retryable = response.status >= 500 || response.status === 429;
+      throw error;
+    }
+    const payload = await response.json();
+    return extractContent(payload);
+  };
 
   return async ({ task, actions = [], attempt = 1, signal } = {}) => {
     if (!task || typeof task !== "object") throw new Error("task must be an object");
-    const prompt = [
-      "You are a coding agent working on the PCX repository.",
+    const user = [
       `Task id: ${task.id}`,
       `Owner: ${task.owner}`,
       `Scope: ${(task.scope ?? []).join(", ")}`,
@@ -88,45 +87,30 @@ export const createDeepSeekExecutor = ({
       "Respond with a single JSON object: {\"summary\": \"<one line>\", \"artifactPath\": \"<repository-relative path>\"}."
     ].join("\n");
 
-    const requestBody = {
-      model: safeModel,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.2
-    };
-    // Native thinking conflicts with `response_format: json_object` on some
-    // serving paths, so only request structured JSON when reasoning is off.
-    if (thinkingEnabled) {
-      requestBody.thinking = { type: "enabled" };
-    } else {
-      requestBody.response_format = { type: "json_object" };
-    }
-    if (reasoningEffort) requestBody.reasoning_effort = reasoningEffort;
-
     const controller = new AbortController();
     let timer;
     const onAbort = () => controller.abort(signal?.reason ?? "aborted");
     signal?.addEventListener("abort", onAbort, { once: true });
     try {
       timer = setTimeout(() => controller.abort("timeout"), timeoutMs);
-      const response = await fetchImpl(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${key}`
-        },
-        body: JSON.stringify(requestBody),
-        signal: controller.signal
-      });
-      if (!response.ok) {
-        const error = new Error(`DeepSeek API error: ${response.status}`);
-        error.retryable = response.status >= 500 || response.status === 429;
-        throw error;
+
+      let parsed;
+      const content = await complete(resolved, user, controller);
+      try {
+        parsed = parseProviderJson(content);
+      } catch (error) {
+        // Self-heal once: reasoning models may emit tool-call syntax or other
+        // non-JSON reasoning text. Retry a single time with reasoning disabled
+        // (deterministic `response_format: json_object`). Never exceeds one
+        // fallback attempt, so a genuinely broken provider still fails fast.
+        if (resolved.thinkingEnabled) {
+          const fallback = Object.freeze({ ...resolved, thinkingEnabled: false, reasoningEffort: null });
+          parsed = parseProviderJson(await complete(fallback, user, controller));
+        } else {
+          throw error;
+        }
       }
-      const payload = await response.json();
-      const content = payload?.choices?.[0]?.message?.content;
-      if (typeof content !== "string" || content.trim() === "") throw new Error("DeepSeek returned no content");
-      assertNoLeakedToolCalls(content);
-      const parsed = parseJson(content);
+
       const artifactPath = asNonEmptyString(parsed.artifactPath, "artifactPath");
       const result = { artifacts: [{ type: "commit", path: artifactPath, status: "ok" }] };
       // Enforce the vendor-neutral executor contract (ADR 0007): secret-free,
@@ -137,4 +121,53 @@ export const createDeepSeekExecutor = ({
       signal?.removeEventListener("abort", onAbort);
     }
   };
+};
+
+/**
+ * Backward-compatible DeepSeek executor factory. Accepts the historical option
+ * names and delegates to `createProviderExecutor`.
+ */
+export const createDeepSeekExecutor = (options = {}) => {
+  const {
+    apiKey,
+    model,
+    endpoint,
+    thinkingEnabled,
+    reasoningEffort,
+    fetchImpl = fetch,
+    timeoutMs = 120_000
+  } = options;
+  // Preserve the original fail-fast contract: an explicitly-supplied empty key
+  // must throw at construction time.
+  if (apiKey !== undefined) asNonEmptyString(apiKey, "DEEPSEEK_API_KEY");
+
+  let base;
+  try {
+    base = resolveProvider({ name: "deepseek" });
+  } catch {
+    base = {
+      name: "deepseek",
+      auth: "bearer",
+      apiKey: apiKey ?? process.env.DEEPSEEK_API_KEY,
+      model: model ?? process.env.DEEPSEEK_MODEL ?? "deepseek-chat",
+      endpoint: endpoint ?? process.env.DEEPSEEK_ENDPOINT ?? DEFAULT_ENDPOINT,
+      thinkingEnabled: thinkingEnabled ?? process.env.DEEPSEEK_THINKING === "enabled",
+      reasoningEffort: reasoningEffort ?? process.env.DEEPSEEK_REASONING_EFFORT ?? null
+    };
+  }
+
+  const provider = Object.freeze({
+    ...base,
+    ...(apiKey !== undefined ? { apiKey } : {}),
+    ...(model !== undefined ? { model } : {}),
+    ...(endpoint !== undefined ? { endpoint } : {}),
+    ...(thinkingEnabled !== undefined ? { thinkingEnabled } : {}),
+    ...(reasoningEffort !== undefined ? { reasoningEffort } : {})
+  });
+
+  // Preserve the original fail-fast contract even when the registry is bypassed
+  // (e.g. no DEEPSEEK_API_KEY in the environment): a missing key must throw now.
+  asNonEmptyString(provider.apiKey, "DEEPSEEK_API_KEY");
+
+  return createProviderExecutor({ provider, fetchImpl, timeoutMs });
 };

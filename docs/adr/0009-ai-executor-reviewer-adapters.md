@@ -9,23 +9,25 @@ The Stage 3 control plane (ADR 0008) provides a vendor-neutral executor contract
 
 ## Decision
 
-Introduce two optional, opt-in adapters wired into the autonomous loop via CLI flags:
+Introduce optional, opt-in AI adapters wired into the autonomous loop via CLI flags, behind a common provider registry.
 
-- **`scripts/ai-executor.mjs`** — `createDeepSeekExecutor`: calls the DeepSeek chat-completions API to produce a task result. Reads `DEEPSEEK_API_KEY`/`DEEPSEEK_MODEL`/`DEEPSEEK_ENDPOINT` from the environment (overridable for tests). `DEEPSEEK_ENDPOINT` is optional and defaults to the official DeepSeek chat-completions URL; it can be pointed at an OpenAI-compatible aggregator endpoint for model variants the official endpoint does not serve. The model's `artifactPath` is validated through `validateExecutorResult` (repository-relative, no traversal, allow-listed artifact metadata) before it is trusted. API errors are marked retryable for 5xx/429 so the bounded runner can retry. Responses containing leaked tool-call syntax (DeepSeek's fullwidth-bar special tokens or `invoke`/`tool_calls` wrappers) fail fast with a specific, non-retryable error instead of looping.
-- **`scripts/ai-review.mjs`** — `createOpenAiReviewer`: calls the OpenAI chat-completions API to produce typed findings. Reads `OPENAI_API_KEY`/`OPENAI_MODEL` from the environment (overridable for tests). The model's findings are validated through the existing `reviewTask` adapter, so the AI cannot weaken the gate or inject malformed/secret-bearing findings. BLOCKER/MAJOR findings reject the task.
+**Provider registry** (`scripts/ai-providers.mjs`): `deepseek`, `openai`, `anthropic` (Claude Messages API), and `kimi` (Moonshot, OpenAI-compatible). Each provider is configured by `<PREFIX>_*` environment variables (`_API_KEY`, `_MODEL`, `_ENDPOINT`, `_ENABLED`, `_THINKING`, `_REASONING_EFFORT`) with the documented defaults. Setting `<PREFIX>_ENABLED=false` **holds** a provider — its config stays but selecting it fails fast, so operators can swap/hold providers without deleting credentials.
 
-Both adapters:
-- Accept an injectable `fetchImpl` for deterministic testing; the default uses the global `fetch`.
-- Fail fast when the required API key is missing (never silently degrade).
-- Never write secrets to source, logs, or artifacts.
+**Executor** (`scripts/ai-executor.mjs`):
+- `createProviderExecutor({ name | provider })` implements the vendor-neutral executor contract (ADR 0007) for any registry provider. It emits a `system` + `user` message pair, adapts the request body/auth to the provider dialect (OpenAI-compatible bearer vs Anthropic `x-api-key`), maps the structured response to an `artifactPath`, and validates it through `validateExecutorResult` (repository-relative, no traversal, allow-listed metadata). API errors are marked retryable for 5xx/429. Responses containing leaked tool-call syntax (fullwidth-bar special tokens or `invoke`/`tool_calls` wrappers) fail fast with a specific, non-retryable error instead of looping. Native reasoning models (DeepSeek) can enable `thinking`/`reasoning_effort` via the shared env contract; when thinking is on, `response_format: json_object` is omitted because it conflicts on some serving paths.
+- `createDeepSeekExecutor` is retained as a backward-compatible wrapper over `createProviderExecutor`.
 
-The control-plane pipeline (`runWorkerPipeline`) now accepts an injectable `reviewer`. When provided, it is awaited in place of the deterministic local `reviewTask`; otherwise the local adapter is used. The `reviewer` is threaded through `runOneWorker` and `runParallelWorkers`.
+**Reviewer** (`scripts/ai-review.mjs`):
+- `createProviderReviewer({ name | provider })` reuses the same registry and returns a `reviewTask`-shaped result; findings are validated by the existing `reviewTask` adapter, so the AI cannot weaken the gate or inject malformed/secret-bearing findings. BLOCKER/MAJOR findings reject the task.
+- `createOpenAiReviewer` is retained with its OpenAI-specific `previous_response_not_found` retry path.
 
-The autonomous loop (`scripts/autonomous-loop.mjs`) adds two opt-in flags:
-- `--deepseek-executor` — use the DeepSeek executor.
-- `--openai-review` — use the OpenAI reviewer.
+All adapters accept an injectable `fetchImpl` for deterministic testing (default: global `fetch`), fail fast on a missing API key, and never write secrets to source, logs, or artifacts.
 
-A `.env.example` documents the required environment variables. The `.env` file is git-ignored. The autonomous loop driver loads `.env` itself (existing shell variables are never overwritten), so `--deepseek-executor`/`--openai-review` pick up adapter settings without requiring them to be exported by the caller.
+The autonomous loop (`scripts/autonomous-loop.mjs`) keeps the legacy opt-in flags and adds provider selection:
+- `--deepseek-executor` / `--openai-review` (legacy)
+- `--executor-provider <name>` / `--reviewer-provider <name>` (`deepseek | openai | anthropic | kimi`)
+
+A `.env.example` documents the full provider matrix. The `.env` file is git-ignored. The autonomous loop driver loads `.env` itself (existing shell variables are never overwritten), so adapter settings are picked up without being exported by the caller.
 
 ## Cost and maintenance owner
 
