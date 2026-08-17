@@ -134,8 +134,11 @@ export function createShipmentService({ authService, repository, id = randomUUID
     // APPLIED; on repeated failure the event is marked FAILED after the retry
     // budget is exhausted. Idempotent: an already-final shipment is a no-op.
     async dispatchDueWebhookEvents({ limit = 20 } = {}) {
-      if (typeof repository.listPendingWebhookEvents !== "function") throw new ShipmentError("invalid_state");
-      const pending = await repository.listPendingWebhookEvents(limit);
+      const claim = typeof repository.claimPendingWebhookEvents === "function" ? repository.claimPendingWebhookEvents : repository.listPendingWebhookEvents;
+      if (typeof claim !== "function") throw new ShipmentError("invalid_state");
+      // Prefer the row-locking claim to avoid duplicate processing across concurrent
+      // workers; falls back to the non-locking list when only a simple reader exists.
+      const pending = await claim.call(repository, limit);
       const results = [];
       for (const event of pending) {
         const mapping = providerTransitions[event.providerStatus];

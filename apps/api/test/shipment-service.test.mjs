@@ -176,6 +176,19 @@ test("dispatchDueWebhookEvents applies pending terminal events and marks them ap
   assert.equal(calls.applied[0].id, "evt-1");
 });
 
+test("dispatchDueWebhookEvents prefers the row-locking claim when provided", async () => {
+  const claimed = [];
+  const { service, calls } = fixture({
+    repository: {
+      async claimPendingWebhookEvents(limit) { claimed.push(limit); return [{ id: "evt-claim", shipmentId: "s1", providerStatus: "DELIVERED", occurredAt: "2026-08-16T12:00:00.000Z", retryCount: 0 }]; }
+    }
+  });
+  const results = await service.dispatchDueWebhookEvents({ limit: 7 });
+  assert.deepEqual(results, [{ id: "evt-claim", status: "APPLIED" }]);
+  assert.deepEqual(claimed, [7]);
+  assert.equal(calls.delivers.length, 1);
+});
+
 test("dispatchDueWebhookEvents records informational pending events without a state change", async () => {
   const { service, calls } = fixture();
   calls.pending.push({ id: "evt-2", shipmentId: "s1", providerStatus: "IN_TRANSIT", occurredAt: "2026-08-16T12:00:00.000Z", retryCount: 0 });

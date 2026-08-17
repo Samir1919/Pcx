@@ -118,6 +118,34 @@ export function createPostgresShipmentRepository({ pool }) {
       return result.rows.map(webhookEvent);
     },
 
+    // Claims a batch of due PENDING events for processing, using
+    // FOR UPDATE SKIP LOCKED inside a transaction so two concurrent workers
+    // never fetch the same rows. Each claimed row gets a short lease on
+    // next_attempt_at that is overwritten by markWebhookApplied/markWebhookFailed
+    // on completion; if the process crashes mid-processing, the lease expires and
+    // the event is re-claimed (at-least-once).
+    async claimPendingWebhookEvents(limit = 20) {
+      return transaction(pool, async (client) => {
+        const claimed = await client.query(
+          `SELECT id, shipment_id, provider_status, occurred_at, status, retry_count, next_attempt_at, created_at, applied_at
+           FROM shipment_webhook_events
+           WHERE status = 'PENDING' AND (next_attempt_at IS NULL OR next_attempt_at <= now())
+           ORDER BY created_at ASC
+           LIMIT $1
+           FOR UPDATE SKIP LOCKED`,
+          [limit]
+        );
+        for (const row of claimed.rows) {
+          await client.query(
+            `UPDATE shipment_webhook_events SET next_attempt_at = now() + interval '120 seconds'
+             WHERE id = $1 AND status = 'PENDING'`,
+            [row.id]
+          );
+        }
+        return claimed.rows.map(webhookEvent);
+      });
+    },
+
     async markWebhookApplied(id, now) {
       const result = await pool.query(
         `UPDATE shipment_webhook_events SET status = 'APPLIED', applied_at = $2

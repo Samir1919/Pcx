@@ -4,17 +4,16 @@ import { createWorkerRuntime } from "../src/composition.mjs";
 
 function fakePool() {
   const queries = [];
+  const client = {
+    async query(sql) { queries.push(sql); return { rows: [] }; },
+    release() { }
+  };
   return {
     pool: {
-      async query(sql) {
-        queries.push(sql);
-        // Both dispatch jobs stop early on empty pending lists, so no further
-        // transaction or state-change query is issued.
-        return { rows: [] };
-      },
-      async connect() {
-        throw new Error("connect must not be called for an empty pending list");
-      }
+      async query(sql) { queries.push(sql); return { rows: [] }; },
+      // The webhook outbox claim opens a transaction (FOR UPDATE SKIP LOCKED)
+      // even when no rows are due, so connect() must yield a working client.
+      async connect() { return client; }
     },
     queries
   };
