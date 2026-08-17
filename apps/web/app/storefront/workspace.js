@@ -78,7 +78,7 @@ export default function StorefrontWorkspace() {
       <div className="topbar">
         <div className="topbarInner">
           <a className="brand" href="/storefront" aria-label="PCX Storefront home"><b>PCX</b><small>CERTIFIED PRE-OWNED</small></a>
-          <nav aria-label="Primary"><a className="selected" href="/storefront">Storefront</a><a href="/catalog">Catalog</a></nav>
+          <nav aria-label="Primary"><a className="selected" href="/storefront">Storefront</a></nav>
         </div>
       </div>
       <div className="wrap">

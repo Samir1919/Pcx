@@ -31,7 +31,7 @@ export default function PassportPage() {
       <div className="topbar">
         <div className="topbarInner">
           <a className="brand" href="/storefront" aria-label="PCX Storefront home"><b>PCX</b><small>CERTIFIED PRE-OWNED</small></a>
-          <nav aria-label="Primary"><a href="/storefront">Storefront</a><a className="selected" href="/catalog">Catalog</a></nav>
+          <nav aria-label="Primary"><a href="/storefront">Storefront</a></nav>
         </div>
       </div>
       <div className="wrap">
