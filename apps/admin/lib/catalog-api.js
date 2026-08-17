@@ -1,9 +1,21 @@
-function csrfToken(cookie=document.cookie){const entry=cookie.split(";").map((part)=>part.trim()).find((part)=>part.startsWith("pcx_csrf="));if(!entry)return null;try{return decodeURIComponent(entry.slice("pcx_csrf=".length));}catch{return null;}}
-async function request(path,{method="GET",body}={}){const headers={accept:"application/json"};if(body!==undefined)headers["content-type"]="application/json";if(method!=="GET"){const token=csrfToken();if(!token)throw new CatalogApiError("CSRF_MISSING","Your secure session is incomplete. Sign in again.",403);headers["x-csrf-token"]=token;}const response=await fetch(path,{method,headers,credentials:"include",body:body===undefined?undefined:JSON.stringify(body)});if(response.status===204)return null;const payload=await response.json().catch(()=>null);if(!response.ok)throw new CatalogApiError(payload?.error?.code??"REQUEST_FAILED",payload?.error?.message??"The request could not be completed",response.status);return payload;}
-export class CatalogApiError extends Error{constructor(code,message,status){super(message);this.name="CatalogApiError";this.code=code;this.status=status;}}
-export const catalogApi=Object.freeze({
-  categories:()=>request("/api/v1/categories"),brands:()=>request("/api/v1/brands"),models:(query="")=>request(`/api/v1/product-models?limit=50${query}`),model:(id)=>request(`/api/v1/product-models/${encodeURIComponent(id)}`),definitions:(categoryId)=>request(`/api/v1/admin/attribute-definitions${categoryId?`?categoryId=${encodeURIComponent(categoryId)}`:""}`),modelValues:(modelId)=>request(`/api/v1/admin/product-models/${encodeURIComponent(modelId)}/specifications`),
-  createCategory:(body)=>request("/api/v1/admin/categories",{method:"POST",body}),createBrand:(body)=>request("/api/v1/admin/brands",{method:"POST",body}),createModel:(body)=>request("/api/v1/admin/product-models",{method:"POST",body}),createDefinition:(body)=>request("/api/v1/admin/attribute-definitions",{method:"POST",body}),
-  update:(resource,id,body)=>request(`/api/v1/admin/${resource}/${encodeURIComponent(id)}`,{method:"PATCH",body}),archive:(resource,id)=>request(`/api/v1/admin/${resource}/${encodeURIComponent(id)}`,{method:"DELETE"}),setModelValue:(modelId,definitionId,value)=>request(`/api/v1/admin/product-models/${encodeURIComponent(modelId)}/specifications/${encodeURIComponent(definitionId)}`,{method:"PUT",body:{value}})
+import { apiRequest } from "./api-client.js";
+
+// Backwards-compatible re-exports so existing callers/tests keep working; the
+// old CatalogApiError and csrfToken now alias the shared api-client versions.
+export { ApiError as CatalogApiError, csrfToken } from "./api-client.js";
+
+export const catalogApi = Object.freeze({
+  categories: () => apiRequest("/api/v1/categories"),
+  brands: () => apiRequest("/api/v1/brands"),
+  models: (query = "") => apiRequest(`/api/v1/product-models?limit=50${query}`),
+  model: (id) => apiRequest(`/api/v1/product-models/${encodeURIComponent(id)}`),
+  definitions: (categoryId) => apiRequest(`/api/v1/admin/attribute-definitions${categoryId ? `?categoryId=${encodeURIComponent(categoryId)}` : ""}`),
+  modelValues: (modelId) => apiRequest(`/api/v1/admin/product-models/${encodeURIComponent(modelId)}/specifications`),
+  createCategory: (body) => apiRequest("/api/v1/admin/categories", { method: "POST", body }),
+  createBrand: (body) => apiRequest("/api/v1/admin/brands", { method: "POST", body }),
+  createModel: (body) => apiRequest("/api/v1/admin/product-models", { method: "POST", body }),
+  createDefinition: (body) => apiRequest("/api/v1/admin/attribute-definitions", { method: "POST", body }),
+  update: (resource, id, body) => apiRequest(`/api/v1/admin/${resource}/${encodeURIComponent(id)}`, { method: "PATCH", body }),
+  archive: (resource, id) => apiRequest(`/api/v1/admin/${resource}/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  setModelValue: (modelId, definitionId, value) => apiRequest(`/api/v1/admin/product-models/${encodeURIComponent(modelId)}/specifications/${encodeURIComponent(definitionId)}`, { method: "PUT", body: { value } })
 });
-export { csrfToken };
