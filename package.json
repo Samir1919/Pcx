@@ -11,8 +11,15 @@
     "packages/*"
   ],
   "scripts": {
+    "dev": "node scripts/dev.mjs",
     "dev:api": "node apps/api/src/index.mjs",
+    "dev:web": "npm run dev -w @pcx/web -- -p 3000",
+    "dev:admin": "npm run dev -w @pcx/admin -- -p 3001",
     "dev:worker": "node apps/worker/src/main.mjs",
+    "prod:build": "node scripts/prod.mjs build",
+    "prod:up": "node scripts/prod.mjs up",
+    "prod:down": "node scripts/prod.mjs down",
+    "deploy": "node scripts/prod.mjs deploy",
     "verify:e0": "node scripts/e0-check.mjs",
     "test": "node --test",
     "test:integration": "node --test apps/api/test/integration/*.test.mjs",

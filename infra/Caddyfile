@@ -1,0 +1,11 @@
+# Local HTTP reverse proxy for the PCX application tier.
+# Real domains and TLS are a production hard stop and are intentionally absent
+# here. For production, replace these with real hostnames and inject real TLS.
+
+:8080 {
+	reverse_proxy web:3000
+}
+
+:8081 {
+	reverse_proxy admin:3001
+}

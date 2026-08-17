@@ -1,0 +1,147 @@
+# Production-like full-stack compose (standalone).
+#
+#   docker compose -f infra/docker-compose.prod.yml up -d --build
+#
+# Infrastructure (PostgreSQL/Redis/MinIO) is internal-only: the application
+# tier reaches it over the compose network and the reverse proxy is the only
+# public entrypoint. Volumes and project name are isolated from the development
+# stack in infra/docker-compose.yml so both can run on one host without port or
+# data collisions.
+#
+# Real domains, TLS certificates, and real secrets are human-approval hard
+# stops and are NOT encoded here; they must be injected from a secret
+# manager/environment on a real production host.
+
+name: pcx-prod
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pcx
+      POSTGRES_USER: pcx
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pcx_prod_local_only}
+    volumes:
+      - pcx-prod-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U pcx -d pcx" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: [ "redis-server", "--appendonly", "yes" ]
+    volumes:
+      - pcx-prod-redis:/data
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: pcx_prod
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-change_me_prod_local_only}
+    volumes:
+      - pcx-prod-minio:/data
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://pcx:pcx_prod_local_only@postgres:5432/pcx}
+      API_PORT: 4000
+      PCX_API_ORIGIN: ${API_ALLOWED_ORIGINS:-http://localhost:8080,http://localhost:8081}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:4000/health/ready" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        PCX_API_ORIGIN: ${WEB_API_ORIGIN:-http://api:4000}
+    environment:
+      PCX_API_ORIGIN: ${WEB_API_ORIGIN:-http://api:4000}
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:3000" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  admin:
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+      args:
+        PCX_API_ORIGIN: ${ADMIN_API_ORIGIN:-http://api:4000}
+    environment:
+      PCX_API_ORIGIN: ${ADMIN_API_ORIGIN:-http://api:4000}
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:3001" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://pcx:pcx_prod_local_only@postgres:5432/pcx}
+      COURIER_WEBHOOK_SECRET: ${COURIER_WEBHOOK_SECRET:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    command: [ "node", "apps/api/src/infrastructure/database/migrate.mjs" ]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://pcx:pcx_prod_local_only@postgres:5432/pcx}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - web
+      - admin
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    volumes:
+      - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
+
+volumes:
+  pcx-prod-postgres:
+  pcx-prod-redis:
+  pcx-prod-minio:
