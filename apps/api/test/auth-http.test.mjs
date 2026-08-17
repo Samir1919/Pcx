@@ -61,7 +61,7 @@ test("login issues secure scoped cookies without exposing credentials in JSON", 
   const [access, refresh, csrf] = response.headers["set-cookie"];
   assert.match(access, /^pcx_access=raw-access; Path=\/; .*Secure; HttpOnly; SameSite=Strict$/);
   assert.match(refresh, /^pcx_refresh=raw-refresh; Path=\/api\/v1\/auth; .*Secure; HttpOnly; SameSite=Strict$/);
-  assert.match(csrf, /^pcx_csrf=.*; Path=\/api\/v1;/);
+  assert.match(csrf, /^pcx_csrf=.*; Path=\/;/);
   assert.equal(csrf.includes("HttpOnly"), false);
 });
 
@@ -73,7 +73,7 @@ test("privileged login returns MFA challenge with only a CSRF cookie", async () 
   // follow-up verify-mfa write can satisfy double-submit CSRF.
   const cookies = response.headers["set-cookie"];
   assert.equal(cookies.length, 1);
-  assert.match(cookies[0], /^pcx_csrf=.*; Path=\/api\/v1;/);
+  assert.match(cookies[0], /^pcx_csrf=.*; Path=\/;/);
   assert.equal(cookies[0].includes("HttpOnly"), false);
   assert.equal(cookies.some((value) => value.startsWith("pcx_access=")), false);
   assert.equal(cookies.some((value) => value.startsWith("pcx_refresh=")), false);
@@ -120,7 +120,7 @@ test("logout validates CSRF, remains body-free, and expires every cookie", async
   assert.equal(response.body, undefined);
   assert.equal(presented.refreshCredential, "unknown");
   assert.equal(response.headers["set-cookie"].every((value) => value.includes("Max-Age=0")), true);
-  assert.equal(response.headers["set-cookie"].some((value) => value.startsWith("pcx_csrf=") && value.includes("Path=/api/v1;")), true);
+  assert.equal(response.headers["set-cookie"].some((value) => value.startsWith("pcx_csrf=") && value.includes("Path=/;")), true);
 });
 
 test("application failures map to stable request-aware responses", async () => {

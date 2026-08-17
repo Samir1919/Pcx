@@ -118,7 +118,7 @@ function sessionCookies(session, csrfToken) {
   return [
     `pcx_access=${encodeURIComponent(session.accessCredential)}; Path=/; Expires=${accessExpiry}; ${secureCookie}HttpOnly; SameSite=Strict`,
     `pcx_refresh=${encodeURIComponent(session.refreshCredential)}; Path=/api/v1/auth; Expires=${refreshExpiry}; ${secureCookie}HttpOnly; SameSite=Strict`,
-    `pcx_csrf=${encodeURIComponent(csrfToken)}; Path=/api/v1; Expires=${refreshExpiry}; ${secureCookie}SameSite=Strict`
+    `pcx_csrf=${encodeURIComponent(csrfToken)}; Path=/; Expires=${refreshExpiry}; ${secureCookie}SameSite=Strict`
   ];
 }
 
@@ -127,14 +127,14 @@ function sessionCookies(session, csrfToken) {
 // the second step can complete without a session.
 function csrfOnlyCookie(token) {
   const expiry = new Date(Date.now() + 15 * 60 * 1000).toUTCString();
-  return `pcx_csrf=${encodeURIComponent(token)}; Path=/api/v1; Expires=${expiry}; ${secureCookie}SameSite=Strict`;
+  return `pcx_csrf=${encodeURIComponent(token)}; Path=/; Expires=${expiry}; ${secureCookie}SameSite=Strict`;
 }
 
 function clearCookies() {
   return [
     `pcx_access=; Path=/; Max-Age=0; ${secureCookie}HttpOnly; SameSite=Strict`,
     `pcx_refresh=; Path=/api/v1/auth; Max-Age=0; ${secureCookie}HttpOnly; SameSite=Strict`,
-    `pcx_csrf=; Path=/api/v1; Max-Age=0; ${secureCookie}SameSite=Strict`
+    `pcx_csrf=; Path=/; Max-Age=0; ${secureCookie}SameSite=Strict`
   ];
 }
 

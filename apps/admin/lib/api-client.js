@@ -19,10 +19,15 @@ export function csrfToken(cookie = typeof document === "undefined" ? "" : docume
   try { return decodeURIComponent(entry.slice("pcx_csrf=".length)); } catch { return null; }
 }
 
-export async function apiRequest(path, { method = "GET", body } = {}) {
+export async function apiRequest(path, { method = "GET", body, csrf = true } = {}) {
   const headers = { accept: "application/json" };
   if (body !== undefined) headers["content-type"] = "application/json";
-  if (method !== "GET") {
+  // The auth boundary does NOT CSRF-gate `login`/`register` (they are protected
+  // by Origin + allowed-origins and run before a session cookie exists). Those
+  // calls pass `csrf: false`; every other non-GET request fails closed when the
+  // `pcx_csrf` cookie is missing rather than sending without the double-submit
+  // token.
+  if (method !== "GET" && csrf) {
     const token = csrfToken();
     if (!token) throw new ApiError("CSRF_MISSING", "Your secure session is incomplete. Sign in again.", 403);
     headers["x-csrf-token"] = token;
