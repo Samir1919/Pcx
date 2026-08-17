@@ -13,7 +13,15 @@ const required = [
   ".windsurfrules", ".roo/rules/pcx.md", ".github/copilot-instructions.md", ".cursor/rules/pcx.mdc", ".vscode/tasks.json"
 ];
 
-for (const file of required) await access(file);
+const missing = [];
+for (const file of required) {
+  try {
+    await access(file);
+  } catch {
+    missing.push(file);
+  }
+}
+if (missing.length > 0) throw new Error(`E0 verification failed: missing required artifact(s):\n  ${missing.join("\n  ")}`);
 const agents = await readFile("AGENTS.md", "utf8");
 if (!agents.includes("Hard stops") || !agents.includes("cannot be sold twice")) throw new Error("AGENTS.md is missing mandatory controls");
 if (!agents.includes("tool-neutral") || !agents.includes("Portable completion record")) throw new Error("AGENTS.md is missing portable agent controls");

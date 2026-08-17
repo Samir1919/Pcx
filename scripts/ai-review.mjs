@@ -26,6 +26,31 @@ const asNonEmptyString = (value, field) => {
 
 const DEFAULT_ENDPOINT = "https://api.openai.com/v1/chat/completions";
 
+const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
+
+const stripPreviousResponseReference = (payload) => {
+  if (!payload || typeof payload !== "object") return payload;
+  const next = { ...payload };
+  delete next.previous_response_id;
+  delete next.previousResponseId;
+  return next;
+};
+
+const isPreviousResponseNotFound = async (response) => {
+  if (!response || response.ok || response.status !== 400) return false;
+  let details;
+  try {
+    details = await response.json();
+  } catch {
+    return false;
+  }
+  const root = details?.error ?? details?.details ?? details;
+  const code = typeof root?.code === "string" ? root.code : "";
+  const param = typeof root?.param === "string" ? root.param : "";
+  const message = typeof root?.message === "string" ? root.message : "";
+  return code === "previous_response_not_found" || param === "previous_response_id" || /previous response/i.test(message);
+};
+
 /**
  * Builds the OpenAI reviewer. Reads credentials from the environment unless
  * explicitly overridden (for tests). Returns an async function matching the
@@ -36,7 +61,8 @@ export const createOpenAiReviewer = ({
   model = process.env.OPENAI_MODEL ?? "gpt-4o",
   endpoint = DEFAULT_ENDPOINT,
   fetchImpl = fetch,
-  timeoutMs = 120_000
+  timeoutMs = 120_000,
+  requestBodyExtras = {}
 } = {}) => {
   const key = asNonEmptyString(apiKey, "OPENAI_API_KEY");
   const safeModel = asNonEmptyString(model, "OPENAI_MODEL");
@@ -61,20 +87,28 @@ export const createOpenAiReviewer = ({
     let timer;
     try {
       timer = setTimeout(() => controller.abort("timeout"), timeoutMs);
-      const response = await fetchImpl(endpoint, {
+      const post = (payload) => fetchImpl(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${key}`
         },
-        body: JSON.stringify({
-          model: safeModel,
-          messages: [{ role: "user", content: prompt }],
-          temperature: 0.2,
-          response_format: { type: "json_object" }
-        }),
+        body: JSON.stringify(payload),
         signal: controller.signal
       });
+
+      let requestPayload = {
+        model: safeModel,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.2,
+        response_format: { type: "json_object" },
+        ...requestBodyExtras
+      };
+      let response = await post(requestPayload);
+      if (await isPreviousResponseNotFound(response) && (hasOwn(requestPayload, "previous_response_id") || hasOwn(requestPayload, "previousResponseId"))) {
+        requestPayload = stripPreviousResponseReference(requestPayload);
+        response = await post(requestPayload);
+      }
       if (!response.ok) {
         const error = new Error(`OpenAI API error: ${response.status}`);
         error.retryable = response.status >= 500 || response.status === 429;

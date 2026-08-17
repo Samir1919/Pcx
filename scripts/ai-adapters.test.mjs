@@ -108,3 +108,53 @@ test("openai reviewer marks 5xx and 429 as retryable", async () => {
   const reviewer = createOpenAiReviewer({ apiKey: "k", fetchImpl: async () => errorResponse(500) });
   await assert.rejects(() => reviewer({ task: task("api") }), (error) => error.retryable === true);
 });
+
+test("openai reviewer retries once without previous response id when provider reports previous_response_not_found", async () => {
+  const calls = [];
+  const fetchImpl = async (_url, options) => {
+    calls.push(JSON.parse(options.body));
+    if (calls.length === 1) {
+      return {
+        ok: false,
+        status: 400,
+        json: async () => ({
+          details: {
+            code: "previous_response_not_found",
+            param: "previous_response_id",
+            message: "Previous response with id 'resp_123' not found"
+          }
+        })
+      };
+    }
+    return okResponse(JSON.stringify({ findings: [] }));
+  };
+  const reviewer = createOpenAiReviewer({
+    apiKey: "k",
+    fetchImpl,
+    requestBodyExtras: { previous_response_id: "resp_123" }
+  });
+  const result = await reviewer({ task: task("api") });
+  assert.equal(result.verdict, "APPROVED");
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].previous_response_id, "resp_123");
+  assert.equal("previous_response_id" in calls[1], false);
+});
+
+test("openai reviewer does not retry unrelated 400 errors", async () => {
+  let calls = 0;
+  const fetchImpl = async () => {
+    calls += 1;
+    return {
+      ok: false,
+      status: 400,
+      json: async () => ({ details: { code: "invalid_request_error", message: "bad request" } })
+    };
+  };
+  const reviewer = createOpenAiReviewer({
+    apiKey: "k",
+    fetchImpl,
+    requestBodyExtras: { previous_response_id: "resp_123" }
+  });
+  await assert.rejects(() => reviewer({ task: task("api") }), /OpenAI API error: 400/);
+  assert.equal(calls, 1);
+});
