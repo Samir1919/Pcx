@@ -1,4 +1,4 @@
-const defaultLimits = Object.freeze({ register: 5, login: 10, refresh: 30, logout: 60, verify_contact_request: 5, password_reset_request: 5, verify_contact: 10, password_reset: 10 });
+const defaultLimits = Object.freeze({ register: 5, login: 10, refresh: 30, logout: 60, verify_contact_request: 5, password_reset_request: 5, verify_contact: 10, password_reset: 10, mfa_verify: 10 });
 
 export function createInMemoryAuthAbuseControl({ clock = () => Date.now(), windowMs = 15 * 60 * 1000, limits = defaultLimits, maximumKeys = 10_000 } = {}) {
   if (!Number.isSafeInteger(windowMs) || windowMs < 1) throw new TypeError("windowMs must be a positive integer");

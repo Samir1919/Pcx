@@ -2,6 +2,11 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { AuthenticationError } from "./auth-service.mjs";
 import { IdentityActionError } from "./identity-action-service.mjs";
 
+// `Secure` cookies require HTTPS and are the default (safe for any non-dev
+// environment). Only an explicit development run over `http://localhost` omits
+// the attribute; production always keeps it for the auth boundary.
+const secureCookie = process.env.NODE_ENV === "development" ? "" : "Secure; ";
+
 const sessionRoutes = new Set(["register", "login", "refresh", "logout", "verify-mfa"]);
 const identityActionRoutes = new Set(["verify-contact", "forgot-password", "reset-password"]);
 const routes = new Set([...sessionRoutes, ...identityActionRoutes]);
@@ -111,17 +116,25 @@ function sessionCookies(session, csrfToken) {
   const accessExpiry = new Date(session.accessExpiresAt).toUTCString();
   const refreshExpiry = new Date(session.refreshExpiresAt).toUTCString();
   return [
-    `pcx_access=${encodeURIComponent(session.accessCredential)}; Path=/; Expires=${accessExpiry}; Secure; HttpOnly; SameSite=Strict`,
-    `pcx_refresh=${encodeURIComponent(session.refreshCredential)}; Path=/api/v1/auth; Expires=${refreshExpiry}; Secure; HttpOnly; SameSite=Strict`,
-    `pcx_csrf=${encodeURIComponent(csrfToken)}; Path=/api/v1; Expires=${refreshExpiry}; Secure; SameSite=Strict`
+    `pcx_access=${encodeURIComponent(session.accessCredential)}; Path=/; Expires=${accessExpiry}; ${secureCookie}HttpOnly; SameSite=Strict`,
+    `pcx_refresh=${encodeURIComponent(session.refreshCredential)}; Path=/api/v1/auth; Expires=${refreshExpiry}; ${secureCookie}HttpOnly; SameSite=Strict`,
+    `pcx_csrf=${encodeURIComponent(csrfToken)}; Path=/api/v1; Expires=${refreshExpiry}; ${secureCookie}SameSite=Strict`
   ];
+}
+
+// MFA challenges have no session yet, but the follow-up `verify-mfa` call is a
+// write and therefore requires CSRF. Issue a short-lived CSRF-only cookie so
+// the second step can complete without a session.
+function csrfOnlyCookie(token) {
+  const expiry = new Date(Date.now() + 15 * 60 * 1000).toUTCString();
+  return `pcx_csrf=${encodeURIComponent(token)}; Path=/api/v1; Expires=${expiry}; ${secureCookie}SameSite=Strict`;
 }
 
 function clearCookies() {
   return [
-    "pcx_access=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Strict",
-    "pcx_refresh=; Path=/api/v1/auth; Max-Age=0; Secure; HttpOnly; SameSite=Strict",
-    "pcx_csrf=; Path=/api/v1; Max-Age=0; Secure; SameSite=Strict"
+    `pcx_access=; Path=/; Max-Age=0; ${secureCookie}HttpOnly; SameSite=Strict`,
+    `pcx_refresh=; Path=/api/v1/auth; Max-Age=0; ${secureCookie}HttpOnly; SameSite=Strict`,
+    `pcx_csrf=; Path=/api/v1; Max-Age=0; ${secureCookie}SameSite=Strict`
   ];
 }
 
@@ -168,8 +181,10 @@ export async function handleAuthRequest(request, response, { authService, identi
       send(response, 201, { data: result.customer });
     } else if (action === "login") {
       const result = await authService.login(body, authContext);
-      if (result.status === "mfa_required") send(response, 202, { data: { status: result.status, challenge: result.challenge } });
-      else {
+      if (result.status === "mfa_required") {
+        response.setHeader("set-cookie", [csrfOnlyCookie(csrfToken())]);
+        send(response, 202, { data: { status: result.status, challenge: result.challenge } });
+      } else {
         response.setHeader("set-cookie", sessionCookies(result.session, csrfToken()));
         send(response, 200, { data: { identity: result.identity } });
       }

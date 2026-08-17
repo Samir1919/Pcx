@@ -56,10 +56,25 @@ const PROCESSES = [
     label: "api",
     command: "node",
     args: ["apps/api/src/index.mjs"],
-    env: { PCX_API_ORIGIN: "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001" }
+    env: {
+      // Keep the API's own origin valid for browser rewrite targets, and ensure
+      // both storefront/admin browsers are allowed to call it.
+      PCX_API_ORIGIN: "http://127.0.0.1:4000",
+      API_ALLOWED_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001"
+    }
   },
-  { label: "web", command: npmBin, args: ["run", "dev", "-w", "@pcx/web", "--", "-p", "3000"], env: {} },
-  { label: "admin", command: npmBin, args: ["run", "dev", "-w", "@pcx/admin", "--", "-p", "3001"], env: {} },
+  {
+    label: "web",
+    command: npmBin,
+    args: ["run", "dev", "-w", "@pcx/web", "--", "-p", "3000"],
+    env: { PCX_API_ORIGIN: "http://127.0.0.1:4000" }
+  },
+  {
+    label: "admin",
+    command: npmBin,
+    args: ["run", "dev", "-w", "@pcx/admin", "--", "-p", "3001"],
+    env: { PCX_API_ORIGIN: "http://127.0.0.1:4000" }
+  },
   { label: "worker", command: npmBin, args: ["run", "dev:worker"], env: {} }
 ];
 

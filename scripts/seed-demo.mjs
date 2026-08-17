@@ -11,13 +11,14 @@
  * - Every row uses a fixed UUID and an `INSERT ... WHERE NOT EXISTS` guard, so
  *   re-running is a no-op (idempotent).
  * - It never deletes existing data and never touches production.
- * - Demo users have `password_hash = NULL`, so they are browse-only and cannot
- *   be used to log in to a real account.
+ * - Demo users use documented development-only passwords (see README) and are
+ *   intended only for the local demo; never create these in production.
  */
 import pg from "pg";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { runMigrations } from "../apps/api/src/infrastructure/database/migrate.mjs";
+import { hashPassword } from "../apps/api/src/modules/identity/password.mjs";
 
 // Minimal `.env` loader (same behavior as scripts/dev.mjs): reads the
 // repository-root `.env` and never overrides an existing environment variable.
@@ -92,6 +93,14 @@ const DEMO = {
   notification: "9c000000-0000-0000-0000-000000000001"
 };
 
+// Demo passwords (development only, documented in README). The admin is a
+// privileged role and completes login with the dev MFA code (default 123456).
+const DEMO_PASSWORDS = {
+  admin: "DemoAdmin123!",
+  customer: "DemoCustomer1!",
+  seller: "DemoSeller12!"
+};
+
 const seed = async () => {
   process.stdout.write("[seed] ensuring migrations are current…\n");
   await runMigrations({ connectionString });
@@ -102,15 +111,24 @@ const seed = async () => {
     await client.query("BEGIN");
 
     // --- identity ---
-    const insertUser = (id, email, phone, status) => client.query(
+    // Re-hash from scratch only when the demo user is missing; a fixed hash is
+    // intentionally not stored so argon2 parameters can evolve between runs.
+    const [
+      adminHash,
+      customerHash,
+      sellerHash
+    ] = await Promise.all([hashPassword(DEMO_PASSWORDS.admin), hashPassword(DEMO_PASSWORDS.customer), hashPassword(DEMO_PASSWORDS.seller)]);
+
+    const insertUser = (id, email, phone, status, passwordHash) => client.query(
       `INSERT INTO users(id, email, phone, password_hash, status, contact_verified, created_at, updated_at)
-       SELECT $1, $2, $3, NULL, $4, true, now(), now()
-       WHERE NOT EXISTS (SELECT 1 FROM users WHERE id = $1)`,
-      [id, email, phone, status]
+       VALUES ($1, $2, $3, $4, $5, true, now(), now())
+       ON CONFLICT (id) DO UPDATE
+         SET password_hash = CASE WHEN users.password_hash IS NULL THEN EXCLUDED.password_hash ELSE users.password_hash END`,
+      [id, email, phone, passwordHash, status]
     );
-    await insertUser(DEMO.admin, "demo-admin@example.com", "+8801700000001", "ACTIVE");
-    await insertUser(DEMO.customer, "demo-customer@example.com", "+8801700000002", "ACTIVE");
-    await insertUser(DEMO.seller, "demo-seller@example.com", "+8801700000003", "ACTIVE");
+    await insertUser(DEMO.admin, "demo-admin@example.com", "+8801700000001", "ACTIVE", adminHash);
+    await insertUser(DEMO.customer, "demo-customer@example.com", "+8801700000002", "ACTIVE", customerHash);
+    await insertUser(DEMO.seller, "demo-seller@example.com", "+8801700000003", "ACTIVE", sellerHash);
 
     for (const [userId, roleId] of [
       [DEMO.admin, ROLES.ADMIN],

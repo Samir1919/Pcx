@@ -65,11 +65,18 @@ test("login issues secure scoped cookies without exposing credentials in JSON", 
   assert.equal(csrf.includes("HttpOnly"), false);
 });
 
-test("privileged login returns MFA challenge without session cookies", async () => {
+test("privileged login returns MFA challenge with only a CSRF cookie", async () => {
   const response = await invoke("/api/v1/auth/login", { body: { contact: "admin@example.com", password: "password" }, authService: service({ async login() { return { status: "mfa_required", challenge: { id: "mfa-1", expiresAt: "2026-08-16T12:05:00.000Z" } }; } }) });
   assert.equal(response.status, 202);
   assert.deepEqual(response.body.data, { status: "mfa_required", challenge: { id: "mfa-1", expiresAt: "2026-08-16T12:05:00.000Z" } });
-  assert.equal(response.headers["set-cookie"], undefined);
+  // No session tokens yet: only a short-lived CSRF cookie is issued so the
+  // follow-up verify-mfa write can satisfy double-submit CSRF.
+  const cookies = response.headers["set-cookie"];
+  assert.equal(cookies.length, 1);
+  assert.match(cookies[0], /^pcx_csrf=.*; Path=\/api\/v1;/);
+  assert.equal(cookies[0].includes("HttpOnly"), false);
+  assert.equal(cookies.some((value) => value.startsWith("pcx_access=")), false);
+  assert.equal(cookies.some((value) => value.startsWith("pcx_refresh=")), false);
 });
 
 test("every auth action requires an exact configured origin", async () => {

@@ -57,7 +57,19 @@ To populate sample data (demo users, inventory, listings, orders, shipments, etc
 npm run seed:demo
 ```
 
-The seeder is idempotent (safe to re-run) and never deletes existing data. Demo accounts are browse-only (`password_hash` is null), so they cannot be used to log in.
+The seeder is idempotent (safe to re-run) and never deletes existing data.
+
+### Demo accounts (development only)
+
+| Account | Email | Password | Role |
+|---|---|---|---|
+| Admin | `demo-admin@example.com` | `DemoAdmin123!` | ADMIN (MFA code `123456` in dev) |
+| Customer | `demo-customer@example.com` | `DemoCustomer1!` | CUSTOMER |
+| Seller | `demo-seller@example.com` | `DemoSeller12!` | CUSTOMER |
+
+These credentials exist only in your local dev database after `npm run seed:demo`.
+Never create them in production. In development the privileged admin completes sign-in
+with the dev MFA code (default `123456`, configurable via `PCX_DEV_MFA_CODE`).
 
 ---
 
