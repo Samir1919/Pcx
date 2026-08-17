@@ -62,7 +62,7 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Current verification baseline
 
-- Root `npm test`: 343 total, 321 pass, 0 fail, 22 skipped (DB integration) after the Stage 3 integration-target fix.
+- Root `npm test`: 345 total, 323 pass, 0 fail, 22 skipped (DB integration) after the pre-session login CSRF fix.
 - Root `npm run verify`: pass for this slice: E0, lint, typecheck, tests, build, and security scan (secrets + dependencies + container).
 - CI-equivalent `npm run verify:ci`: application/unit + PostgreSQL integration + E2E smoke, all passing (0 failures).
 - E0 artifact verification: 36 required artifacts; latest GitHub merge evidence is PR #1 (`1692049`).
