@@ -14,7 +14,7 @@ const paymentFields = new Set(["orderId", "direction", "provider", "method", "am
 
 export function createOrderPaymentService({ authService, repository, id = randomUUID, clock = () => new Date(), gateway = createSandboxPaymentGateway(), paymentProviderConfigService, provider = PaymentProvider.BKASH }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  for (const method of ["createOrder", "createOrderItem", "createPayment", "confirmPayment"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  for (const method of ["createOrderWithItems", "createPayment", "confirmPayment"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
   if (!gateway || typeof gateway.charge !== "function") throw new TypeError("gateway.charge is required");
 
   // When a payment provider config service is injected, build a real gateway
@@ -82,12 +82,8 @@ export function createOrderPaymentService({ authService, repository, id = random
       }
 
       try {
-        const created = await repository.createOrder(order);
-        const orderItems = [];
-        for (const item of items) {
-          orderItems.push(await repository.createOrderItem(item));
-        }
-        return Object.freeze({ ...created, items: Object.freeze(orderItems) });
+        const created = await repository.createOrderWithItems(order, items);
+        return Object.freeze({ ...created.order, items: Object.freeze(created.items) });
       } catch (error) {
         if (error?.code === "23503") throw new OrderPaymentError("invalid_reference");
         throw error;
@@ -135,8 +131,8 @@ export function createOrderPaymentService({ authService, repository, id = random
     },
 
     async confirmPayment(accessCredential, providerTransactionId) {
-      await customer(accessCredential);
-      const result = await repository.confirmPayment(providerTransactionId, clock().toISOString());
+      const identity = await customer(accessCredential);
+      const result = await repository.confirmPayment(providerTransactionId, identity.userId, clock().toISOString());
       if (result.status !== "confirmed") throw new OrderPaymentError("invalid_state");
       return result.record;
     }

@@ -6,10 +6,13 @@ import { PaymentDirection, PaymentStatus } from "../../../packages/domain/src/in
 function fixture(overrides = {}) {
   const calls = { orders: [], items: [], payments: [], confirms: [] };
   const repository = {
-    async createOrder(record) { calls.orders.push(record); return { ...record, orderNo: "ORD-000001" }; },
-    async createOrderItem(snapshot) { calls.items.push(snapshot); return { id: snapshot.id }; },
+    async createOrderWithItems(record, items) {
+      calls.orders.push(record);
+      calls.items.push(...items);
+      return { order: { ...record, orderNo: "ORD-000001" }, items: items.map((item) => ({ id: item.id })) };
+    },
     async createPayment(record) { calls.payments.push(record); return record; },
-    async confirmPayment(txn, now) { calls.confirms.push({ txn, now }); return { status: "confirmed", record: { id: "p1", providerTransactionId: txn, status: PaymentStatus.CONFIRMED } }; },
+    async confirmPayment(txn, userId, now) { calls.confirms.push({ txn, userId, now }); return { status: "confirmed", record: { id: "p1", providerTransactionId: txn, status: PaymentStatus.CONFIRMED } }; },
     ...overrides.repository
   };
   const service = createOrderPaymentService({

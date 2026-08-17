@@ -6,7 +6,12 @@ async function transaction(pool, operation) {
     await client.query("COMMIT");
     return result;
   } catch (error) {
-    await client.query("ROLLBACK");
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+      // Swallow a failed rollback (e.g. connection already broken) so the
+      // original error surfaces instead of being masked by a secondary one.
+    }
     throw error;
   } finally {
     client.release();
@@ -49,7 +54,11 @@ export function createPostgresOrderPaymentRepository({ pool }) {
   if (!pool || typeof pool.query !== "function" || typeof pool.connect !== "function") throw new TypeError("PostgreSQL pool is required");
 
   return Object.freeze({
-    async createOrder(record) {
+    // Creates the order and every item snapshot in a single transaction so a
+    // mid-loop failure can never leave a permanently orphaned, item-less order
+    // (the order id is server-generated per call, so a retry after a partial
+    // failure would otherwise create a new orphan rather than resuming).
+    async createOrderWithItems(record, items) {
       return transaction(pool, async (client) => {
         const orderNo = await client.query("SELECT 'ORD-' || to_char(nextval('orders_no_seq'), 'FM000000') AS no");
         const inserted = await client.query(
@@ -58,18 +67,18 @@ export function createPostgresOrderPaymentRepository({ pool }) {
            RETURNING id, order_no, user_id, status, currency, subtotal, shipping_amount, discount_amount, total_amount, placed_at, created_at, updated_at`,
           [record.id, orderNo.rows[0].no, record.userId, record.currency, record.subtotal, record.shippingAmount, record.discountAmount, record.totalAmount, record.placedAt]
         );
-        return order(inserted.rows[0]);
+        const orderItems = [];
+        for (const snapshot of items) {
+          const result = await client.query(
+            `INSERT INTO order_items(id, order_id, inventory_item_id, listing_id, product_model_id, pcx_item_id_snapshot, product_name_snapshot, spec_snapshot, grade_snapshot, health_score_snapshot, unit_price)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11)
+             RETURNING id`,
+            [snapshot.id, snapshot.orderId, snapshot.inventoryItemId, snapshot.listingId, snapshot.productModelId, snapshot.pcxItemId, snapshot.productName, JSON.stringify(snapshot.specs), snapshot.grade, snapshot.healthScore, snapshot.unitPrice]
+          );
+          orderItems.push({ id: result.rows[0].id });
+        }
+        return { order: order(inserted.rows[0]), items: orderItems };
       });
-    },
-
-    async createOrderItem(snapshot) {
-      const result = await pool.query(
-        `INSERT INTO order_items(id, order_id, inventory_item_id, listing_id, product_model_id, pcx_item_id_snapshot, product_name_snapshot, spec_snapshot, grade_snapshot, health_score_snapshot, unit_price)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11)
-         RETURNING id`,
-        [snapshot.id, snapshot.orderId, snapshot.inventoryItemId, snapshot.listingId, snapshot.productModelId, snapshot.pcxItemId, snapshot.productName, JSON.stringify(snapshot.specs), snapshot.grade, snapshot.healthScore, snapshot.unitPrice]
-      );
-      return { id: result.rows[0].id };
     },
 
     async createPayment(record) {
@@ -82,13 +91,18 @@ export function createPostgresOrderPaymentRepository({ pool }) {
       return payment(result.rows[0]);
     },
 
-    async confirmPayment(providerTransactionId, now) {
+    // Ownership is enforced here (not just role): the payment's order must
+    // belong to the confirming customer, otherwise any authenticated customer
+    // could confirm any other customer's payment by guessing/observing a
+    // provider transaction id.
+    async confirmPayment(providerTransactionId, userId, now) {
       return transaction(pool, async (client) => {
         const updated = await client.query(
-          `UPDATE payments SET status = 'CONFIRMED', confirmed_at = $2
+          `UPDATE payments SET status = 'CONFIRMED', confirmed_at = $3
            WHERE provider_transaction_id = $1 AND status = 'INITIATED'
+             AND order_id IN (SELECT id FROM orders WHERE user_id = $2)
            RETURNING id, order_id, payment_direction, provider, provider_transaction_id, method, amount, status, initiated_at, confirmed_at`,
-          [providerTransactionId, now]
+          [providerTransactionId, userId, now]
         );
         if (updated.rowCount !== 1) return { status: "not_confirmable" };
         return { status: "confirmed", record: payment(updated.rows[0]) };

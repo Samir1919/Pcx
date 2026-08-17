@@ -28,12 +28,13 @@ test("order/payment repository persists order, snapshot items, and idempotent pa
     await pool.query("INSERT INTO users(id,email,status) VALUES ($1,'order-customer@example.com','ACTIVE')", [customer]);
     await pool.query("INSERT INTO inventory_items(id, pcx_item_id, product_model_id, status, received_at, created_at, updated_at) VALUES ($1,'PCX-TEST-ORDER', $2, 'APPROVED', now(), now(), now())", [itemA, productModelId]);
 
-    const order = await repository.createOrder({ id: orderId, userId: customer, currency: "BDT", subtotal: 1500, shippingAmount: 0, discountAmount: 0, totalAmount: 1500, placedAt: now });
+    const { order, items: createdItems } = await repository.createOrderWithItems(
+      { id: orderId, userId: customer, currency: "BDT", subtotal: 1500, shippingAmount: 0, discountAmount: 0, totalAmount: 1500, placedAt: now },
+      [{ id: snapshotId, orderId, inventoryItemId: itemA, listingId: null, productModelId, pcxItemId: "PCX-TEST-ORDER", productName: "GPU", grade: null, healthScore: null, unitPrice: 1500, specs: [] }]
+    );
     assert.equal(order.userId, customer);
     assert.ok(order.orderNo.startsWith("ORD-"));
-
-    const snapshot = await repository.createOrderItem({ id: snapshotId, orderId, inventoryItemId: itemA, listingId: null, productModelId, pcxItemId: "PCX-TEST-ORDER", productName: "GPU", grade: null, healthScore: null, unitPrice: 1500, specs: [] });
-    assert.equal(snapshot.id, snapshotId);
+    assert.equal(createdItems[0].id, snapshotId);
 
     const payment = await repository.createPayment({ id: paymentId, orderId, direction: "INBOUND", provider: "bkash", providerTransactionId: "txn-order-1", method: "mobile", amount: 1500, initiatedAt: now });
     assert.equal(payment.status, "INITIATED");
@@ -44,12 +45,18 @@ test("order/payment repository persists order, snapshot items, and idempotent pa
       (error) => error.code === "23505"
     );
 
-    const confirmed = await repository.confirmPayment("txn-order-1", now);
+    // Another customer cannot confirm this order's payment (ownership check).
+    const otherCustomer = "9e000000-0000-4000-8000-000000000007";
+    await pool.query("DELETE FROM users WHERE email = 'other-customer@example.com'");
+    await pool.query("INSERT INTO users(id,email,status) VALUES ($1,'other-customer@example.com','ACTIVE')", [otherCustomer]);
+    assert.deepEqual(await repository.confirmPayment("txn-order-1", otherCustomer, now), { status: "not_confirmable" });
+
+    const confirmed = await repository.confirmPayment("txn-order-1", customer, now);
     assert.equal(confirmed.status, "confirmed");
     assert.equal(confirmed.record.status, "CONFIRMED");
 
     // Confirming again returns not_confirmable.
-    assert.deepEqual(await repository.confirmPayment("txn-order-1", now), { status: "not_confirmable" });
+    assert.deepEqual(await repository.confirmPayment("txn-order-1", customer, now), { status: "not_confirmable" });
   } finally {
     await pool.end();
   }
