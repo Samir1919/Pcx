@@ -6,12 +6,12 @@ import { useEffect } from "react";
 import { useAuth } from "./auth-provider";
 
 const NAV = [
-  { href: "/", label: "Overview" },
-  { href: "/catalog", label: "Catalog" },
-  { href: "/inventory", label: "Inventory" },
-  { href: "/verification", label: "Verification" },
-  { href: "/payments", label: "Payments" },
-  { href: "/audit", label: "Audit logs" }
+  { href: "/", label: "Overview", short: "O" },
+  { href: "/catalog", label: "Catalog", short: "C" },
+  { href: "/inventory", label: "Inventory", short: "I" },
+  { href: "/verification", label: "Verification", short: "V" },
+  { href: "/payments", label: "Payments", short: "P" },
+  { href: "/audit", label: "Audit logs", short: "A" }
 ];
 
 export default function UserShell({ children }) {
@@ -56,7 +56,7 @@ export default function UserShell({ children }) {
 
         <nav aria-label="Primary">
           {NAV.map((item) => (
-            <Link key={item.href} href={item.href} className={pathname === item.href ? "selected" : ""}>
+            <Link key={item.href} href={item.href} data-short={item.short} className={pathname === item.href ? "selected" : ""}>
               {item.label}
             </Link>
           ))}

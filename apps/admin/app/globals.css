@@ -405,7 +405,7 @@ select:focus {
 
   .brand small,
   nav span,
-  .secure {
+  .who {
     display: none
   }
 
@@ -415,7 +415,29 @@ select:focus {
   }
 
   nav a:after {
-    content: "C";
+    content: attr(data-short);
+    font-size: 16px
+  }
+
+  .secure {
+    display: block;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    margin-top: auto
+  }
+
+  .secure div {
+    display: none
+  }
+
+  .secure .logout {
+    padding: 9px 10px;
+    font-size: 0
+  }
+
+  .secure .logout:after {
+    content: "⏻";
     font-size: 16px
   }
 
@@ -452,11 +474,19 @@ select:focus {
   }
 
   nav {
-    margin-left: auto
+    margin-left: auto;
+    overflow-x: auto;
+    gap: 2px
   }
 
   nav a {
-    padding: 9px 14px
+    padding: 9px 12px;
+    font-size: 12px;
+    white-space: nowrap
+  }
+
+  nav a:after {
+    display: none
   }
 
   .content {

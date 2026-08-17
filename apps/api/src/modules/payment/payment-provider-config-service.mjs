@@ -59,9 +59,25 @@ export function createPaymentProviderConfigService({ authService, repository, ci
       const fields = exact(input, new Set(["provider", "mode", "credentials", "active"]));
       const provider = safeProvider(fields.provider);
       const mode = safeMode(fields.mode);
+      let incoming;
+      try {
+        incoming = normalizeCredentials(fields.credentials);
+      } catch {
+        throw new PaymentProviderConfigError("invalid_input");
+      }
+      // Preserve credentials omitted from a partial save (a blank field means
+      // "keep the current value"). Merge the existing stored credentials first
+      // so a partial update never wipes previously saved secrets.
+      const existing = await repository.findByProviderAndMode(provider, mode);
+      let previous = {};
+      try {
+        if (existing) previous = JSON.parse(cipher.decrypt(existing.encryptedCredentials));
+      } catch {
+        previous = {};
+      }
       let credentials;
       try {
-        credentials = normalizeCredentials(fields.credentials);
+        credentials = normalizeCredentials({ ...previous, ...incoming });
       } catch {
         throw new PaymentProviderConfigError("invalid_input");
       }

@@ -88,6 +88,23 @@ test("getActiveCredentials returns decrypted credentials for the active mode onl
   assert.equal(active.credentials.appKey, "real-key");
 });
 
+test("saveConfig preserves omitted credentials on a partial update", async () => {
+  const { service } = fixture();
+  await service.saveConfig("access", { provider: "bkash", mode: "SANDBOX", credentials: { appKey: "sandbox-key", appSecret: "sandbox-secret", merchantNumber: "01700000000" } });
+  // A partial update that only supplies a new appKey must keep the previously
+  // saved appSecret and merchantNumber instead of wiping them.
+  const result = await service.saveConfig("access", { provider: "bkash", mode: "SANDBOX", credentials: { appKey: "new-key" } });
+  assert.equal(result.credentials.appKey, "••••••••");
+  assert.equal(result.credentials.merchantNumber, "01700000000");
+  const active = await service.getActiveCredentials("bkash");
+  assert.equal(active, null);
+  await service.setActiveMode("access", { provider: "bkash", mode: "SANDBOX" });
+  const stored = await service.getActiveCredentials("bkash");
+  assert.equal(stored.credentials.appKey, "new-key");
+  assert.equal(stored.credentials.appSecret, "sandbox-secret");
+  assert.equal(stored.credentials.merchantNumber, "01700000000");
+});
+
 test("getActiveCredentials returns null when nothing is configured", async () => {
   const { service } = fixture();
   assert.equal(await service.getActiveCredentials("bkash"), null);
