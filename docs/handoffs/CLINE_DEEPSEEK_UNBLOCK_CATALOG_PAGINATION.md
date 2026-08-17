@@ -2,7 +2,7 @@
 
 - Status: Complete (repo-side); human decision still pending for cline app-level config
 - Branch: `agent/admin-ui-responsive-fixes`
-- Latest commits: `eef8f82` (DeepSeek), `da18256` (admin catalog pagination), `afc643a` (DeepSeek thinking/reasoning_effort)
+- Latest commits: `eef8f82` (DeepSeek), `da18256` (admin catalog pagination), `afc643a` (DeepSeek thinking/reasoning_effort), `4adcf54` (multi-provider registry)
 - Date: 2026-08-18
 
 ## Outcome
@@ -22,22 +22,37 @@
    `response_format: json_object`, which conflicts with native reasoning on some
    serving paths.
 
-2. **Admin "Product models" cursor pagination.** The API already supported cursor
+2. **Multi-provider AI registry.** `scripts/ai-providers.mjs` registers
+   `deepseek`, `openai`, `anthropic` (Claude Messages API), and `kimi`
+   (Moonshot). `createProviderExecutor` / `createProviderReviewer` target any
+   provider, and the loop gains `--executor-provider <name>` /
+   `--reviewer-provider <name>`. Each provider uses `<PREFIX>_*` env vars; set
+   `<PREFIX>_ENABLED=false` to "hold" a provider until needed. The executor
+   self-heals once: when a reasoning-enabled provider returns non-JSON, it retries
+   with reasoning off (deterministic `response_format: json_object`).
+
+3. **Admin "Product models" cursor pagination.** The API already supported cursor
    pagination; the admin UI was the gap. The `models` tab now pages beyond the
    first 50 rows with First/Next controls reading `meta.nextCursor`.
 
 ## Changed areas
 
-- `scripts/ai-executor.mjs` — `DEEPSEEK_ENDPOINT` env override (default official
-  full `/chat/completions` URL); `assertNoLeakedToolCalls` fail-fast guard;
-  opt-in `thinking`/`reasoning_effort` request fields; tolerant JSON parse
-  (strips markdown fences).
-- `scripts/autonomous-loop.mjs` — dependency-free `.env` loader invoked from
-  `main()` (existing shell env never overwritten).
-- `.env.example` — documents `DEEPSEEK_ENDPOINT` and the `deepseek-v4-pro` caveat.
-- `docs/adr/0009-ai-executor-reviewer-adapters.md` — endpoint + `.env` loading
-  decision notes.
-- `scripts/ai-adapters.test.mjs` — endpoint-override + leaked-tool-call tests.
+- `scripts/ai-providers.mjs` — provider registry (deepseek/openai/anthropic/kimi),
+  `resolveProvider` (env + hold), `buildChatRequest` (dialect shapes),
+  `extractContent`/`parseProviderJson` (shared leak guard + tolerant JSON).
+- `scripts/ai-executor.mjs` — `createProviderExecutor` (any provider, one
+  thinking→json self-heal retry); `createDeepSeekExecutor` kept as a compatible
+  wrapper.
+- `scripts/ai-review.mjs` — `createProviderReviewer` (any provider);
+  `createOpenAiReviewer` retained with OpenAI retry path.
+- `scripts/autonomous-loop.mjs` — `.env` loader, `--executor-provider` /
+  `--reviewer-provider` flags, exported `parseArgs`.
+- `.env.example` — full 4-provider matrix (`<PREFIX>_API_KEY`/`_MODEL`/
+  `_ENDPOINT`/`_ENABLED`/`_THINKING`/`_REASONING_EFFORT`).
+- `docs/adr/0009-ai-executor-reviewer-adapters.md` — multi-provider decision.
+- `scripts/ai-providers.test.mjs` — registry/request-shape/guard tests.
+- `scripts/ai-adapters.test.mjs` — generic executor/reviewer + self-heal tests.
+- `scripts/autonomous-loop.test.mjs` — `parseArgs` provider-flag test.
 - `apps/admin/lib/catalog-api.js` — `models({ cursor })` builds encoded cursor.
 - `apps/admin/app/(workspace)/catalog/workspace.js` — model paging state,
   `meta.nextCursor`, and a models-only pager.
@@ -59,11 +74,12 @@
 
 | Command/test | Result |
 |---|---|
-| `node --test scripts/ai-adapters.test.mjs` | 19 pass |
-| `node --test scripts/ai-adapters.test.mjs apps/admin/test/catalog-api.test.mjs` | 24 pass |
-| `npm test` | 350 pass, 0 fail, 22 skipped (DB integration) |
+| `node --test scripts/ai-providers.test.mjs` | 8 pass |
+| `node --test scripts/ai-adapters.test.mjs` | 23 pass |
+| `node --test scripts/ai-providers.test.mjs scripts/ai-adapters.test.mjs scripts/autonomous-loop.test.mjs` | 61 pass |
+| `npm test` | 363 pass, 0 fail, 22 skipped (DB integration) |
 | `npm run verify` | Pass (E0, lint, typecheck, tests, build, security) |
-| live executor smoke (`deepseek-v4-pro` + thinking + reasoning_effort=high) | Returned valid artifact `{"path":"work"}` (end-to-end OK) |
+| live provider-executor smoke (`deepseek-v4-pro` + thinking + reasoning_effort=high) | Self-healed to deterministic JSON; returned valid artifact `{"path":"work"}` (end-to-end OK) |
 
 ## Architecture/security review
 
@@ -84,6 +100,9 @@
   `https://api.deepseek.com/chat/completions`). Documented in `.env.example`.
 - New optional env vars `DEEPSEEK_THINKING=enabled` and
   `DEEPSEEK_REASONING_EFFORT=low|medium|high` (both off by default).
+- New provider env var set `<PREFIX>_API_KEY`/`_MODEL`/`_ENDPOINT`/
+  `_ENABLED`/`_THINKING`/`_REASONING_EFFORT` for `DEEPSEEK_`, `OPENAI_`,
+  `ANTHROPIC_`, and `KIMI_`. Set `<PREFIX>_ENABLED=false` to hold a provider.
 
 ## Remaining work and next safe action
 
