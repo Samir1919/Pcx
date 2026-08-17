@@ -834,6 +834,29 @@ textarea:focus {
     visibility: hidden;
   }
 
+  /* In the drawer, show each nav item as icon + label (not the tablet rail). */
+  .sidebar .navItem {
+    justify-content: flex-start;
+    padding: 11px 13px;
+  }
+
+  .sidebar .navLabel,
+  .sidebar .userMeta {
+    display: block;
+  }
+
+  .sidebar .userMeta {
+    display: grid;
+  }
+
+  .sidebar .logout {
+    justify-content: center;
+  }
+
+  .sidebar .logoutLabel {
+    display: inline;
+  }
+
   .sidebar.drawerOpen {
     transform: translateX(0);
     visibility: visible
