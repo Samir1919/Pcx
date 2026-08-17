@@ -15,7 +15,15 @@ const isProduction = process.env.NODE_ENV === "production";
 // wires this, so privileged login keeps failing closed (mfa_unavailable).
 const mfa = isProduction ? undefined : createDevMfa();
 
-const pool = new pg.Pool({ connectionString, max: 10 });
+// Bound every connection and query so an unreachable/hung Postgres cannot hold
+// a request handler (including /health/ready) open indefinitely.
+const pool = new pg.Pool({
+  connectionString,
+  max: 10,
+  connectionTimeoutMillis: 5_000,
+  query_timeout: 15_000,
+  statement_timeout: 15_000
+});
 
 const delivery = {
   async send() {
@@ -26,9 +34,14 @@ const delivery = {
 
 const runtime = createAuthRuntime({ pool, allowedOrigins, delivery, mfa });
 
+// The readiness probe itself is bounded with an explicit timeout in addition to
+// the pool's query/statement timeouts, so it always answers instead of hanging.
 const readiness = async () => {
   try {
-    await pool.query("select 1");
+    await Promise.race([
+      pool.query("select 1"),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("readiness timeout")), 3_000).unref())
+    ]);
     return { ok: true };
   } catch {
     return { ok: false };

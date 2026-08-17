@@ -8,7 +8,7 @@ const migrationDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "../
 
 export async function runMigrations({ connectionString, migrationsPath = migrationDirectory } = {}) {
   if (!connectionString) throw new TypeError("database connection string is required");
-  const pool = new pg.Pool({ connectionString, max: 1 });
+  const pool = new pg.Pool({ connectionString, max: 1, connectionTimeoutMillis: 5_000, statement_timeout: 15_000 });
   try {
     const files = (await readdir(migrationsPath)).filter((file) => /^\d+_.+\.sql$/.test(file)).sort();
     await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (
