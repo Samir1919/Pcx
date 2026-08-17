@@ -23,8 +23,13 @@ Shared code lives in `packages/*`; infrastructure and deployment files live in `
 
 One command starts everything: infrastructure containers, runs database migrations, and launches api + web + admin + worker with prefixed logs. Press **Ctrl+C** to stop all of them.
 
+> `npm run dev` now auto-loads the repository-root `.env` before starting any
+> service (Node does not read `.env` on its own). Copy `.env.example` to `.env`
+> first; `DATABASE_URL` must be set or the runner exits with a helpful error.
+
 ```bash
 npm install
+cp .env.example .env   # first time only
 npm run dev
 ```
 

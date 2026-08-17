@@ -10,10 +10,46 @@
  * real credentials. The production path is `scripts/prod.mjs`.
  */
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 const ROOT = process.cwd();
 const INFRA_COMPOSE = "infra/docker-compose.yml";
 const npmBin = process.platform === "win32" ? "npm.cmd" : "npm";
+
+/**
+ * Minimal, dependency-free `.env` loader (dotenv-compatible for the subset this
+ * repository uses). Existing environment variables are never overwritten, and
+ * quoted/unquoted `KEY=VALUE` lines plus inline `#` comments are supported.
+ * Node does not load `.env` automatically, so the dev runner must do it before
+ * spawning `api`, `web`, `admin`, `worker`, and the migration command.
+ */
+const loadEnvFile = (path) => {
+  let content;
+  try {
+    content = readFileSync(path, "utf8");
+  } catch {
+    return false;
+  }
+  for (const rawLine of content.split("\n")) {
+    const line = rawLine.trim();
+    if (line === "" || line.startsWith("#")) continue;
+    const equals = line.indexOf("=");
+    if (equals === -1) continue;
+    const key = line.slice(0, equals).trim();
+    let value = line.slice(equals + 1).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    } else {
+      const comment = value.indexOf(" #");
+      if (comment !== -1) value = value.slice(0, comment).trim();
+    }
+    if (key !== "" && !(key in process.env)) process.env[key] = value;
+  }
+  return true;
+};
+
+loadEnvFile(resolve(ROOT, ".env"));
 
 const PROCESSES = [
   {
@@ -56,6 +92,12 @@ const startApp = ({ label, command, args, env = {} }) => {
 };
 
 const main = async () => {
+  if (!process.env.DATABASE_URL) {
+    process.stderr.write("[dev] DATABASE_URL is not set. Copy `.env.example` to `.env` and fill in local-only values, then re-run `npm run dev`.\n");
+    process.exitCode = 1;
+    return;
+  }
+
   if (process.argv.includes("--no-infra")) {
     process.stdout.write("[dev] --no-infra set: skipping infrastructure bring-up.\n");
   } else {
