@@ -8,12 +8,21 @@
  * The API key, model, and endpoint are read from environment variables
  * (`DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL`, `DEEPSEEK_ENDPOINT`) so secrets never
  * appear in source, logs, or artifacts. `DEEPSEEK_ENDPOINT` is optional and
- * defaults to the official DeepSeek chat-completions URL; set it to an
- * OpenAI-compatible aggregator endpoint when routing a model variant such as
- * `deepseek-v4-pro` that the official endpoint does not serve. A `fetchImpl` may
- * be injected for deterministic testing; the default uses the global `fetch`.
- * When no API key is present the factory throws, so a real run fails fast
- * instead of silently degrading.
+ * defaults to the official DeepSeek chat-completions URL; set it to the full
+ * `/chat/completions` URL (or an OpenAI-compatible aggregator endpoint) when
+ * routing a model variant such as `deepseek-v4-pro`.
+ *
+ * DeepSeek's reasoning-capable models accept two optional request fields:
+ * `thinking: { type: "enabled" }` (set `DEEPSEEK_THINKING=enabled`) and
+ * `reasoning_effort` (`low|medium|high`, set `DEEPSEEK_REASONING_EFFORT`). Both
+ * are opt-in and omitted by default, so the default request shape is unchanged.
+ * When native thinking is enabled the adapter omits `response_format:
+ * json_object` (that mode conflicts with thinking on some serving paths) and
+ * tolerates fenced JSON in the model output.
+ *
+ * A `fetchImpl` may be injected for deterministic testing; the default uses the
+ * global `fetch`. When no API key is present the factory throws, so a real run
+ * fails fast instead of silently degrading.
  *
  * This adapter never performs a hard-stop action and only emits allow-listed
  * artifacts, so it is safe to run locally or in CI (with a mocked fetch).
@@ -41,6 +50,11 @@ const assertNoLeakedToolCalls = (content) => {
   }
 };
 
+const parseJson = (content) => {
+  const stripped = content.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+  return JSON.parse(stripped);
+};
+
 /**
  * Builds the DeepSeek executor. Reads credentials from the environment unless
  * explicitly overridden (for tests). Returns an async function matching the
@@ -50,6 +64,8 @@ export const createDeepSeekExecutor = ({
   apiKey = process.env.DEEPSEEK_API_KEY,
   model = process.env.DEEPSEEK_MODEL ?? "deepseek-chat",
   endpoint = process.env.DEEPSEEK_ENDPOINT ?? DEFAULT_ENDPOINT,
+  thinkingEnabled = process.env.DEEPSEEK_THINKING === "enabled",
+  reasoningEffort = process.env.DEEPSEEK_REASONING_EFFORT ?? null,
   fetchImpl = fetch,
   timeoutMs = 120_000
 } = {}) => {
@@ -57,6 +73,7 @@ export const createDeepSeekExecutor = ({
   const safeModel = asNonEmptyString(model, "DEEPSEEK_MODEL");
   if (typeof fetchImpl !== "function") throw new Error("fetchImpl must be a function");
   if (!Number.isInteger(timeoutMs) || timeoutMs < 1_000) throw new Error("timeoutMs must be a positive integer");
+  if (reasoningEffort != null && !["low", "medium", "high"].includes(reasoningEffort)) throw new Error("reasoningEffort must be low, medium, or high");
 
   return async ({ task, actions = [], attempt = 1, signal } = {}) => {
     if (!task || typeof task !== "object") throw new Error("task must be an object");
@@ -71,6 +88,20 @@ export const createDeepSeekExecutor = ({
       "Respond with a single JSON object: {\"summary\": \"<one line>\", \"artifactPath\": \"<repository-relative path>\"}."
     ].join("\n");
 
+    const requestBody = {
+      model: safeModel,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.2
+    };
+    // Native thinking conflicts with `response_format: json_object` on some
+    // serving paths, so only request structured JSON when reasoning is off.
+    if (thinkingEnabled) {
+      requestBody.thinking = { type: "enabled" };
+    } else {
+      requestBody.response_format = { type: "json_object" };
+    }
+    if (reasoningEffort) requestBody.reasoning_effort = reasoningEffort;
+
     const controller = new AbortController();
     let timer;
     const onAbort = () => controller.abort(signal?.reason ?? "aborted");
@@ -83,12 +114,7 @@ export const createDeepSeekExecutor = ({
           "Content-Type": "application/json",
           Authorization: `Bearer ${key}`
         },
-        body: JSON.stringify({
-          model: safeModel,
-          messages: [{ role: "user", content: prompt }],
-          temperature: 0.2,
-          response_format: { type: "json_object" }
-        }),
+        body: JSON.stringify(requestBody),
         signal: controller.signal
       });
       if (!response.ok) {
@@ -100,7 +126,7 @@ export const createDeepSeekExecutor = ({
       const content = payload?.choices?.[0]?.message?.content;
       if (typeof content !== "string" || content.trim() === "") throw new Error("DeepSeek returned no content");
       assertNoLeakedToolCalls(content);
-      const parsed = JSON.parse(content);
+      const parsed = parseJson(content);
       const artifactPath = asNonEmptyString(parsed.artifactPath, "artifactPath");
       const result = { artifacts: [{ type: "commit", path: artifactPath, status: "ok" }] };
       // Enforce the vendor-neutral executor contract (ADR 0007): secret-free,

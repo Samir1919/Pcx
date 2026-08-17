@@ -85,6 +85,49 @@ test("deepseek executor fails fast on leaked tool-call syntax instead of looping
   }
 });
 
+test("deepseek executor sends thinking and reasoning_effort when enabled and omits json_object", async () => {
+  let body;
+  const executor = createDeepSeekExecutor({
+    apiKey: "k",
+    thinkingEnabled: true,
+    reasoningEffort: "high",
+    fetchImpl: async (_url, options) => {
+      body = JSON.parse(options.body);
+      return okResponse(JSON.stringify({ artifactPath: "apps/api/src/a.mjs" }));
+    }
+  });
+  await executor({ task: task("api") });
+  assert.deepEqual(body.thinking, { type: "enabled" });
+  assert.equal(body.reasoning_effort, "high");
+  assert.equal("response_format" in body, false);
+});
+
+test("deepseek executor keeps json_object and omits thinking when reasoning is off", async () => {
+  let body;
+  const executor = createDeepSeekExecutor({
+    apiKey: "k",
+    fetchImpl: async (_url, options) => {
+      body = JSON.parse(options.body);
+      return okResponse(JSON.stringify({ artifactPath: "apps/api/src/a.mjs" }));
+    }
+  });
+  await executor({ task: task("api") });
+  assert.deepEqual(body.response_format, { type: "json_object" });
+  assert.equal("thinking" in body, false);
+  assert.equal("reasoning_effort" in body, false);
+});
+
+test("deepseek executor tolerates fenced JSON in the model output", async () => {
+  const fenced = "```json\n" + JSON.stringify({ artifactPath: "apps/api/src/a.mjs" }) + "\n```";
+  const executor = createDeepSeekExecutor({ apiKey: "k", thinkingEnabled: true, fetchImpl: async () => okResponse(fenced) });
+  const result = await executor({ task: task("api") });
+  assert.deepEqual(result.artifacts, [{ type: "commit", path: "apps/api/src/a.mjs", status: "ok" }]);
+});
+
+test("deepseek executor rejects an invalid reasoning effort", () => {
+  assert.throws(() => createDeepSeekExecutor({ apiKey: "k", reasoningEffort: "extreme", fetchImpl: async () => okResponse("{}") }), /reasoningEffort must be low, medium, or high/);
+});
+
 test("openai reviewer sends the task and checks to the API and returns a reviewTask result", async () => {
   const calls = [];
   const fetchImpl = async (url, options) => {
