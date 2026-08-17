@@ -13,17 +13,23 @@
  *   <PREFIX>_ENDPOINT           optional (defaults to the provider's default)
  *   <PREFIX>_ENABLED            optional "true"|"false" (defaults to enabled);
  *                               set "false" to hold a provider without deleting it
- *   <PREFIX>_THINKING           optional "enabled"|"true" (bearer reasoning models)
- *   <PREFIX>_REASONING_EFFORT   optional "low"|"medium"|"high"
+ *   <PREFIX>_THINKING           optional "enabled" — only for providers that
+ *                               support a thinking block (deepseek, anthropic)
+ *   <PREFIX>_REASONING_EFFORT   optional effort level; per-provider allowed
+ *                               values are documented below
  *
- * Auth dial I:
+ * Provider-specific reasoning shapes (verified against each vendor's docs):
+ *   - deepseek:  `thinking: {type:"enabled"}` + `reasoning_effort` (low|medium|high)
+ *   - openai:    `reasoning_effort` (low|medium|high); no thinking block
+ *   - anthropic: `thinking: {type:"enabled"}` + `effort` (low|medium|high|xhigh|max)
+ *   - kimi:      `reasoning_effort` (low|high for kimi-k3); no thinking block
+ *
+ * Auth:
  *   - deepseek / openai / kimi use OpenAI-compatible chat completions with
  *     `Authorization: Bearer <key>`.
  *   - anthropic uses the Messages API with `x-api-key` and
  *     `anthropic-version: 2023-06-01`.
  */
-
-const REASONING_EFFORTS = new Set(["low", "medium", "high"]);
 
 export const PROVIDER_NAMES = Object.freeze(["deepseek", "openai", "anthropic", "kimi"]);
 
@@ -32,25 +38,37 @@ export const PROVIDERS = Object.freeze({
     envPrefix: "DEEPSEEK",
     auth: "bearer",
     defaultEndpoint: "https://api.deepseek.com/chat/completions",
-    defaultModel: "deepseek-chat"
+    defaultModel: "deepseek-chat",
+    supportsThinking: true,
+    effortParam: "reasoning_effort",
+    effortAllowed: ["low", "medium", "high"]
   },
   openai: {
     envPrefix: "OPENAI",
     auth: "bearer",
     defaultEndpoint: "https://api.openai.com/v1/chat/completions",
-    defaultModel: "gpt-4o"
+    defaultModel: "gpt-4o",
+    supportsThinking: false,
+    effortParam: "reasoning_effort",
+    effortAllowed: ["low", "medium", "high"]
   },
   anthropic: {
     envPrefix: "ANTHROPIC",
     auth: "x-api-key",
     defaultEndpoint: "https://api.anthropic.com/v1/messages",
-    defaultModel: "claude-3-5-sonnet-latest"
+    defaultModel: "claude-3-5-sonnet-latest",
+    supportsThinking: true,
+    effortParam: "effort",
+    effortAllowed: ["low", "medium", "high", "xhigh", "max"]
   },
   kimi: {
     envPrefix: "KIMI",
     auth: "bearer",
     defaultEndpoint: "https://api.moonshot.cn/v1/chat/completions",
-    defaultModel: "kimi-k2-0711-preview"
+    defaultModel: "kimi-k2-0711-preview",
+    supportsThinking: false,
+    effortParam: "reasoning_effort",
+    effortAllowed: ["low", "high"]
   }
 });
 
@@ -85,16 +103,18 @@ export const resolveProvider = ({ name = "deepseek", env = process.env } = {}) =
   const model = asNonEmptyString(env[`${provider.envPrefix}_MODEL`] ?? provider.defaultModel, `${provider.envPrefix}_MODEL`);
 
   const reasoningEffort = env[`${provider.envPrefix}_REASONING_EFFORT`] ?? null;
-  if (reasoningEffort != null && !REASONING_EFFORTS.has(reasoningEffort)) {
-    throw new Error(`${provider.envPrefix}_REASONING_EFFORT must be low, medium, or high`);
+  if (reasoningEffort != null && !provider.effortAllowed.includes(reasoningEffort)) {
+    throw new Error(`${provider.envPrefix}_REASONING_EFFORT must be one of ${provider.effortAllowed.join(", ")} for ${name}`);
   }
 
   const thinkingValue = env[`${provider.envPrefix}_THINKING`];
-  const thinkingEnabled = thinkingValue === "enabled" || thinkingValue === "true" || thinkingValue === "1";
+  const thinkingEnabled = provider.supportsThinking && (thinkingValue === "enabled" || thinkingValue === "true" || thinkingValue === "1");
 
   return Object.freeze({
     name,
     auth: provider.auth,
+    supportsThinking: provider.supportsThinking,
+    effortParam: provider.effortParam,
     apiKey,
     model,
     endpoint: asNonEmptyString(env[`${provider.envPrefix}_ENDPOINT`] ?? provider.defaultEndpoint, `${provider.envPrefix}_ENDPOINT`),
@@ -134,9 +154,8 @@ export const resolveActiveProviders = ({ names = [], env = process.env } = {}) =
 /**
  * Builds the HTTP request body + headers for a single-turn completion. The
  * caller passes a `system` instruction and a `user` prompt; the body is shaped
- * for the provider's dialect (OpenAI-compatible vs Anthropic Messages). Thinking
- * and reasoning-effort fields are attached only when the provider enables them
- * and the dialect supports them.
+ * for the provider's dialect (OpenAI-compatible vs Anthropic Messages).
+ * Reasoning/thinking fields use each provider's official parameter names.
  */
 export const buildChatRequest = (provider, { system, user, temperature = 0.2 } = {}) => {
   if (!provider || typeof provider !== "object") throw new Error("provider must be a resolved provider config");
@@ -144,12 +163,15 @@ export const buildChatRequest = (provider, { system, user, temperature = 0.2 } =
   const userText = asNonEmptyString(user, "user");
 
   if (provider.auth === "x-api-key") {
+    // Anthropic Messages API.
     const body = {
       model: provider.model,
       system: systemText,
       messages: [{ role: "user", content: userText }],
       max_tokens: 4096
     };
+    if (provider.supportsThinking && provider.thinkingEnabled) body.thinking = { type: "enabled" };
+    if (provider.reasoningEffort && provider.effortParam) body[provider.effortParam] = provider.reasoningEffort;
     const headers = {
       "Content-Type": "application/json",
       "x-api-key": provider.apiKey,
@@ -167,12 +189,13 @@ export const buildChatRequest = (provider, { system, user, temperature = 0.2 } =
     ],
     temperature
   };
-  if (provider.thinkingEnabled) {
+  const thinkingOn = provider.supportsThinking && provider.thinkingEnabled;
+  if (thinkingOn) {
     body.thinking = { type: "enabled" };
   } else {
     body.response_format = { type: "json_object" };
   }
-  if (provider.reasoningEffort) body.reasoning_effort = provider.reasoningEffort;
+  if (provider.reasoningEffort && provider.effortParam) body[provider.effortParam] = provider.reasoningEffort;
 
   return {
     body,

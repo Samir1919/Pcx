@@ -62,6 +62,45 @@ test("buildChatRequest shapes the Anthropic Messages dialect with x-api-key", ()
   assert.equal(headers.Authorization, undefined);
 });
 
+test("buildChatRequest emits provider-correct reasoning field names", () => {
+  // DeepSeek: thinking object + reasoning_effort.
+  const deepseek = resolveProvider({ name: "deepseek", env: { DEEPSEEK_API_KEY: "d", DEEPSEEK_THINKING: "enabled", DEEPSEEK_REASONING_EFFORT: "high" } });
+  assert.deepEqual(buildChatRequest(deepseek, { system: "s", user: "u" }).body.thinking, { type: "enabled" });
+  assert.equal(buildChatRequest(deepseek, { system: "s", user: "u" }).body.reasoning_effort, "high");
+
+  // OpenAI: reasoning_effort, no thinking object.
+  const openai = resolveProvider({ name: "openai", env: { OPENAI_API_KEY: "o", OPENAI_REASONING_EFFORT: "medium" } });
+  assert.equal(buildChatRequest(openai, { system: "s", user: "u" }).body.reasoning_effort, "medium");
+  assert.equal("thinking" in buildChatRequest(openai, { system: "s", user: "u" }).body, false);
+
+  // Anthropic: thinking object + `effort` (not reasoning_effort).
+  const anthropic = resolveProvider({ name: "anthropic", env: { ANTHROPIC_API_KEY: "a", ANTHROPIC_THINKING: "enabled", ANTHROPIC_REASONING_EFFORT: "xhigh" } });
+  const anthropicBody = buildChatRequest(anthropic, { system: "s", user: "u" }).body;
+  assert.deepEqual(anthropicBody.thinking, { type: "enabled" });
+  assert.equal(anthropicBody.effort, "xhigh");
+  assert.equal("reasoning_effort" in anthropicBody, false);
+
+  // Kimi: reasoning_effort low|high, no thinking object.
+  const kimi = resolveProvider({ name: "kimi", env: { KIMI_API_KEY: "k", KIMI_REASONING_EFFORT: "high" } });
+  assert.equal(buildChatRequest(kimi, { system: "s", user: "u" }).body.reasoning_effort, "high");
+  assert.equal("thinking" in buildChatRequest(kimi, { system: "s", user: "u" }).body, false);
+});
+
+test("resolveProvider enforces per-provider reasoning effort values", () => {
+  assert.throws(
+    () => resolveProvider({ name: "kimi", env: { KIMI_API_KEY: "k", KIMI_REASONING_EFFORT: "medium" } }),
+    /KIMI_REASONING_EFFORT must be one of low, high/
+  );
+  assert.throws(
+    () => resolveProvider({ name: "anthropic", env: { ANTHROPIC_API_KEY: "a", ANTHROPIC_REASONING_EFFORT: "extreme" } }),
+    /ANTHROPIC_REASONING_EFFORT must be one of low, medium, high, xhigh, max/
+  );
+  assert.throws(
+    () => resolveProvider({ name: "deepseek", env: { DEEPSEEK_API_KEY: "d", DEEPSEEK_REASONING_EFFORT: "xhigh" } }),
+    /DEEPSEEK_REASONING_EFFORT must be one of low, medium, high/
+  );
+});
+
 test("extractContent reads OpenAI and Anthropic response shapes and rejects empty", () => {
   assert.equal(extractContent({ choices: [{ message: { content: "openai" } }] }), "openai");
   assert.equal(extractContent({ content: [{ type: "text", text: "claude" }] }), "claude");

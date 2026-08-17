@@ -168,7 +168,7 @@ test("provider executor uses the Anthropic x-api-key dialect", async () => {
 
 test("provider executor self-heals once from a leaked tool-call when thinking is on", async () => {
   const provider = resolveProvider({ name: "deepseek", env: { DEEPSEEK_API_KEY: "k" } });
-  const enriched = Object.freeze({ ...provider, thinkingEnabled: true, reasoningEffort: "high" });
+  const enriched = Object.freeze({ ...provider, supportsThinking: true, effortParam: "reasoning_effort", thinkingEnabled: true, reasoningEffort: "high" });
   const bodies = [];
   let call = 0;
   const executor = createProviderExecutor({

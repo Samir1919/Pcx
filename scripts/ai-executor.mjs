@@ -178,6 +178,8 @@ export const createDeepSeekExecutor = (options = {}) => {
     base = {
       name: "deepseek",
       auth: "bearer",
+      supportsThinking: true,
+      effortParam: "reasoning_effort",
       apiKey: apiKey ?? process.env.DEEPSEEK_API_KEY,
       model: model ?? process.env.DEEPSEEK_MODEL ?? "deepseek-chat",
       endpoint: endpoint ?? process.env.DEEPSEEK_ENDPOINT ?? DEFAULT_ENDPOINT,

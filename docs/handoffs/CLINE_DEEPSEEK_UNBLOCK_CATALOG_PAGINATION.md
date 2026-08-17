@@ -20,7 +20,9 @@
    `DEEPSEEK_REASONING_EFFORT=low|medium|high` add `thinking` and
    `reasoning_effort` to the request and (when thinking is on) drop
    `response_format: json_object`, which conflicts with native reasoning on some
-   serving paths.
+   serving paths. Reasoning fields use each vendor's official shape:
+   deepseek = `thinking` + `reasoning_effort`; openai = `reasoning_effort`;
+   anthropic = `thinking` + `effort`; kimi = `reasoning_effort`.
 
 2. **Multi-provider AI registry.** `scripts/ai-providers.mjs` registers
    `deepseek`, `openai`, `anthropic` (Claude Messages API), and `kimi`
@@ -41,9 +43,11 @@
 
 ## Changed areas
 
-- `scripts/ai-providers.mjs` — provider registry (deepseek/openai/anthropic/kimi),
-  `resolveProvider` (env + hold), `buildChatRequest` (dialect shapes),
-  `extractContent`/`parseProviderJson` (shared leak guard + tolerant JSON).
+- `scripts/ai-providers.mjs` — provider registry (deepseek/openai/anthropic/kimi)
+  with per-provider official reasoning shapes (deepseek/openai/kimi
+  `reasoning_effort`, anthropic `effort`; thinking block only for deepseek/
+  anthropic), `resolveProvider` (env + hold), `buildChatRequest` (dialect + auth
+  shapes), `extractContent`/`parseProviderJson` (shared leak guard + tolerant JSON).
 - `scripts/ai-executor.mjs` — `createProviderExecutor` (any provider, one
   thinking→json self-heal retry); `createProviderPoolExecutor` (hash-based pool);
   `createDeepSeekExecutor` kept as a compatible wrapper.

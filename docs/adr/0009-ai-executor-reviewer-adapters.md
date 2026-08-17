@@ -13,6 +13,12 @@ Introduce optional, opt-in AI adapters wired into the autonomous loop via CLI fl
 
 **Provider registry** (`scripts/ai-providers.mjs`): `deepseek`, `openai`, `anthropic` (Claude Messages API), and `kimi` (Moonshot, OpenAI-compatible). Each provider is configured by `<PREFIX>_*` environment variables (`_API_KEY`, `_MODEL`, `_ENDPOINT`, `_ENABLED`, `_THINKING`, `_REASONING_EFFORT`) with the documented defaults. Setting `<PREFIX>_ENABLED=false` **holds** a provider — its config stays but selecting it fails fast, so operators can swap/hold providers without deleting credentials.
 
+Reasoning/thinking parameters are emitted with each vendor's official shape (verified against each provider's docs):
+- deepseek: `thinking:{type:"enabled"}` + top-level `reasoning_effort` (low|medium|high)
+- openai: top-level `reasoning_effort` (low|medium|high); no thinking block
+- anthropic: `thinking:{type:"enabled"}` + top-level `effort` (low|medium|high|xhigh|max)
+- kimi: top-level `reasoning_effort` (low|high for kimi-k3); no thinking block
+
 **Executor** (`scripts/ai-executor.mjs`):
 - `createProviderExecutor({ name | provider })` implements the vendor-neutral executor contract (ADR 0007) for any registry provider. It emits a `system` + `user` message pair, adapts the request body/auth to the provider dialect (OpenAI-compatible bearer vs Anthropic `x-api-key`), maps the structured response to an `artifactPath`, and validates it through `validateExecutorResult` (repository-relative, no traversal, allow-listed metadata). API errors are marked retryable for 5xx/429. Responses containing leaked tool-call syntax (fullwidth-bar special tokens or `invoke`/`tool_calls` wrappers) fail fast with a specific, non-retryable error instead of looping. Native reasoning models (DeepSeek) can enable `thinking`/`reasoning_effort` via the shared env contract; when thinking is on, `response_format: json_object` is omitted because it conflicts on some serving paths.
 - `createDeepSeekExecutor` is retained as a backward-compatible wrapper over `createProviderExecutor`.
