@@ -78,8 +78,19 @@ export function createListingService({ authService, repository, id = randomUUID,
       const row = await repository.findPublicPassport(pcxItemId);
       if (!row) return null;
       try {
-        return createPublicPassport({ ...row, specifications: [] });
-      } catch {
+        return createPublicPassport({
+          pcxItemId: row.pcx_item_id,
+          modelId: row.model_id,
+          name: row.name,
+          categoryId: row.category_id,
+          brandId: row.brand_id,
+          price: row.price == null ? null : Number(row.price),
+          status: row.status,
+          publishedAt: row.published_at,
+          specifications: []
+        });
+      } catch (error) {
+        console.error("[listing] publicPassport construction failed", { pcxItemId, error });
         return null;
       }
     },

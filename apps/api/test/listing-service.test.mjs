@@ -10,7 +10,7 @@ function fixture(overrides = {}) {
     async publish(id, slug, now) { calls.publishes.push({ id, slug, now }); return { status: "published", record: { id, publicSlug: slug, status: ListingStatus.PUBLISHED } }; },
     async createPrice(record) { calls.prices.push(record); return record; },
     async findById(id) { calls.finds.push(id); return id === "l1" ? { id, inventoryItemId: "inv-1", status: ListingStatus.DRAFT, publicSlug: null, publishedAt: null } : null; },
-    async findPublicPassport(pcxItemId) { calls.passports.push(pcxItemId); return pcxItemId === "PCX-1" ? { pcxItemId, modelId: "m1", name: "GPU", categoryId: "gpu", brandId: "b1", status: "PUBLISHED", publishedAt: "2026-08-16T12:00:00.000Z", price: 15000, serial: "SECRET" } : null; },
+    async findPublicPassport(pcxItemId) { calls.passports.push(pcxItemId); return pcxItemId === "PCX-1" ? { pcx_item_id: "PCX-1", model_id: "m1", name: "GPU", category_id: "gpu", brand_id: "b1", status: "PUBLISHED", published_at: "2026-08-16T12:00:00.000Z", price: "15000", serial: "SECRET" } : null; },
     async searchPublished(filters) { calls.searches = filters; return { records: [{ id: "l1", public_slug: "pcx-gaming-tower", pcx_item_id: "PCX-1", model_id: "m1", name: "GPU", category_id: "gpu", brand_id: "b1", price: 15000, published_at: "2026-08-16T12:00:00.000Z" }], nextCursor: null }; },
     ...overrides.repository
   };
@@ -55,10 +55,16 @@ test("public search returns safe listing cards with pagination meta", async () =
   assert.equal(calls.searches.categoryId, "gpu");
 });
 
-test("public passport never leaks serial or internal fields", async () => {
+test("public passport maps snake_case row and never leaks serial or internal fields", async () => {
   const { service } = fixture();
   const passport = await service.publicPassport("PCX-1");
+  assert.notEqual(passport, null);
   assert.equal(passport.pcxItemId, "PCX-1");
+  assert.equal(passport.modelId, "m1");
+  assert.equal(passport.categoryId, "gpu");
+  assert.equal(passport.brandId, "b1");
+  assert.equal(passport.status, "PUBLISHED");
+  assert.equal(passport.price, 15000);
   assert.equal(Object.hasOwn(passport, "serial"), false);
   assert.equal(await service.publicPassport("missing"), null);
 });
