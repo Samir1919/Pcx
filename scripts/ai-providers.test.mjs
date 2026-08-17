@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildChatRequest, extractContent, parseProviderJson, PROVIDER_NAMES, resolveProvider } from "./ai-providers.mjs";
+import { buildChatRequest, extractContent, isProviderHeld, parseProviderJson, PROVIDER_NAMES, resolveActiveProviders, resolveProvider } from "./ai-providers.mjs";
 
 test("provider names cover deepseek, openai, anthropic, and kimi", () => {
   assert.deepEqual([...PROVIDER_NAMES].sort(), ["anthropic", "deepseek", "kimi", "openai"]);
@@ -72,4 +72,25 @@ test("parseProviderJson parses plain and fenced JSON and rejects leaked tool cal
   assert.deepEqual(parseProviderJson(JSON.stringify({ a: 1 })), { a: 1 });
   assert.deepEqual(parseProviderJson("```json\n" + JSON.stringify({ a: 1 }) + "\n```"), { a: 1 });
   assert.throws(() => parseProviderJson("<｜tool_calls｜>"), /leaked tool-call/);
+});
+
+test("resolveActiveProviders skips held providers and fails fast when none are active", () => {
+  const active = resolveActiveProviders({
+    names: ["deepseek", "openai", "anthropic", "kimi"],
+    env: {
+      DEEPSEEK_API_KEY: "d",
+      OPENAI_API_KEY: "o",
+      ANTHROPIC_API_KEY: "a",
+      ANTHROPIC_ENABLED: "false",
+      KIMI_API_KEY: "k",
+      KIMI_ENABLED: "false"
+    }
+  });
+  assert.deepEqual(active.map((p) => p.name), ["deepseek", "openai"]);
+  assert.equal(isProviderHeld({ name: "anthropic", env: { ANTHROPIC_ENABLED: "false" } }), true);
+  assert.equal(isProviderHeld({ name: "deepseek", env: {} }), false);
+  assert.throws(
+    () => resolveActiveProviders({ names: ["deepseek", "openai"], env: { DEEPSEEK_ENABLED: "false", OPENAI_ENABLED: "false" } }),
+    /no active AI providers/
+  );
 });

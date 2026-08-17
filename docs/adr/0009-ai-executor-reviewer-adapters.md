@@ -26,6 +26,7 @@ All adapters accept an injectable `fetchImpl` for deterministic testing (default
 The autonomous loop (`scripts/autonomous-loop.mjs`) keeps the legacy opt-in flags and adds provider selection:
 - `--deepseek-executor` / `--openai-review` (legacy)
 - `--executor-provider <name>` / `--reviewer-provider <name>` (`deepseek | openai | anthropic | kimi`)
+- `--executor-pool` / `--reviewer-pool` — load-balance parallel tasks across all enabled providers (each task is deterministically hashed to one provider, so a concurrency batch runs on multiple models at once)
 
 A `.env.example` documents the full provider matrix. The `.env` file is git-ignored. The autonomous loop driver loads `.env` itself (existing shell variables are never overwritten), so adapter settings are picked up without being exported by the caller.
 

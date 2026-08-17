@@ -11,7 +11,7 @@
  * the task). Secrets never appear in source, logs, or artifacts, and the AI can
  * never weaken the gate or inject malformed/secret-bearing findings.
  */
-import { buildChatRequest, extractContent, parseProviderJson, resolveProvider } from "./ai-providers.mjs";
+import { buildChatRequest, extractContent, parseProviderJson, resolveActiveProviders, resolveProvider } from "./ai-providers.mjs";
 import { reviewTask } from "./control-plane.mjs";
 
 const asNonEmptyString = (value, field) => {
@@ -107,6 +107,35 @@ export const createProviderReviewer = ({
       clearTimeout(timer);
     }
   };
+};
+
+/**
+ * Builds a reviewer pool that load-balances tasks across the enabled providers.
+ * Each task is deterministically hashed to one provider, so parallel review
+ * work runs against different models concurrently. A held provider is skipped.
+ */
+export const createProviderPoolReviewer = ({
+  names = ["deepseek", "openai", "anthropic", "kimi"],
+  providers,
+  fetchImpl = fetch,
+  timeoutMs = 120_000
+} = {}) => {
+  const pool = Array.isArray(providers) ? providers : resolveActiveProviders({ names });
+  if (pool.length === 0) throw new Error("no active AI providers");
+  const byTask = new Map();
+
+  const reviewerFor = (task) => {
+    const id = task?.id;
+    if (typeof id !== "string" || id.length === 0) throw new Error("task must have a non-empty id");
+    if (byTask.has(id)) return byTask.get(id);
+    let hash = 0;
+    for (let index = 0; index < id.length; index += 1) hash = (hash * 31 + id.charCodeAt(index)) >>> 0;
+    const reviewer = createProviderReviewer({ provider: pool[hash % pool.length], fetchImpl, timeoutMs });
+    byTask.set(id, reviewer);
+    return reviewer;
+  };
+
+  return async (context = {}) => reviewerFor(context.task)(context);
 };
 
 /**

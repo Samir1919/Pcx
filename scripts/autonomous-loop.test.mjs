@@ -224,6 +224,12 @@ test("parseArgs accepts provider flags and rejects unknown providers", () => {
   assert.throws(() => parseArgs(["--reviewer-provider", "unknown"]), /--reviewer-provider must be one of/);
 });
 
+test("parseArgs accepts executor/reviewer pool flags", () => {
+  const args = parseArgs(["--executor-pool", "--reviewer-pool"]);
+  assert.equal(args.executorPool, true);
+  assert.equal(args.reviewerPool, true);
+});
+
 test("autonomous loop blocks tasks whose actions require unapproved approval", async () => {
   const graph = {
     version: 1,

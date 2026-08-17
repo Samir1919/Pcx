@@ -30,6 +30,10 @@
    `<PREFIX>_ENABLED=false` to "hold" a provider until needed. The executor
    self-heals once: when a reasoning-enabled provider returns non-JSON, it retries
    with reasoning off (deterministic `response_format: json_object`).
+   `--executor-pool`/`--reviewer-pool` hash each task to a deterministic provider
+   across the enabled pool, so concurrent `Promise.all` batches run multiple
+   models at once (real "multiple agents at once" mode); held providers are
+   skipped.
 
 3. **Admin "Product models" cursor pagination.** The API already supported cursor
    pagination; the admin UI was the gap. The `models` tab now pages beyond the
@@ -41,12 +45,14 @@
   `resolveProvider` (env + hold), `buildChatRequest` (dialect shapes),
   `extractContent`/`parseProviderJson` (shared leak guard + tolerant JSON).
 - `scripts/ai-executor.mjs` — `createProviderExecutor` (any provider, one
-  thinking→json self-heal retry); `createDeepSeekExecutor` kept as a compatible
-  wrapper.
+  thinking→json self-heal retry); `createProviderPoolExecutor` (hash-based pool);
+  `createDeepSeekExecutor` kept as a compatible wrapper.
 - `scripts/ai-review.mjs` — `createProviderReviewer` (any provider);
-  `createOpenAiReviewer` retained with OpenAI retry path.
+  `createProviderPoolReviewer` (hash-based pool); `createOpenAiReviewer` retained
+  with OpenAI retry path.
 - `scripts/autonomous-loop.mjs` — `.env` loader, `--executor-provider` /
-  `--reviewer-provider` flags, exported `parseArgs`.
+  `--reviewer-provider` / `--executor-pool` / `--reviewer-pool` flags, exported
+  `parseArgs`.
 - `.env.example` — full 4-provider matrix (`<PREFIX>_API_KEY`/`_MODEL`/
   `_ENDPOINT`/`_ENABLED`/`_THINKING`/`_REASONING_EFFORT`).
 - `docs/adr/0009-ai-executor-reviewer-adapters.md` — multi-provider decision.

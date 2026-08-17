@@ -104,6 +104,34 @@ export const resolveProvider = ({ name = "deepseek", env = process.env } = {}) =
 };
 
 /**
+ * Returns true when a provider is explicitly held (`<PREFIX>_ENABLED=false`),
+ * false when enabled or unspecified. Held providers retain their config but are
+ * skipped by provider pools so operators can keep credentials on disk without
+ * using them.
+ */
+export const isProviderHeld = ({ name = "deepseek", env = process.env } = {}) => {
+  const provider = PROVIDERS[name];
+  if (!provider) throw new Error(`unknown AI provider: ${name}`);
+  return readBool(env[`${provider.envPrefix}_ENABLED`], `${provider.envPrefix}_ENABLED`) === false;
+};
+
+/**
+ * Resolves the enabled providers from a name list, skipping any held provider.
+ * Throws if none are enabled, or if an enabled provider is missing its key, so
+ * a pool fails fast instead of silently running with an empty provider set.
+ */
+export const resolveActiveProviders = ({ names = [], env = process.env } = {}) => {
+  if (!Array.isArray(names) || names.length === 0) throw new Error("names must be a non-empty array");
+  const active = [];
+  for (const name of names) {
+    if (isProviderHeld({ name, env })) continue;
+    active.push(resolveProvider({ name, env }));
+  }
+  if (active.length === 0) throw new Error("no active AI providers; enable at least one via <PREFIX>_ENABLED=true and set its API key");
+  return active;
+};
+
+/**
  * Builds the HTTP request body + headers for a single-turn completion. The
  * caller passes a `system` instruction and a `user` prompt; the body is shaped
  * for the provider's dialect (OpenAI-compatible vs Anthropic Messages). Thinking

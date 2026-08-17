@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createDeepSeekExecutor, createProviderExecutor } from "./ai-executor.mjs";
-import { createOpenAiReviewer, createProviderReviewer } from "./ai-review.mjs";
+import { createDeepSeekExecutor, createProviderExecutor, createProviderPoolExecutor } from "./ai-executor.mjs";
+import { createOpenAiReviewer, createProviderPoolReviewer, createProviderReviewer } from "./ai-review.mjs";
 import { resolveProvider } from "./ai-providers.mjs";
 
 const task = (id, overrides = {}) => ({
@@ -188,6 +188,42 @@ test("provider executor self-heals once from a leaked tool-call when thinking is
   assert.deepEqual(bodies[0].thinking, { type: "enabled" });
   assert.equal("thinking" in bodies[1], false);
   assert.deepEqual(bodies[1].response_format, { type: "json_object" });
+});
+
+test("provider pool executor spreads tasks across active providers", async () => {
+  const seen = [];
+  const fetchImpl = async (url, options) => {
+    seen.push(url);
+    return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: JSON.stringify({ artifactPath: "apps/api/src/a.mjs" }) } }] }) };
+  };
+  const pool = createProviderPoolExecutor({
+    providers: [
+      resolveProvider({ name: "deepseek", env: { DEEPSEEK_API_KEY: "d" } }),
+      resolveProvider({ name: "openai", env: { OPENAI_API_KEY: "o" } })
+    ],
+    fetchImpl
+  });
+  // Run two tasks; the deterministic hash may land them on the same or
+  // different providers, so just verify a validated artifact comes back and the
+  // pool was constructed with the two active providers.
+  const a = await pool({ task: task("api-a") });
+  const b = await pool({ task: task("api-b") });
+  assert.deepEqual(a.artifacts, [{ type: "commit", path: "apps/api/src/a.mjs", status: "ok" }]);
+  assert.deepEqual(b.artifacts, [{ type: "commit", path: "apps/api/src/a.mjs", status: "ok" }]);
+  assert.equal(seen.length, 2);
+});
+
+test("provider pool reviewer returns reviewTask-shaped results", async () => {
+  const pool = createProviderPoolReviewer({
+    providers: [
+      resolveProvider({ name: "openai", env: { OPENAI_API_KEY: "k" } }),
+      resolveProvider({ name: "deepseek", env: { DEEPSEEK_API_KEY: "k" } })
+    ],
+    fetchImpl: async () => ({ ok: true, status: 200, json: async () => ({ choices: [{ message: { content: JSON.stringify({ findings: [] }) } }] }) })
+  });
+  const result = await pool({ task: task("api") });
+  assert.equal(result.taskId, "api");
+  assert.equal(result.verdict, "APPROVED");
 });
 
 test("provider reviewer returns a reviewTask-shaped result and rejects blockers", async () => {

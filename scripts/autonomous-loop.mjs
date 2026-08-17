@@ -16,8 +16,8 @@ import { readFileSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 
 import { dirname, resolve } from "node:path";
-import { createDeepSeekExecutor, createProviderExecutor } from "./ai-executor.mjs";
-import { createOpenAiReviewer, createProviderReviewer } from "./ai-review.mjs";
+import { createDeepSeekExecutor, createProviderExecutor, createProviderPoolExecutor } from "./ai-executor.mjs";
+import { createOpenAiReviewer, createProviderPoolReviewer, createProviderReviewer } from "./ai-review.mjs";
 import { createFileLogStore, createShellGit, runParallelWorkers, summarizeRuns, validateTaskGraph } from "./control-plane.mjs";
 
 
@@ -64,7 +64,7 @@ const asNonEmptyString = (value, field) => {
 };
 
 export const parseArgs = (argv = []) => {
-  const args = { graph: DEFAULT_GRAPH, log: DEFAULT_LOG, dryRun: false, maxBatches: null, noPersistGraph: false, realExecutor: false, approvalRequired: false, deepseekExecutor: false, openAiReview: false, executorProvider: null, reviewerProvider: null, integrationTarget: "main" };
+  const args = { graph: DEFAULT_GRAPH, log: DEFAULT_LOG, dryRun: false, maxBatches: null, noPersistGraph: false, realExecutor: false, approvalRequired: false, deepseekExecutor: false, openAiReview: false, executorProvider: null, reviewerProvider: null, executorPool: false, reviewerPool: false, integrationTarget: "main" };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--graph") {
@@ -83,6 +83,10 @@ export const parseArgs = (argv = []) => {
       args.deepseekExecutor = true;
     } else if (arg === "--openai-review") {
       args.openAiReview = true;
+    } else if (arg === "--executor-pool") {
+      args.executorPool = true;
+    } else if (arg === "--reviewer-pool") {
+      args.reviewerPool = true;
     } else if (arg === "--executor-provider") {
       const value = asNonEmptyString(argv[index + 1], "--executor-provider");
       if (!PROVIDER_NAMES.has(value)) throw new Error(`--executor-provider must be one of ${[...PROVIDER_NAMES].join(", ")}`);
@@ -279,19 +283,23 @@ const main = async () => {
   // executor (undefined) is used.
   const executor = args.executorProvider
     ? createProviderExecutor({ name: args.executorProvider })
-    : args.deepseekExecutor
-      ? createDeepSeekExecutor()
-      : args.realExecutor
-        ? createRealExecutor()
-        : undefined;
+    : args.executorPool
+      ? createProviderPoolExecutor()
+      : args.deepseekExecutor
+        ? createDeepSeekExecutor()
+        : args.realExecutor
+          ? createRealExecutor()
+          : undefined;
   // Reviewer selection (priority): --reviewer-provider <name> → generic provider
-  // adapter; --openai-review → OpenAI. Otherwise the deterministic local review
-  // adapter is used.
+  // adapter; --reviewer-pool → provider pool; --openai-review → OpenAI.
+  // Otherwise the deterministic local review adapter is used.
   const reviewer = args.reviewerProvider
     ? createProviderReviewer({ name: args.reviewerProvider })
-    : args.openAiReview
-      ? createOpenAiReviewer()
-      : undefined;
+    : args.reviewerPool
+      ? createProviderPoolReviewer()
+      : args.openAiReview
+        ? createOpenAiReviewer()
+        : undefined;
   const approvalBoundary = args.approvalRequired ? { requiresApproval: ["create_commit"], approved: [] } : undefined;
   const summary = await runAutonomousLoop({ graph, git, logStore, maxBatches: args.maxBatches, executor, reviewer, approvalBoundary, integrationTarget: args.integrationTarget });
   process.stdout.write(`${writeSummary(summary)}\n`);

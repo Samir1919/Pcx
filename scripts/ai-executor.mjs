@@ -26,7 +26,7 @@
  * This adapter never performs a hard-stop action and only emits allow-listed
  * artifacts, so it is safe to run locally or in CI (with a mocked fetch).
  */
-import { buildChatRequest, extractContent, parseProviderJson, resolveProvider } from "./ai-providers.mjs";
+import { buildChatRequest, extractContent, parseProviderJson, resolveActiveProviders, resolveProvider } from "./ai-providers.mjs";
 import { validateExecutorResult } from "./control-plane.mjs";
 
 const asNonEmptyString = (value, field) => {
@@ -121,6 +121,36 @@ export const createProviderExecutor = ({
       signal?.removeEventListener("abort", onAbort);
     }
   };
+};
+
+/**
+ * Builds an executor pool that load-balances tasks across the enabled providers.
+ * Each task is deterministically hashed to one provider, so `Promise.all`
+ * batches in `runParallelWorkers` run against different models concurrently —
+ * a real "multiple agents at once" mode. A held provider is skipped.
+ */
+export const createProviderPoolExecutor = ({
+  names = ["deepseek", "openai", "anthropic", "kimi"],
+  providers,
+  fetchImpl = fetch,
+  timeoutMs = 120_000
+} = {}) => {
+  const pool = Array.isArray(providers) ? providers : resolveActiveProviders({ names });
+  if (pool.length === 0) throw new Error("no active AI providers");
+  const byTask = new Map();
+
+  const executorFor = (task) => {
+    const id = task?.id;
+    if (typeof id !== "string" || id.length === 0) throw new Error("task must have a non-empty id");
+    if (byTask.has(id)) return byTask.get(id);
+    let hash = 0;
+    for (let index = 0; index < id.length; index += 1) hash = (hash * 31 + id.charCodeAt(index)) >>> 0;
+    const executor = createProviderExecutor({ provider: pool[hash % pool.length], fetchImpl, timeoutMs });
+    byTask.set(id, executor);
+    return executor;
+  };
+
+  return async (context = {}) => executorFor(context.task)(context);
 };
 
 /**
