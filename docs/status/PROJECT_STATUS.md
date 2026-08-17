@@ -1,7 +1,7 @@
 # PCX Project Status
 
 - Updated: 2026-08-17
-- Current main evidence commit: `d1f02c3` (branch `agent/stage3-completion` holds the orchestrator reporting/approval/real-executor slice and Stage 3 completion evidence; full-stack Docker packaging and one-command dev/prod runners are committed on this branch)
+- Current main evidence commit: `51e7a26` (branch `agent/stage3-completion`; adds the admin workspace auth/navigation/seeded-data-views slice on top of full-stack Docker packaging and one-command dev/prod runners)
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: Stage 3 control-plane completion and next dependency-ready work
 - Current autonomy maturity: Stage 2 in progress; Stage 3 control plane complete for bounded local/CI parallel orchestration (ADR 0008)
@@ -69,7 +69,7 @@ This file is the central progress index. Approved specifications define what PCX
 - Dependency audit (`npm audit --omit=dev --audit-level=high`): 0 known vulnerabilities.
 - Backup/restore drill: seed rows recovered to a throwaway database.
 - Autonomous loop dry-run: `node scripts/autonomous-loop.mjs --dry-run --real-executor --no-persist-graph` completes spec/api/web with a surfaced cost/runtime report (Tasks 3, Passed 3, Cost 3); `--approval-required` blocks commit-creating tasks with `approval_required`; `--deepseek-executor` and `--openai-review` opt into AI-backed adapters.
-- Latest detailed evidence: `docs/handoffs/ADMIN_WORKSPACE_AUTH_AND_NAV.md` (and `STAGE3_AI_EXECUTOR_REVIEWER_ADAPTERS.md`, `AUTONOMOUS_TASK5_BKASH_CREDENTIALS_ADMIN.md`, `STAGE3_INTEGRATION_TARGET_FIX.md`, `FULLSTACK_DOCKER_DEV_PROD_RUNNERS.md`).
+- Latest detailed evidence: `docs/handoffs/ADMIN_WORKSPACE_AUTH_AND_NAV.md` (commit `51e7a26`), plus `STAGE3_AI_EXECUTOR_REVIEWER_ADAPTERS.md`, `AUTONOMOUS_TASK5_BKASH_CREDENTIALS_ADMIN.md`, `STAGE3_INTEGRATION_TARGET_FIX.md`, `FULLSTACK_DOCKER_DEV_PROD_RUNNERS.md`.
 
 
 
