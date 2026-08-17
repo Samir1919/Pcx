@@ -38,6 +38,26 @@ test("sandbox payment gateway is idempotent by reference and validates inputs", 
   await assert.rejects(() => gateway.charge({ amount: 10, currency: "USD" }), /reference/);
 });
 
+test("sandbox payment gateway dedupes concurrent charges for the same reference", async () => {
+  let calls = 0;
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const gateway = createSandboxPaymentGateway({
+    charge: async ({ reference }) => {
+      calls += 1;
+      await gate;
+      return { providerTransactionId: `tx-${reference}`, status: "CONFIRMED" };
+    }
+  });
+  const first = gateway.charge({ amount: 100, currency: "USD", reference: "race-1" });
+  const second = gateway.charge({ amount: 100, currency: "USD", reference: "race-1" });
+  release();
+  const [a, b] = await Promise.all([first, second]);
+  assert.equal(calls, 1, "concurrent same-reference charges must share one in-flight charge");
+  assert.equal(a.providerTransactionId, "tx-race-1");
+  assert.equal(b.providerTransactionId, "tx-race-1");
+});
+
 test("sandbox payment gateway default returns a deterministic transaction id", async () => {
   const gateway = createSandboxPaymentGateway();
   const result = await gateway.charge({ amount: 50, currency: "BDT", reference: "acq-9" });

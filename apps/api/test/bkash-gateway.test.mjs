@@ -20,6 +20,28 @@ test("bkash gateway is idempotent by reference", async () => {
   assert.equal(second.providerTransactionId, first.providerTransactionId);
 });
 
+test("bkash gateway dedupes concurrent charges for the same reference", async () => {
+  let calls = 0;
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const gateway = createBkashGateway({
+    mode: "REAL",
+    credentials: { appKey: "k" },
+    charge: async ({ reference, mode }) => {
+      calls += 1;
+      await gate;
+      return { providerTransactionId: `custom-${mode}-${reference}`, status: "CONFIRMED" };
+    }
+  });
+  const first = gateway.charge({ amount: 50, currency: "BDT", reference: "race-2" });
+  const second = gateway.charge({ amount: 50, currency: "BDT", reference: "race-2" });
+  release();
+  const [a, b] = await Promise.all([first, second]);
+  assert.equal(calls, 1, "concurrent same-reference charges must share one in-flight charge");
+  assert.equal(a.providerTransactionId, "custom-REAL-race-2");
+  assert.equal(b.providerTransactionId, "custom-REAL-race-2");
+});
+
 test("bkash gateway validates mode, amount, currency and reference", async () => {
   assert.throws(() => createBkashGateway({ mode: "PROD", credentials: { appKey: "k" } }), /mode is invalid/);
   assert.throws(() => createBkashGateway({ mode: "SANDBOX", credentials: "nope" }), /credentials must be an object/);

@@ -100,13 +100,23 @@ export const createSandboxPaymentGateway = ({ charge = defaultSandboxCharge } = 
       const safeCurrency = asCurrency(currency);
       const safeReference = asNonEmptyString(reference, "reference");
       if (seen.has(safeReference)) return seen.get(safeReference);
-      const outcome = await charge({ amount: safeAmount, currency: safeCurrency, reference: safeReference });
-      const providerTransactionId = asNonEmptyString(outcome?.providerTransactionId, "providerTransactionId");
-      const status = asNonEmptyString(outcome?.status ?? "CONFIRMED", "status").toUpperCase();
-      if (!PAYMENT_STATUSES.has(status)) throw new TypeError(`payment status is invalid: ${status}`);
-      const result = Object.freeze({ providerTransactionId, status, amount: safeAmount, currency: safeCurrency, reference: safeReference });
-      seen.set(safeReference, result);
-      return result;
+      // Store the in-flight promise immediately (before awaiting the real charge)
+      // so concurrent callers with the same reference await the same promise
+      // instead of each passing the `has` check and racing a second charge.
+      const inFlight = (async () => {
+        const outcome = await charge({ amount: safeAmount, currency: safeCurrency, reference: safeReference });
+        const providerTransactionId = asNonEmptyString(outcome?.providerTransactionId, "providerTransactionId");
+        const status = asNonEmptyString(outcome?.status ?? "CONFIRMED", "status").toUpperCase();
+        if (!PAYMENT_STATUSES.has(status)) throw new TypeError(`payment status is invalid: ${status}`);
+        return Object.freeze({ providerTransactionId, status, amount: safeAmount, currency: safeCurrency, reference: safeReference });
+      })();
+      seen.set(safeReference, inFlight);
+      try {
+        return await inFlight;
+      } catch (error) {
+        seen.delete(safeReference);
+        throw error;
+      }
     }
   });
 };
@@ -167,13 +177,23 @@ export const createBkashGateway = ({ mode = "SANDBOX", credentials = {}, charge 
       const safeCurrency = asCurrency(currency);
       const safeReference = asNonEmptyString(reference, "reference");
       if (seen.has(safeReference)) return seen.get(safeReference);
-      const outcome = await charge({ amount: safeAmount, currency: safeCurrency, reference: safeReference, mode: safeMode, credentials });
-      const providerTransactionId = asNonEmptyString(outcome?.providerTransactionId, "providerTransactionId");
-      const status = asNonEmptyString(outcome?.status ?? "CONFIRMED", "status").toUpperCase();
-      if (!PAYMENT_STATUSES.has(status)) throw new TypeError(`payment status is invalid: ${status}`);
-      const result = Object.freeze({ providerTransactionId, status, amount: safeAmount, currency: safeCurrency, reference: safeReference, mode: safeMode });
-      seen.set(safeReference, result);
-      return result;
+      // Store the in-flight promise immediately (before awaiting the real charge)
+      // so concurrent callers with the same reference await the same promise
+      // instead of each passing the `has` check and racing a second charge.
+      const inFlight = (async () => {
+        const outcome = await charge({ amount: safeAmount, currency: safeCurrency, reference: safeReference, mode: safeMode, credentials });
+        const providerTransactionId = asNonEmptyString(outcome?.providerTransactionId, "providerTransactionId");
+        const status = asNonEmptyString(outcome?.status ?? "CONFIRMED", "status").toUpperCase();
+        if (!PAYMENT_STATUSES.has(status)) throw new TypeError(`payment status is invalid: ${status}`);
+        return Object.freeze({ providerTransactionId, status, amount: safeAmount, currency: safeCurrency, reference: safeReference, mode: safeMode });
+      })();
+      seen.set(safeReference, inFlight);
+      try {
+        return await inFlight;
+      } catch (error) {
+        seen.delete(safeReference);
+        throw error;
+      }
     }
   });
 };
