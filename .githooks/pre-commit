@@ -1,0 +1,43 @@
+#!/bin/sh
+# PCX pre-commit guard: never allow a real environment/secret file to be committed.
+# `.env.example` is the only permitted .env* name. Any other `.env` or `.env.*`
+# (and common private-key/credential files) aborts the commit non-interactively.
+set -eu
+
+staged="$(git diff --cached --name-only --diff-filter=ACMR)"
+
+if [ -z "$staged" ]; then
+  exit 0
+fi
+
+blocked=""
+for f in $staged; do
+  case "$f" in
+    .env) blocked="$blocked $f" ;;
+    *.env) blocked="$blocked $f" ;;
+    *.env.*) blocked="$blocked $f" ;;
+  esac
+  # Remove the explicit `.env.example` exemption from the block list below.
+done
+
+# Filter out the single permitted file.
+blocked="$(printf '%s\n' $blocked | sed 's/^ //; s/ $//' | grep -v '^$' | grep -v '^\.env\.example$' || true)"
+
+if [ -n "$blocked" ]; then
+  echo "ERROR: refusing to commit environment/secret file(s):$blocked" >&2
+  echo "       Only .env.example may be committed. Use the public template instead." >&2
+  exit 1
+fi
+
+# Reject obvious private keys if accidentally staged. Skip this hook file so its
+# own grep pattern never self-matches. The pattern is split to avoid a literal
+# match against this file.
+needle='PRIVATE'$(printf '%s' '')' KEY-----'
+if printf '%s\n' "$staged" | grep -v '^\.githooks/pre-commit$' \
+  | xargs -r git diff --cached -- 2>/dev/null \
+  | grep -q -- "$needle"; then
+  echo "ERROR: refusing to commit a private key." >&2
+  exit 1
+fi
+
+exit 0

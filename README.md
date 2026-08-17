@@ -29,9 +29,15 @@ One command starts everything: infrastructure containers, runs database migratio
 
 ```bash
 npm install
+git config core.hooksPath .githooks   # first time only (blocks committing real .env/secrets)
 cp .env.example .env   # first time only
 npm run dev
 ```
+
+> **Secret guard:** the pre-commit hook in `.githooks/` refuses to commit any
+> real `.env`/`.env.*` file (`.env.example` is the only allowed exception) or a
+> private key. It is enabled with the `git config core.hooksPath .githooks` line
+> above on each new clone.
 
 What it does automatically:
 
