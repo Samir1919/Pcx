@@ -67,6 +67,24 @@ test("deepseek executor rejects malformed or traversal artifact paths", async ()
   await assert.rejects(() => executor({ task: task("api") }), /repository-relative/);
 });
 
+test("deepseek executor uses the configured endpoint (env-driven override)", async () => {
+  let url;
+  const fetchImpl = async (calledUrl) => {
+    url = calledUrl;
+    return okResponse(JSON.stringify({ artifactPath: "apps/api/src/a.mjs" }));
+  };
+  const executor = createDeepSeekExecutor({ apiKey: "k", endpoint: "https://agg.example/v1/chat/completions", fetchImpl });
+  await executor({ task: task("api") });
+  assert.equal(url, "https://agg.example/v1/chat/completions");
+});
+
+test("deepseek executor fails fast on leaked tool-call syntax instead of looping", async () => {
+  for (const content of ["<｜tool_calls｜>...", "<invoke name=\"x\"></invoke>", "<tool_calls>boom</tool_calls>"]) {
+    const executor = createDeepSeekExecutor({ apiKey: "k", fetchImpl: async () => okResponse(content) });
+    await assert.rejects(() => executor({ task: task("api") }), (error) => error.retryable === false && /leaked tool-call/.test(error.message));
+  }
+});
+
 test("openai reviewer sends the task and checks to the API and returns a reviewTask result", async () => {
   const calls = [];
   const fetchImpl = async (url, options) => {

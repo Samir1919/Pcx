@@ -12,9 +12,10 @@
  * A dry-run mode (`--dry-run`) runs the pipeline without creating real git
  * worktrees, so it is safe to run in CI.
  */
+import { readFileSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 
-import { dirname } from "node:path";
+import { dirname, resolve } from "node:path";
 import { createDeepSeekExecutor } from "./ai-executor.mjs";
 import { createOpenAiReviewer } from "./ai-review.mjs";
 import { createFileLogStore, createShellGit, runParallelWorkers, summarizeRuns, validateTaskGraph } from "./control-plane.mjs";
@@ -22,6 +23,36 @@ import { createFileLogStore, createShellGit, runParallelWorkers, summarizeRuns, 
 
 
 
+
+// Minimal, dependency-free `.env` loader (dotenv-compatible for the subset this
+// repository uses). Existing environment variables are never overwritten, and
+// quoted/unquoted `KEY=VALUE` lines plus inline `#` comments are supported.
+// The autonomous loop is invoked directly (not through `npm run dev`), so it
+// must load `.env` itself to see `DEEPSEEK_*` / `OPENAI_*` adapter settings.
+const loadEnvFile = (path) => {
+  let content;
+  try {
+    content = readFileSync(path, "utf8");
+  } catch {
+    return false;
+  }
+  for (const rawLine of content.split("\n")) {
+    const line = rawLine.trim();
+    if (line === "" || line.startsWith("#")) continue;
+    const equals = line.indexOf("=");
+    if (equals === -1) continue;
+    const key = line.slice(0, equals).trim();
+    let value = line.slice(equals + 1).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    } else {
+      const comment = value.indexOf(" #");
+      if (comment !== -1) value = value.slice(0, comment).trim();
+    }
+    if (key !== "" && !(key in process.env)) process.env[key] = value;
+  }
+  return true;
+};
 
 const DEFAULT_GRAPH = "work/autonomous-graph.json";
 const DEFAULT_LOG = ".worktrees/autonomous-loop.log";
@@ -224,6 +255,7 @@ const writeSummary = (summary) => {
 };
 
 const main = async () => {
+  loadEnvFile(resolve(process.cwd(), ".env"));
   const args = parseArgs(process.argv.slice(2));
   const graph = await loadGraph(args.graph);
   await mkdir(dirname(args.log), { recursive: true });

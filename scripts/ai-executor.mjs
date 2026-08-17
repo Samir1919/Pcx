@@ -5,11 +5,15 @@
  * chat-completions API. The executor sends a bounded task description to
  * DeepSeek and maps the model's structured response into allow-listed artifacts.
  *
- * The API key and model are read from environment variables (`DEEPSEEK_API_KEY`,
- * `DEEPSEEK_MODEL`) so secrets never appear in source, logs, or artifacts. A
- * `fetchImpl` may be injected for deterministic testing; the default uses the
- * global `fetch`. When no API key is present the factory throws, so a real run
- * fails fast instead of silently degrading.
+ * The API key, model, and endpoint are read from environment variables
+ * (`DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL`, `DEEPSEEK_ENDPOINT`) so secrets never
+ * appear in source, logs, or artifacts. `DEEPSEEK_ENDPOINT` is optional and
+ * defaults to the official DeepSeek chat-completions URL; set it to an
+ * OpenAI-compatible aggregator endpoint when routing a model variant such as
+ * `deepseek-v4-pro` that the official endpoint does not serve. A `fetchImpl` may
+ * be injected for deterministic testing; the default uses the global `fetch`.
+ * When no API key is present the factory throws, so a real run fails fast
+ * instead of silently degrading.
  *
  * This adapter never performs a hard-stop action and only emits allow-listed
  * artifacts, so it is safe to run locally or in CI (with a mocked fetch).
@@ -23,6 +27,20 @@ const asNonEmptyString = (value, field) => {
 
 const DEFAULT_ENDPOINT = "https://api.deepseek.com/chat/completions";
 
+// Some deepseek model-serving paths leak their reserved tool-call template
+// tokens back as plain assistant text (the `｜` fullwidth bars plus
+// `<invoke>`/`<tool_calls>` wrappers). The repo's executor is prompt-based and
+// expects a single JSON object, so that text is a smoking gun for a broken
+// tool-calling/harness configuration. Rather than looping on an unparseable
+// response, fail fast with a specific, non-retryable error naming the cause.
+const assertNoLeakedToolCalls = (content) => {
+  if (content.includes("\uFF5C") || /<\s*(?:invoke|tool_calls|tool)\b/i.test(content)) {
+    const error = new Error("DeepSeek returned leaked tool-call syntax instead of JSON; the model endpoint is emitting its reserved special tokens (fullwidth bars / <invoke>/<tool_calls>). Point DEEPSEEK_ENDPOINT at an endpoint that implements native tool calling, or use a model variant that does not emit these tokens.");
+    error.retryable = false;
+    throw error;
+  }
+};
+
 /**
  * Builds the DeepSeek executor. Reads credentials from the environment unless
  * explicitly overridden (for tests). Returns an async function matching the
@@ -31,7 +49,7 @@ const DEFAULT_ENDPOINT = "https://api.deepseek.com/chat/completions";
 export const createDeepSeekExecutor = ({
   apiKey = process.env.DEEPSEEK_API_KEY,
   model = process.env.DEEPSEEK_MODEL ?? "deepseek-chat",
-  endpoint = DEFAULT_ENDPOINT,
+  endpoint = process.env.DEEPSEEK_ENDPOINT ?? DEFAULT_ENDPOINT,
   fetchImpl = fetch,
   timeoutMs = 120_000
 } = {}) => {
@@ -81,6 +99,7 @@ export const createDeepSeekExecutor = ({
       const payload = await response.json();
       const content = payload?.choices?.[0]?.message?.content;
       if (typeof content !== "string" || content.trim() === "") throw new Error("DeepSeek returned no content");
+      assertNoLeakedToolCalls(content);
       const parsed = JSON.parse(content);
       const artifactPath = asNonEmptyString(parsed.artifactPath, "artifactPath");
       const result = { artifacts: [{ type: "commit", path: artifactPath, status: "ok" }] };

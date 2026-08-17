@@ -11,7 +11,7 @@ The Stage 3 control plane (ADR 0008) provides a vendor-neutral executor contract
 
 Introduce two optional, opt-in adapters wired into the autonomous loop via CLI flags:
 
-- **`scripts/ai-executor.mjs`** — `createDeepSeekExecutor`: calls the DeepSeek chat-completions API to produce a task result. Reads `DEEPSEEK_API_KEY`/`DEEPSEEK_MODEL` from the environment (overridable for tests). The model's `artifactPath` is validated through `validateExecutorResult` (repository-relative, no traversal, allow-listed artifact metadata) before it is trusted. API errors are marked retryable for 5xx/429 so the bounded runner can retry.
+- **`scripts/ai-executor.mjs`** — `createDeepSeekExecutor`: calls the DeepSeek chat-completions API to produce a task result. Reads `DEEPSEEK_API_KEY`/`DEEPSEEK_MODEL`/`DEEPSEEK_ENDPOINT` from the environment (overridable for tests). `DEEPSEEK_ENDPOINT` is optional and defaults to the official DeepSeek chat-completions URL; it can be pointed at an OpenAI-compatible aggregator endpoint for model variants the official endpoint does not serve. The model's `artifactPath` is validated through `validateExecutorResult` (repository-relative, no traversal, allow-listed artifact metadata) before it is trusted. API errors are marked retryable for 5xx/429 so the bounded runner can retry. Responses containing leaked tool-call syntax (DeepSeek's fullwidth-bar special tokens or `invoke`/`tool_calls` wrappers) fail fast with a specific, non-retryable error instead of looping.
 - **`scripts/ai-review.mjs`** — `createOpenAiReviewer`: calls the OpenAI chat-completions API to produce typed findings. Reads `OPENAI_API_KEY`/`OPENAI_MODEL` from the environment (overridable for tests). The model's findings are validated through the existing `reviewTask` adapter, so the AI cannot weaken the gate or inject malformed/secret-bearing findings. BLOCKER/MAJOR findings reject the task.
 
 Both adapters:
@@ -25,7 +25,7 @@ The autonomous loop (`scripts/autonomous-loop.mjs`) adds two opt-in flags:
 - `--deepseek-executor` — use the DeepSeek executor.
 - `--openai-review` — use the OpenAI reviewer.
 
-A `.env.example` documents the required environment variables. The `.env` file is git-ignored.
+A `.env.example` documents the required environment variables. The `.env` file is git-ignored. The autonomous loop driver loads `.env` itself (existing shell variables are never overwritten), so `--deepseek-executor`/`--openai-review` pick up adapter settings without requiring them to be exported by the caller.
 
 ## Cost and maintenance owner
 
