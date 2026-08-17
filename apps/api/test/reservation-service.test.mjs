@@ -20,10 +20,33 @@ function fixture(overrides = {}) {
     listingRepository,
     reservationRepository,
     id: (() => { let n = 0; return () => `id-${++n}`; })(),
-    clock: () => new Date("2026-08-16T12:00:00.000Z")
+    clock: () => new Date("2026-08-16T12:00:00.000Z"),
+    ...(overrides.reservationWindowMs != null ? { reservationWindowMs: overrides.reservationWindowMs } : {})
   });
   return { service, calls };
 }
+
+test("reservation create derives reservedUntil server-side and rejects client expiry", async () => {
+  const { service, calls } = fixture();
+  const result = await service.create("access", { inventoryItemId: "inv-1" });
+  assert.equal(result.status, "ACTIVE");
+  assert.equal(result.reservedByUserId, "customer-1");
+  assert.equal(calls.creates.length, 1);
+  // Server derives expiry from the fixed clock + default 15-minute window,
+  // never from client input.
+  assert.equal(result.reservedUntil, "2026-08-16T12:15:00.000Z");
+
+  // A user-supplied reservedUntil is not an accepted input field.
+  await assert.rejects(
+    service.create("access", { inventoryItemId: "inv-1", reservedUntil: "2999-01-01T00:00:00.000Z" }),
+    (error) => error.code === "invalid_input"
+  );
+
+  // A custom reservation window changes the derived expiry proportionally.
+  const short = fixture({ reservationWindowMs: 5 * 60 * 1000 });
+  const shortResult = await short.service.create("access", { inventoryItemId: "inv-1" });
+  assert.equal(shortResult.reservedUntil, "2026-08-16T12:05:00.000Z");
+});
 
 test("reservation create requires customer and published listing, mapping 23505 to unavailable", async () => {
   const { service, calls } = fixture();

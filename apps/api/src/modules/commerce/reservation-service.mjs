@@ -6,7 +6,10 @@ export class ReservationError extends Error {
   constructor(code) { super(code); this.name = "ReservationError"; this.code = code; }
 }
 
-const createFields = new Set(["inventoryItemId", "cartId", "reservedUntil"]);
+// Client input may supply cart/inventory context, but never the expiry window:
+// reservedUntil is always derived server-side so a customer cannot lock an item
+// until an arbitrary far-future date.
+const createFields = new Set(["inventoryItemId", "cartId"]);
 
 export function createReservationService({ authService, listingRepository, reservationRepository, id = randomUUID, clock = () => new Date(), reservationWindowMs = 15 * 60 * 1000 }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
@@ -33,7 +36,7 @@ export function createReservationService({ authService, listingRepository, reser
       if (!item) throw new ReservationError("not_found");
 
       const now = clock();
-      const reserved = fields.reservedUntil ? new Date(fields.reservedUntil) : new Date(now.getTime() + reservationWindowMs);
+      const reserved = new Date(now.getTime() + reservationWindowMs);
       let record;
       try {
         record = createReservation({ id: id(), inventoryItemId: fields.inventoryItemId, cartId: fields.cartId, reservedByUserId: identity.userId, reservedUntil: reserved, createdAt: now });
