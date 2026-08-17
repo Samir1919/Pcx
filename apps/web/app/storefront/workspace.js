@@ -1,17 +1,13 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { storefrontApi } from "../../lib/storefront-api";
+import { money } from "../../lib/format";
 
 const sorts = [
   { key: "newest", label: "Newest" },
   { key: "price_asc", label: "Price: low to high" },
   { key: "price_desc", label: "Price: high to low" }
 ];
-
-function money(value) {
-  if (value == null) return "Price on request";
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
-}
 
 function Banner({ notice, onClose }) {
   if (!notice) return null;

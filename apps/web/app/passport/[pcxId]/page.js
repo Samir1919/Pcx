@@ -2,11 +2,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { storefrontApi } from "../../../lib/storefront-api";
-
-function money(value) {
-  if (value == null) return "Price on request";
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
-}
+import { money } from "../../../lib/format";
 
 export default function PassportPage() {
   const params = useParams();
