@@ -16,7 +16,9 @@ function fixture(overrides = {}) {
     async enqueueWebhookEvent(event) { calls.enqueued.push(event); return { ...event, status: "PENDING", retryCount: 0 }; },
     async listPendingWebhookEvents(limit) { return calls.pending.slice(0, limit); },
     async markWebhookApplied(id, now) { calls.applied.push({ id, now }); return { id, status: "APPLIED" }; },
-    async markWebhookFailed(id, retryCount, nextAttemptAt) { calls.failed.push({ id, retryCount, nextAttemptAt }); return { id, status: "FAILED", retryCount }; },
+    // Mirrors the real repository branching: a failure with a still-scheduled
+    // retry stays PENDING; only an exhausted budget flips to FAILED.
+    async markWebhookFailed(id, retryCount, nextAttemptAt) { calls.failed.push({ id, retryCount, nextAttemptAt }); return { id, status: nextAttemptAt == null ? "FAILED" : "PENDING", retryCount }; },
     ...overrides.repository
   };
 
@@ -194,11 +196,12 @@ test("dispatchDueWebhookEvents is idempotent for an already-final shipment", asy
   assert.equal(calls.applied.length, 1);
 });
 
-test("dispatchDueWebhookEvents marks a failing event FAILED and schedules a retry", async () => {
+test("dispatchDueWebhookEvents schedules a retry and keeps the event pending", async () => {
   const { service, calls } = fixture({ repository: { async markDelivered() { throw new Error("db down"); } } });
   calls.pending.push({ id: "evt-4", shipmentId: "s1", providerStatus: "DELIVERED", occurredAt: "2026-08-16T12:00:00.000Z", retryCount: 0 });
   const results = await service.dispatchDueWebhookEvents();
-  assert.deepEqual(results, [{ id: "evt-4", status: "FAILED" }]);
+  // A still-scheduled retry must remain PENDING, not be dropped as FAILED.
+  assert.deepEqual(results, [{ id: "evt-4", status: "PENDING" }]);
   assert.equal(calls.failed.length, 1);
   assert.equal(calls.failed[0].id, "evt-4");
   assert.equal(calls.failed[0].retryCount, 1);

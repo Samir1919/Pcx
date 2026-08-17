@@ -130,10 +130,18 @@ export function createPostgresShipmentRepository({ pool }) {
     },
 
     async markWebhookFailed(id, retryCount, nextAttemptAt) {
+      // A failure only leaves the retry queue (status = 'FAILED') once the retry
+      // budget is exhausted (nextAttemptAt IS NULL). While a retry is still
+      // scheduled, the event stays PENDING with an updated retry count/backoff so
+      // listPendingWebhookEvents will pick it up again instead of dropping it
+      // after a single transient failure.
       const result = await pool.query(
-        `UPDATE shipment_webhook_events SET status = 'FAILED', retry_count = $2, next_attempt_at = $3
-         WHERE id = $1 AND status = 'PENDING'
-         RETURNING id, shipment_id, provider_status, occurred_at, status, retry_count, next_attempt_at, created_at, applied_at`,
+        `UPDATE shipment_webhook_events
+            SET status = CASE WHEN $3::timestamptz IS NULL THEN 'FAILED' ELSE 'PENDING' END,
+                retry_count = $2,
+                next_attempt_at = $3
+          WHERE id = $1 AND status = 'PENDING'
+          RETURNING id, shipment_id, provider_status, occurred_at, status, retry_count, next_attempt_at, created_at, applied_at`,
         [id, retryCount, nextAttemptAt ?? null]
       );
       if (result.rowCount !== 1) return null;
