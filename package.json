@@ -24,6 +24,7 @@
     "test": "node --test",
     "test:integration": "node --test apps/api/test/integration/*.test.mjs",
     "db:migrate": "node apps/api/src/infrastructure/database/migrate.mjs",
+    "seed:demo": "node scripts/seed-demo.mjs",
     "lint": "node scripts/lint-check.mjs",
     "typecheck": "node scripts/typecheck-check.mjs",
     "build": "node scripts/build-check.mjs",

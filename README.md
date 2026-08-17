@@ -51,6 +51,14 @@ To skip infrastructure bring-up (when everything is already running):
 npm run dev -- --no-infra
 ```
 
+To populate sample data (demo users, inventory, listings, orders, shipments, etc.) so the storefront/admin UIs and public APIs have something to show:
+
+```bash
+npm run seed:demo
+```
+
+The seeder is idempotent (safe to re-run) and never deletes existing data. Demo accounts are browse-only (`password_hash` is null), so they cannot be used to log in.
+
 ---
 
 ## Production (containers)
@@ -104,6 +112,7 @@ The reverse proxy (Caddy) is the only public entrypoint; PostgreSQL, Redis, and 
 | `npm run prod:down` | Stop the production stack |
 | `npm run deploy` | Production host: `git pull` + build + up |
 | `npm run db:migrate` | Apply pending database migrations |
+| `npm run seed:demo` | Idempotently insert sample data across all modules (dev/demo only) |
 | `npm run verify:e0` | E0 artifact verification |
 | `npm test` | Run the full test suite |
 | `npm run verify` | E0 + lint + typecheck + tests + build + security |
