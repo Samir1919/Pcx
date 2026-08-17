@@ -2,7 +2,7 @@
 
 - Status: Complete (repo-side); human decision still pending for cline app-level config
 - Branch: `agent/admin-ui-responsive-fixes`
-- Latest commits: `eef8f82` (DeepSeek), `da18256` (admin catalog pagination)
+- Latest commits: `eef8f82` (DeepSeek), `da18256` (admin catalog pagination), `afc643a` (DeepSeek thinking/reasoning_effort)
 - Date: 2026-08-18
 
 ## Outcome
@@ -15,7 +15,12 @@
    non-retryable error when a response contains leaked tool-call syntax instead of
    looping, and (c) the autonomous-loop driver loads `.env` itself so
    `DEEPSEEK_MODEL`/`DEEPSEEK_ENDPOINT`/`DEEPSEEK_API_KEY` are picked up without
-   manual export.
+   manual export. It also supports opt-in DeepSeek native reasoning for
+   `deepseek-v4-pro`: `DEEPSEEK_THINKING=enabled` and
+   `DEEPSEEK_REASONING_EFFORT=low|medium|high` add `thinking` and
+   `reasoning_effort` to the request and (when thinking is on) drop
+   `response_format: json_object`, which conflicts with native reasoning on some
+   serving paths.
 
 2. **Admin "Product models" cursor pagination.** The API already supported cursor
    pagination; the admin UI was the gap. The `models` tab now pages beyond the
@@ -24,7 +29,9 @@
 ## Changed areas
 
 - `scripts/ai-executor.mjs` — `DEEPSEEK_ENDPOINT` env override (default official
-  URL); `assertNoLeakedToolCalls` fail-fast guard.
+  full `/chat/completions` URL); `assertNoLeakedToolCalls` fail-fast guard;
+  opt-in `thinking`/`reasoning_effort` request fields; tolerant JSON parse
+  (strips markdown fences).
 - `scripts/autonomous-loop.mjs` — dependency-free `.env` loader invoked from
   `main()` (existing shell env never overwritten).
 - `.env.example` — documents `DEEPSEEK_ENDPOINT` and the `deepseek-v4-pro` caveat.
@@ -52,9 +59,11 @@
 
 | Command/test | Result |
 |---|---|
-| `node --test scripts/ai-adapters.test.mjs apps/admin/test/catalog-api.test.mjs` | 20 pass |
-| `npm test` | 346 pass, 0 fail, 22 skipped (DB integration) |
+| `node --test scripts/ai-adapters.test.mjs` | 19 pass |
+| `node --test scripts/ai-adapters.test.mjs apps/admin/test/catalog-api.test.mjs` | 24 pass |
+| `npm test` | 350 pass, 0 fail, 22 skipped (DB integration) |
 | `npm run verify` | Pass (E0, lint, typecheck, tests, build, security) |
+| live executor smoke (`deepseek-v4-pro` + thinking + reasoning_effort=high) | Returned valid artifact `{"path":"work"}` (end-to-end OK) |
 
 ## Architecture/security review
 
@@ -73,6 +82,8 @@
 - No migrations, no deployment.
 - New optional env var `DEEPSEEK_ENDPOINT` (default
   `https://api.deepseek.com/chat/completions`). Documented in `.env.example`.
+- New optional env vars `DEEPSEEK_THINKING=enabled` and
+  `DEEPSEEK_REASONING_EFFORT=low|medium|high` (both off by default).
 
 ## Remaining work and next safe action
 
