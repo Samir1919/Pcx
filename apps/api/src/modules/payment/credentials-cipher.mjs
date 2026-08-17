@@ -21,7 +21,16 @@ function keyFromEnv(value) {
   return Buffer.from(normalized, "hex");
 }
 
-export function createCredentialsCipher({ key = process.env.PAYMENT_CREDENTIALS_KEY } = {}) {
+export function createCredentialsCipher({ key = process.env.PAYMENT_CREDENTIALS_KEY, env = process.env.NODE_ENV } = {}) {
+  // Fail closed at startup in production: never silently encrypt provider
+  // credentials under the dev-only zero key. Production must supply a real
+  // 32-byte hex key for PAYMENT_CREDENTIALS_KEY.
+  if (env === "production") {
+    const raw = key == null || String(key).trim() === "" ? DEV_ONLY_KEY : String(key).trim();
+    if (raw === DEV_ONLY_KEY) {
+      throw new TypeError("PAYMENT_CREDENTIALS_KEY must be set to a real 32-byte hex key in production");
+    }
+  }
   const secret = keyFromEnv(key);
   return Object.freeze({
     encrypt(plaintext) {
