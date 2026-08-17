@@ -1,6 +1,6 @@
 # PCX Project Status
 
-- Updated: 2026-08-17
+- Updated: 2026-08-18
 - Current main evidence commit: `51e7a26` (branch `agent/stage3-completion`; adds the admin workspace auth/navigation/seeded-data-views slice on top of full-stack Docker packaging and one-command dev/prod runners)
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: Stage 3 control-plane completion and next dependency-ready work
@@ -17,7 +17,7 @@ This file is the central progress index. Approved specifications define what PCX
 |---|---|---|---|
 | E0 — Repository & engineering foundation | Complete | Monorepo boundaries, Project Brain, portable agent rules, CI skeleton, local service definitions, verification commands | Controls continue evolving under Stage 2 |
 | E1 — Identity, authentication & RBAC | In progress | Identity/RBAC contracts; auth/session and secure browser flows; audit/runtime/local limiter; contact/reset flows; privileged MFA gate and provider-neutral challenge verification; authenticated `/me`; ownership-safe authenticated address CRUD with origin/CSRF | Concrete MFA provider/enrollment; production delivery/distributed limits/atomic audit; admin user/role screens |
-| E2 — Catalog & Product Model | In progress | Category/Brand/ProductModel contracts; typed specs; PostgreSQL persistence/runtime; audited admin catalog and typed specification-definition/value commands; responsive admin catalog and model-value UI; launch seeds and volume validation; safe typed specifications in public ProductModel detail | Sandbox search/listing and E8 storefront integration |
+| E2 — Catalog & Product Model | In progress | Category/Brand/ProductModel contracts; typed specs; PostgreSQL persistence/runtime; audited admin catalog and typed specification-definition/value commands; responsive admin catalog and model-value UI with cursor-paginated product-model list; launch seeds and volume validation; safe typed specifications in public ProductModel detail | Sandbox search/listing and E8 storefront integration |
 | E3 — Sell-to-PCX | In progress | Owner-scoped authenticated sell-request create/list/get/submit with server-owned DRAFT, ownership declaration, and DRAFT→SUBMITTED transition | Estimated range, admin queue, info/inspection/valuation/offer flows, media, notifications |
 | E4 — Physical intake & inventory identity | In progress | Permission-gated physical intake as server-owned RECEIVED InventoryItem with normalized serial identifiers and database-enforced duplicate-identity rejection | Inspection/lifecycle transitions, PCX ID generation, cost allocation, listing |
 | E5 — Inspection & verification | In progress | Versioned category-scoped inspection templates with typed, unique, canonical-code items created/read under SYSTEM_CONFIGURE | Inspection execution/results, health scores, evidence, immutable submissions, supervisor override |
@@ -62,14 +62,14 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Current verification baseline
 
-- Root `npm test`: 345 total, 323 pass, 0 fail, 22 skipped (DB integration) after the pre-session login CSRF fix.
+- Root `npm test`: 368 total, 346 pass, 0 fail, 22 skipped (DB integration) after the DeepSeek-unblock and admin catalog pagination slice.
 - Root `npm run verify`: pass for this slice: E0, lint, typecheck, tests, build, and security scan (secrets + dependencies + container).
 - CI-equivalent `npm run verify:ci`: application/unit + PostgreSQL integration + E2E smoke, all passing (0 failures).
 - E0 artifact verification: 36 required artifacts; latest GitHub merge evidence is PR #1 (`1692049`).
 - Dependency audit (`npm audit --omit=dev --audit-level=high`): 0 known vulnerabilities.
 - Backup/restore drill: seed rows recovered to a throwaway database.
 - Autonomous loop dry-run: `node scripts/autonomous-loop.mjs --dry-run --real-executor --no-persist-graph` completes spec/api/web with a surfaced cost/runtime report (Tasks 3, Passed 3, Cost 3); `--approval-required` blocks commit-creating tasks with `approval_required`; `--deepseek-executor` and `--openai-review` opt into AI-backed adapters.
-- Latest detailed evidence: `docs/handoffs/ADMIN_WORKSPACE_AUTH_AND_NAV.md` (commit `51e7a26`), plus `STAGE3_AI_EXECUTOR_REVIEWER_ADAPTERS.md`, `AUTONOMOUS_TASK5_BKASH_CREDENTIALS_ADMIN.md`, `STAGE3_INTEGRATION_TARGET_FIX.md`, `FULLSTACK_DOCKER_DEV_PROD_RUNNERS.md`.
+- Latest detailed evidence: `docs/handoffs/ADMIN_WORKSPACE_AUTH_AND_NAV.md` (commit `51e7a26`), plus `STAGE3_AI_EXECUTOR_REVIEWER_ADAPTERS.md`, `AUTONOMOUS_TASK5_BKASH_CREDENTIALS_ADMIN.md`, `STAGE3_INTEGRATION_TARGET_FIX.md`, `FULLSTACK_DOCKER_DEV_PROD_RUNNERS.md`, and `CLINE_DEEPSEEK_UNBLOCK_CATALOG_PAGINATION.md` (commits `eef8f82`, `da18256`, `494f311`; DeepSeek endpoint env-driven + leaked-tool-call fail-fast + admin product-model cursor pagination).
 
 
 
