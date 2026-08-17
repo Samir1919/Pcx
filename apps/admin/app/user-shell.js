@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { useAuth } from "./auth-provider";
 
 const NAV = [
@@ -15,9 +16,29 @@ const NAV = [
 
 export default function UserShell({ children }) {
   const pathname = usePathname();
-  const { identity, logout } = useAuth();
+  const router = useRouter();
+  const { identity, loading, logout } = useAuth();
 
   const role = identity?.roles?.[0]?.toLowerCase() ?? "signed out";
+
+  // Central auth gate: never render privileged chrome/content before identity
+  // resolution, and redirect unauthenticated visitors to /login instead of
+  // per-page 401 banners.
+  useEffect(() => {
+    if (!loading && !identity) router.replace("/login");
+  }, [loading, identity, router]);
+
+  if (loading) {
+    return (
+      <main>
+        <section className="content">
+          <p className="state" role="status">Loading workspace…</p>
+        </section>
+      </main>
+    );
+  }
+
+  if (!identity) return null;
 
   return (
     <main>
