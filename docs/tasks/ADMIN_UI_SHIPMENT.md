@@ -1,6 +1,6 @@
 # Task: Admin UI — Shipment Management
 
-- Status: In progress
+- Status: Complete
 - Owner/agent: orchestrator (single agent)
 - Branch: `agent/admin-ui-listing`
 - Risk: Medium

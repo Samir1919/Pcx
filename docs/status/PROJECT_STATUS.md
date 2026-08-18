@@ -28,7 +28,7 @@ This file is the central progress index. Approved specifications define what PCX
 | E10 — Order & payment | In progress | Customer-gated order creation with server-computed totals and sold-fact snapshots, plus idempotent payments keyed by a server-authoritative provider transaction id derived from the injected sandbox payment gateway (confirm once from INITIATED); admin panel stores sandbox/live bKash credentials encrypted at rest (AES-256-GCM) and switches the active mode, and the payment service builds a bKash gateway from the active credentials (falling back to sandbox) | Real bKash HTTP adapter/webhook integration, refunds, reconciliation |
 
 
-| E11 — Fulfilment & shipment | In progress | Server-owned shipment lifecycle (DRAFT→SHIPPED→DELIVERED→RETURNED) with unique tracking id and persisted shipment events, gated by INVENTORY_MANAGE/SYSTEM_CONFIGURE; tracking id is server-authoritative, derived from the injected sandbox courier; signed courier webhook (`POST /api/v1/webhooks/courier`) advances DELIVERED/RETURNED with timing-safe secret validation and idempotent final-state handling; durable courier webhook outbox (`shipment_webhook_events`) enqueues every webhook before application and a worker job (`dispatchDueWebhookEvents`) retries PENDING events with a bounded backoff budget until APPLIED or FAILED | Packaging evidence media, return-to-origin |
+| E11 — Fulfilment & shipment | In progress | Server-owned shipment lifecycle (DRAFT→SHIPPED→DELIVERED→RETURNED) with unique tracking id and persisted shipment events, gated by INVENTORY_MANAGE/SYSTEM_CONFIGURE; tracking id is server-authoritative, derived from the injected sandbox courier; signed courier webhook (`POST /api/v1/webhooks/courier`) advances DELIVERED/RETURNED with timing-safe secret validation and idempotent final-state handling; durable courier webhook outbox (`shipment_webhook_events`) enqueues every webhook before application and a worker job (`dispatchDueWebhookEvents`) retries PENDING events with a bounded backoff budget until APPLIED or FAILED; admin shipment management workspace | Packaging evidence media, return-to-origin |
 
 
 
@@ -62,7 +62,7 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Current verification baseline
 
-- Root `npm test`: 400 total, 378 pass, 0 fail, 22 skipped (DB integration) after the admin acquisition workflow slice.
+- Root `npm test`: 401 total, 379 pass, 0 fail, 22 skipped (DB integration) after the admin shipment management slice.
 - Root `npm run verify`: pass for this slice: E0, lint, typecheck, tests, build, and security scan (secrets + dependencies + container).
 - CI-equivalent `npm run verify:ci`: application/unit + PostgreSQL integration + E2E smoke, all passing (0 failures).
 - E0 artifact verification: 36 required artifacts; latest GitHub merge evidence is PR #1 (`1692049`).
