@@ -47,6 +47,7 @@ Agentic infrastructure must evolve according to `docs/agentic/AUTONOMY_EVOLUTION
 - Never commit credentials, production data, or private evidence.
 - Never put a multi-line string inside a shell command. Write commit bodies to a file and use `git commit -F <file>`. See "Shell command safety" in `docs/agentic/PORTABLE_AGENT_WORKFLOW.md`.
 - Record approved architecture changes as ADRs; do not silently change business truth.
+- When a task or slice completes successfully (checks pass and the change is committed), run `git push` immediately. Always `git push` after a successful commit or merge; never leave completed, committed, or merged work unpushed. If a commit or merge fails, fix it first, then push.
 
 ## Hard stops
 
