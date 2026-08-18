@@ -21,7 +21,7 @@ Shared code lives in `packages/*`; infrastructure and deployment files live in `
 
 ## Quick start (development)
 
-One command starts everything: infrastructure containers, runs database migrations, and launches api + web + admin + worker with prefixed logs. Press **Ctrl+C** to stop all of them.
+One command starts everything: infrastructure containers, runs database migrations, and launches api + web + admin + worker with prefixed logs. Press **Ctrl+C** to stop all of them, or run `npm run dev:down` separately for a clean shutdown (see below).
 
 > `npm run dev` now auto-loads the repository-root `.env` before starting any
 > service (Node does not read `.env` on its own). Copy `.env.example` to `.env`
@@ -56,6 +56,21 @@ To skip infrastructure bring-up (when everything is already running):
 ```bash
 npm run dev -- --no-infra
 ```
+
+### Stopping the dev stack cleanly
+
+`npm run dev` only stops its own host processes on `Ctrl+C`; the infrastructure
+containers stay up. To fully shut down (host processes + infra containers), run
+a separate terminal:
+
+```bash
+npm run dev:down            # stop host processes and remove infra containers
+npm run dev:down -- --stop  # stop infra containers but keep them (named volumes preserved)
+npm run dev:down -- --no-infra  # only stop host processes, leave containers running
+```
+
+`dev:down` frees ports `4000`/`3000`/`3001` and is the fix if the next `npm run dev`
+fails with `EADDRINUSE`.
 
 To populate sample data (demo users, inventory, listings, orders, shipments, etc.) so the storefront/admin UIs and public APIs have something to show:
 
@@ -125,6 +140,9 @@ The reverse proxy (Caddy) is the only public entrypoint; PostgreSQL, Redis, and 
 | `npm run dev:web` | Customer web only (dev) |
 | `npm run dev:admin` | Admin web only (dev) |
 | `npm run dev:worker` | Worker only (dev) |
+| `npm run dev:down` | Stop the local dev stack (host processes + infra containers) |
+| `npm run dev:down -- --stop` | Same, but only stop infra containers (keep them) |
+| `npm run dev:down -- --no-infra` | Stop host processes only, leave infra running |
 | `npm run prod:build` | Build production images |
 | `npm run prod:up` | Start the production stack |
 | `npm run prod:down` | Stop the production stack |
@@ -201,6 +219,7 @@ docs/
   agentic/      portable agent workflow
 scripts/
   dev.mjs       one-command development runner
+  dev-down.mjs  one-command local dev cleanup (clean shutdown)
   prod.mjs      production build/up/down/deploy runner
 ```
 
