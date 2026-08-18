@@ -16,6 +16,7 @@
     "dev:web": "npm run dev -w @pcx/web -- -p 3000",
     "dev:admin": "npm run dev -w @pcx/admin -- -p 3001",
     "dev:worker": "node apps/worker/src/main.mjs",
+    "dev:down": "node scripts/dev-down.mjs",
     "prod:build": "node scripts/prod.mjs build",
     "prod:up": "node scripts/prod.mjs up",
     "prod:down": "node scripts/prod.mjs down",
