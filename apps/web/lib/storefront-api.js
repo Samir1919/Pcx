@@ -56,6 +56,7 @@ export const storefrontApi = Object.freeze({
   categories: () => request("/api/v1/categories"),
   brands: () => request("/api/v1/brands"),
   listings: (params) => request(`/api/v1/listings${query(params)}`),
+  productModels: (params) => request(`/api/v1/product-models${query(params)}`),
   productModel: (id) => request(`/api/v1/product-models/${encodeURIComponent(id)}`),
   passport: (pcxId) => request(`/api/v1/passport/${encodeURIComponent(pcxId)}`),
 
@@ -64,6 +65,7 @@ export const storefrontApi = Object.freeze({
   logout: () => request("/api/v1/auth/logout", { method: "POST", body: {}, headers: csrfHeaders() }),
 
   reserve: (inventoryItemId) => request("/api/v1/reservations", { method: "POST", body: { inventoryItemId }, headers: csrfHeaders() }),
+  createSellRequest: (body) => request("/api/v1/sell-requests", { method: "POST", body, headers: csrfHeaders() }),
   createOrder: (items) => request("/api/v1/orders", { method: "POST", body: { items }, headers: csrfHeaders() }),
   createPayment: (payment) => request("/api/v1/payments", { method: "POST", body: payment, headers: csrfHeaders() }),
   confirmPayment: (providerTransactionId) => request("/api/v1/payments/confirm", { method: "POST", body: { providerTransactionId }, headers: csrfHeaders() })

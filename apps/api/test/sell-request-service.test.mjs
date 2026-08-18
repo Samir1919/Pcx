@@ -81,6 +81,21 @@ test("create captures seller-declared selected specs", async () => {
   assert.deepEqual(calls.created[0].request.selectedSpecs, [{ key: "vram_gb", value: 12 }, { key: "condition", value: "good" }]);
 });
 
+test("create returns a placeholder estimated range with a final-offer disclaimer", async () => {
+  const { service } = fixture();
+  const result = await service.create("access", {
+    categoryId: "80000000-0000-0000-0000-000000000003",
+    contactName: "Seller",
+    contactPhone: "01700000000",
+    fulfilmentPreference: FulfilmentPreference.COURIER,
+    ownershipDeclared: true
+  });
+  assert.equal(result.estimatedRange.basis, "placeholder-rule-engine");
+  assert.equal(typeof result.estimatedRange.low, "number");
+  assert.equal(typeof result.estimatedRange.high, "number");
+  assert.match(result.estimatedRange.disclaimer, /not a final offer/i);
+});
+
 test("create rejects non-scalar selected spec values", async () => {
   const { service } = fixture();
   await assert.rejects(
