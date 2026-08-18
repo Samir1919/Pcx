@@ -1,6 +1,6 @@
 # Task: Sell-to-PCX Quote Flow (4 Entry Points + Admin Indicative Pricing)
 
-- Status: In progress
+- Status: Complete
 - Owner/agent: Cline
 - Branch: `agent/customer-catalog-model-view-sell-quote`
 - Risk: Medium (public pricing surface + RBAC-gated admin price control)
