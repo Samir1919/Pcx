@@ -7,7 +7,7 @@ test("storefront reads hit the public read-only endpoints", async () => {
   const calls = [];
   global.fetch = async (url, options) => {
     calls.push({ url, options });
-    return { ok: true, status: 200, async json() { return { data: [] }; } };
+    return { ok: true, status: 200, async text() { return JSON.stringify({ data: [] }); } };
   };
   try {
     await storefrontApi.categories();
@@ -33,7 +33,7 @@ test("storefront reads hit the public read-only endpoints", async () => {
 test("storefront query builder omits empty filters and never sends client-owned fields", async () => {
   const priorFetch = global.fetch;
   let url;
-  global.fetch = async (u) => { url = u; return { ok: true, status: 200, async json() { return { data: [], meta: { nextCursor: null } }; } }; };
+  global.fetch = async (u) => { url = u; return { ok: true, status: 200, async text() { return JSON.stringify({ data: [], meta: { nextCursor: null } }); } }; };
   try {
     await storefrontApi.listings({ categoryId: "", brandId: null, q: "", sort: "newest", limit: 20 });
     assert.equal(url, "/api/v1/listings?sort=newest&limit=20");
@@ -45,7 +45,7 @@ test("storefront query builder omits empty filters and never sends client-owned 
 
 test("storefront surfaces stable server errors", async () => {
   const priorFetch = global.fetch;
-  global.fetch = async () => ({ ok: false, status: 404, async json() { return { error: { code: "PASSPORT_NOT_FOUND", message: "Passport not found" } }; } });
+  global.fetch = async () => ({ ok: false, status: 404, async text() { return JSON.stringify({ error: { code: "PASSPORT_NOT_FOUND", message: "Passport not found" } }); } });
   try {
     await assert.rejects(() => storefrontApi.passport("missing"), (e) => e instanceof StorefrontApiError && e.code === "PASSPORT_NOT_FOUND" && e.status === 404);
   } finally {

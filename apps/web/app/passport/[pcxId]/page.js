@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import { storefrontApi } from "../../../lib/storefront-api";
 import { money } from "../../../lib/format";
 import PassportInfoModal from "../PassportInfoModal";
+import BuyFlow from "../BuyFlow";
 
 export default function PassportPage() {
   const params = useParams();
@@ -48,6 +49,7 @@ export default function PassportPage() {
                 <div><dt>Published</dt><dd>{passport.publishedAt ? new Date(passport.publishedAt).toLocaleDateString() : "—"}</dd></div>
               </dl>
               {passport.verificationSummary && <p className="meta" style={{ marginTop: 18 }}>{passport.verificationSummary}</p>}
+              <BuyFlow listing={passport} />
             </div>
           ) : <p className="state">Passport not found.</p>}
         </div>
