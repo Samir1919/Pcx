@@ -1,6 +1,6 @@
 # Task: Admin UI — Return & Refund Management
 
-- Status: In progress
+- Status: Complete
 - Owner/agent: orchestrator (single agent)
 - Branch: `agent/admin-ui-listing`
 - Risk: Medium (refund-sensitive)
