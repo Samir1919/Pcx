@@ -7,5 +7,6 @@ export const opsApi = Object.freeze({
   inventory: () => apiRequest("/api/v1/admin/inventory"),
   intakeInventory: (body) => apiRequest("/api/v1/admin/inventory", { method: "POST", body }),
   templates: (categoryId) => apiRequest(`/api/v1/admin/inspection-templates${categoryId ? `?categoryId=${encodeURIComponent(categoryId)}` : ""}`),
+  createTemplate: (body) => apiRequest("/api/v1/admin/inspection-templates", { method: "POST", body }),
   auditLogs: () => apiRequest("/api/v1/admin/audit-logs")
 });
