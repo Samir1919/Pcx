@@ -116,6 +116,8 @@ export function createListingService({ authService, repository, id = randomUUID,
       try {
         return createPublicPassport({
           pcxItemId: row.pcx_item_id,
+          inventoryItemId: row.inventory_item_id,
+          listingId: row.listing_id,
           modelId: row.model_id,
           name: row.name,
           categoryId: row.category_id,
@@ -137,6 +139,7 @@ export function createListingService({ authService, repository, id = randomUUID,
         data: Object.freeze(result.records.map((row) => createPublicListing({
           id: row.id,
           publicSlug: row.public_slug,
+          inventoryItemId: row.inventory_item_id,
           pcxItemId: row.pcx_item_id,
           modelId: row.model_id,
           name: row.name,

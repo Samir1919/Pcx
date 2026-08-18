@@ -70,9 +70,10 @@ export async function handleOrderPaymentRequest(request, response, { orderPaymen
   const prefix = "/api/v1/orders";
   const paymentsPrefix = "/api/v1/payments";
   const isOrder = url.pathname === prefix;
+  const isPaymentCreate = url.pathname === paymentsPrefix;
   const isPaymentConfirm = url.pathname === `${paymentsPrefix}/confirm`;
 
-  if (!isOrder && !isPaymentConfirm) return false;
+  if (!isOrder && !isPaymentCreate && !isPaymentConfirm) return false;
   if (!orderPaymentService) { send(response, 503, failure("ORDER_PAYMENT_UNAVAILABLE", "Orders and payments are temporarily unavailable", requestId)); return true; }
   if (request.method !== "POST") { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
   if (url.searchParams.size > 0) { send(response, 400, failure("INVALID_REQUEST", "Query parameters are not supported", requestId)); return true; }
@@ -82,6 +83,7 @@ export async function handleOrderPaymentRequest(request, response, { orderPaymen
     requireWriteSecurity(request, allowedOrigins, cookies);
     const body = await jsonBody(request);
     if (isOrder) send(response, 201, { data: await orderPaymentService.createOrder(cookies.pcx_access, body) });
+    else if (isPaymentCreate) send(response, 201, { data: await orderPaymentService.createPayment(cookies.pcx_access, body) });
     else {
       if (typeof body.providerTransactionId !== "string" || !body.providerTransactionId) throw new OrderPaymentError("invalid_input");
       send(response, 200, { data: await orderPaymentService.confirmPayment(cookies.pcx_access, body.providerTransactionId) });

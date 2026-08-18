@@ -92,6 +92,7 @@ export function createListingPrice({
 export function createPublicListing({
   id,
   publicSlug,
+  inventoryItemId,
   pcxItemId,
   modelId,
   name,
@@ -105,6 +106,7 @@ export function createPublicListing({
   return Object.freeze({
     id: requiredString(id, "id"),
     publicSlug: publicSlug == null ? null : requiredString(publicSlug, "publicSlug"),
+    inventoryItemId: requiredString(inventoryItemId, "inventoryItemId"),
     pcxItemId: requiredString(pcxItemId, "pcxItemId"),
     modelId: requiredString(modelId, "modelId"),
     name: requiredString(name, "name"),
@@ -119,6 +121,8 @@ export function createPublicListing({
 
 export function createPublicPassport({
   pcxItemId,
+  inventoryItemId,
+  listingId,
   modelId,
   name,
   categoryId,
@@ -133,6 +137,8 @@ export function createPublicPassport({
 }) {
   return Object.freeze({
     pcxItemId: requiredString(pcxItemId, "pcxItemId"),
+    inventoryItemId: requiredString(inventoryItemId, "inventoryItemId"),
+    listingId: requiredString(listingId, "listingId"),
     modelId: requiredString(modelId, "modelId"),
     name: requiredString(name, "name"),
     categoryId: requiredString(categoryId, "categoryId"),
