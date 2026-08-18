@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { warrantyApi } from "../../../lib/warranty-api.js";
 
 function Banner({ notice, onClose }) { if (!notice) return null; return <div className={`banner ${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}><span>{notice.message}</span><button type="button" onClick={onClose} aria-label="Dismiss message">×</button></div>; }
@@ -22,6 +22,25 @@ async function run(action, setBusy, setNotice) {
 export default function WarrantyPage() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [warranties, setWarranties] = useState([]);
+  const [claims, setClaims] = useState([]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [warrantyResult, claimResult] = await Promise.all([warrantyApi.warranties(), warrantyApi.claims()]);
+      setWarranties(warrantyResult.data ?? []);
+      setClaims(claimResult.data ?? []);
+      setNotice(null);
+    } catch (error) {
+      setNotice({ kind: "error", message: error.status === 401 ? "Sign in to view warranty & claims." : error.message });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   async function createWarranty(event) {
     event.preventDefault();
@@ -34,6 +53,7 @@ export default function WarrantyPage() {
       endsAt: form.get("endsAt")
     }), setBusy, setNotice);
     event.currentTarget.reset();
+    await load();
   }
 
   async function createClaim(event) {
@@ -46,6 +66,7 @@ export default function WarrantyPage() {
       symptoms: form.get("symptoms") || null
     }), setBusy, setNotice);
     event.currentTarget.reset();
+    await load();
   }
 
   async function resolveClaim(event) {
@@ -58,6 +79,7 @@ export default function WarrantyPage() {
       costAmount: form.get("costAmount") ? Number(form.get("costAmount")) : null
     }), setBusy, setNotice);
     event.currentTarget.reset();
+    await load();
   }
 
   return (
@@ -68,9 +90,63 @@ export default function WarrantyPage() {
           <h1>Warranty & claims</h1>
           <p>Create warranties and claims, and record typed resolutions. Status is server-owned.</p>
         </div>
+        <button className="refresh" type="button" onClick={load} disabled={loading}>↻ Refresh</button>
       </header>
       <Banner notice={notice} onClose={() => setNotice(null)} />
       <div className="grid">
+        <section className="panel">
+          <div className="panelTitle">
+            <div>
+              <p className="eyebrow">WARRANTIES</p>
+              <h2>Recent warranties</h2>
+            </div>
+          </div>
+          {loading ? <p className="state" role="status">Loading warranties…</p> : warranties.length === 0 ? <p className="state">No warranties yet.</p> : (
+            <div className="tableWrap">
+              <table>
+                <thead><tr><th>Warranty</th><th>Order item</th><th>Inventory</th><th>Status</th><th>Ends</th></tr></thead>
+                <tbody>
+                  {warranties.map((w) => (
+                    <tr key={w.id}>
+                      <td><strong>{w.id.slice(0, 8)}…</strong></td>
+                      <td>{w.orderItemId.slice(0, 8)}…</td>
+                      <td>{w.inventoryItemId.slice(0, 8)}…</td>
+                      <td><span className="pill">{w.status}</span></td>
+                      <td>{new Date(w.endsAt).toLocaleDateString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+        <section className="panel">
+          <div className="panelTitle">
+            <div>
+              <p className="eyebrow">CLAIMS</p>
+              <h2>Recent claims</h2>
+            </div>
+          </div>
+          {loading ? <p className="state" role="status">Loading claims…</p> : claims.length === 0 ? <p className="state">No claims yet.</p> : (
+            <div className="tableWrap">
+              <table>
+                <thead><tr><th>Claim</th><th>Warranty</th><th>Reason</th><th>Status</th></tr></thead>
+                <tbody>
+                  {claims.map((c) => (
+                    <tr key={c.id}>
+                      <td><strong>{c.id.slice(0, 8)}…</strong></td>
+                      <td>{c.warrantyId.slice(0, 8)}…</td>
+                      <td>{c.reasonCode}</td>
+                      <td><span className="pill">{c.status}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </div>
+      <div className="grid" style={{ marginTop: 18 }}>
         <section className="panel formPanel">
           <p className="eyebrow">WARRANTY</p>
           <h2>Create warranty</h2>
