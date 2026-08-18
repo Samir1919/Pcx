@@ -13,6 +13,8 @@ import { handleReservationRequest } from "./modules/commerce/reservation-http.mj
 import { handleOrderPaymentRequest } from "./modules/commerce/order-payment-http.mjs";
 import { handleShipmentRequest } from "./modules/logistics/shipment-http.mjs";
 import { handleCourierWebhookRequest } from "./modules/logistics/shipment-webhook-http.mjs";
+import { handleUserAdminRequest } from "./modules/identity/user-admin-http.mjs";
+import { handleMerchantListingRequest } from "./modules/listing/merchant-listing-http.mjs";
 
 import { handleReturnRequest } from "./modules/warranty/return-request-http.mjs";
 import { handleWarrantyClaimRequest } from "./modules/warranty/warranty-claim-http.mjs";
@@ -64,7 +66,7 @@ function catalogFilters(url) {
   });
 }
 
-export function createRequestHandler({ readiness = () => ({ ok: true }), catalogService, catalogCommandService, catalogSpecCommandService, authService, identityActionService, addressService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, listingService, reservationService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, operationsReportService, notificationService, auditLogService, paymentProviderConfigService, indicativePriceService, allowedOrigins } = {}) {
+export function createRequestHandler({ readiness = () => ({ ok: true }), catalogService, catalogCommandService, catalogSpecCommandService, authService, identityActionService, userAdminService, addressService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, listingService, merchantListingService, reservationService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, operationsReportService, notificationService, auditLogService, paymentProviderConfigService, indicativePriceService, allowedOrigins } = {}) {
 
   return async (request, response) => {
     response.setHeader("content-type", "application/json; charset=utf-8");
@@ -85,6 +87,8 @@ export function createRequestHandler({ readiness = () => ({ ok: true }), catalog
     }
 
     if (await handleAuthRequest(request, response, { authService, identityActionService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleUserAdminRequest(request, response, { userAdminService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleMerchantListingRequest(request, response, { merchantListingService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleCatalogSpecCommandRequest(request, response, { catalogSpecCommandService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleCatalogCommandRequest(request, response, { catalogCommandService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleAddressRequest(request, response, { addressService, allowedOrigins, requestId: requestId(request) })) return;

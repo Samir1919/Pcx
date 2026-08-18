@@ -63,10 +63,15 @@ export const storefrontApi = Object.freeze({
 
   me: () => request("/api/v1/me"),
   login: (contact, password) => request("/api/v1/auth/login", { method: "POST", body: { contact, password } }),
+  register: (email, phone, password) => request("/api/v1/auth/register", { method: "POST", body: { email, phone, password } }),
   logout: () => request("/api/v1/auth/logout", { method: "POST", body: {}, headers: csrfHeaders() }),
 
   reserve: (inventoryItemId) => request("/api/v1/reservations", { method: "POST", body: { inventoryItemId }, headers: csrfHeaders() }),
   createSellRequest: (body) => request("/api/v1/sell-requests", { method: "POST", body, headers: csrfHeaders() }),
+  merchantListings: () => request("/api/v1/merchant/listings"),
+  merchantCreateListing: (body) => request("/api/v1/merchant/listings", { method: "POST", body, headers: csrfHeaders() }),
+  merchantUpdateListing: (id, body) => request(`/api/v1/merchant/listings/${encodeURIComponent(id)}`, { method: "PATCH", body, headers: csrfHeaders() }),
+  merchantArchiveListing: (id) => request(`/api/v1/merchant/listings/${encodeURIComponent(id)}`, { method: "DELETE", headers: csrfHeaders() }),
   createOrder: (items) => request("/api/v1/orders", { method: "POST", body: { items }, headers: csrfHeaders() }),
   createPayment: (payment) => request("/api/v1/payments", { method: "POST", body: payment, headers: csrfHeaders() }),
   confirmPayment: (providerTransactionId) => request("/api/v1/payments/confirm", { method: "POST", body: { providerTransactionId }, headers: csrfHeaders() })

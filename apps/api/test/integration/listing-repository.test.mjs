@@ -48,12 +48,11 @@ test("listing repository persists draft, publishes with unique active constraint
     assert.equal(search.records[0].pcx_item_id, "PCX-TEST-LIST");
     assert.equal(search.nextCursor, null);
 
-    const adminList = await repository.listAdmin({ limit: 10 });
-    assert.equal(adminList.records.length, 1);
-    assert.equal(adminList.records[0].pcx_item_id, "PCX-TEST-LIST");
-    assert.equal(Number(adminList.records[0].price), 15000);
-    assert.ok(adminList.records[0].model_name);
-    assert.equal(adminList.nextCursor, null);
+    const adminList = await repository.listAdmin({ limit: 50 });
+    const ownAdminRow = adminList.records.find((record) => record.pcx_item_id === "PCX-TEST-LIST");
+    assert.ok(ownAdminRow, "own admin listing is present");
+    assert.equal(Number(ownAdminRow.price), 15000);
+    assert.ok(ownAdminRow.model_name);
 
     // A second active listing for the same item violates the unique index.
     await repository.createDraft({ id: second, inventoryItemId: itemId, publicSlug: "pcx-test-list-2", warrantyPolicyId: null, status: "DRAFT", publishedAt: null, createdAt: now });

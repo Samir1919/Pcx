@@ -12,6 +12,10 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [challenge, setChallenge] = useState(null);
 
+  // Demo credentials are a development convenience only. Never surface them in
+  // staging or production builds.
+  const isDev = process.env.NODE_ENV === "development";
+
   async function submit(event) {
     event.preventDefault();
     setBusy(true);
@@ -51,8 +55,12 @@ export default function LoginPage() {
         <h1>{challenge ? "Verify sign-in" : "Sign in"}</h1>
         <p>
           {challenge
-            ? "Enter the one-time code for the demo admin account. In development the default code is 123456."
-            : "Use the demo admin account (email demo-admin@example.com / password DemoAdmin123!), or sign in with any authorized account."}
+            ? isDev
+              ? "Enter the one-time code for the demo admin account. In development the default code is 123456."
+              : "Enter the one-time code from your authenticator."
+            : isDev
+              ? "Use the demo admin account (email demo-admin@example.com / password DemoAdmin123!), or sign in with any authorized account."
+              : "Sign in with an authorized account."}
         </p>
         {error ? <div className="banner error" role="alert"><span>{error}</span></div> : null}
         {challenge ? (

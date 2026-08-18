@@ -5,6 +5,7 @@ import { storefrontApi } from "../../../lib/storefront-api";
 import { money } from "../../../lib/format";
 import PassportInfoModal from "../PassportInfoModal";
 import BuyFlow from "../BuyFlow";
+import StorefrontNav from "../../StorefrontNav";
 
 export default function PassportPage() {
   const params = useParams();
@@ -26,12 +27,7 @@ export default function PassportPage() {
 
   return (
     <main>
-      <div className="topbar">
-        <div className="topbarInner">
-          <a className="brand" href="/storefront" aria-label="PCX Storefront home"><b>PCX</b><small>CERTIFIED PRE-OWNED</small></a>
-          <nav aria-label="Primary"><a href="/storefront">Storefront</a></nav>
-        </div>
-      </div>
+      <StorefrontNav />
       <div className="wrap">
         <div className="passport">
           <a className="back" href="/storefront">← Back to storefront</a>

@@ -324,7 +324,7 @@ export default function CatalogWorkspace() {
         </section>
         <section className="panel formPanel">
           <p className="eyebrow">CREATE RECORD</p>
-          <h2>New {resources.find((r) => r.key === active).label.toLowerCase().replace(/s$/, " ")}</h2>
+          <h2>New {singular[active]}</h2>
           <p>IDs, lifecycle status and audit actor are assigned by the server.</p>
           <form onSubmit={create}>
             {active === "categories" && (<><Field label="Category name" name="name" required maxLength="120" /><Field label="Sort order" name="sortOrder" type="number" min="0" defaultValue="0" /></>)}

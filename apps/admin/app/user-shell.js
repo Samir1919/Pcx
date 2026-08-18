@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "./auth-provider";
+import { canAccessAdmin as hasAdminAccess } from "../lib/access.js";
 
 const NAV = [
   { href: "/", label: "Overview", icon: "overview" },
@@ -17,6 +18,7 @@ const NAV = [
   { href: "/notifications", label: "Notifications", icon: "notifications" },
   { href: "/verification", label: "Verification", icon: "verification" },
   { href: "/payments", label: "Payments", icon: "payments" },
+  { href: "/users", label: "Users", icon: "users" },
   { href: "/audit", label: "Audit logs", icon: "audit" }
 ];
 
@@ -122,6 +124,15 @@ function Icon({ name }) {
           <path d="M4 18h.01" />
         </svg>
       );
+    case "users":
+      return (
+        <svg {...props}>
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      );
     case "logout":
       return (
         <svg {...props}>
@@ -142,10 +153,11 @@ export default function UserShell({ children }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const role = identity?.roles?.[0]?.toLowerCase() ?? "signed out";
+  const adminAllowed = hasAdminAccess(identity);
 
   // Central auth gate: never render privileged chrome/content before identity
-  // resolution, and redirect unauthenticated visitors to /login instead of
-  // per-page 401 banners.
+  // resolution, and redirect unauthenticated or non-staff visitors (customers,
+  // merchants) to /login instead of per-page 401 banners.
   useEffect(() => {
     if (!loading && !identity) router.replace("/login");
   }, [loading, identity, router]);
@@ -179,7 +191,7 @@ export default function UserShell({ children }) {
     );
   }
 
-  if (!identity) return null;
+  if (!identity || !adminAllowed) return null;
 
   const navLinks = (
     <nav className="primaryNav" aria-label="Primary">

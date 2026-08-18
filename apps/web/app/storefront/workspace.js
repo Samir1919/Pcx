@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { storefrontApi } from "../../lib/storefront-api";
 import { money } from "../../lib/format";
 import PassportInfoModal from "../passport/PassportInfoModal";
+import StorefrontNav from "../StorefrontNav";
 
 const sorts = [
   { key: "newest", label: "Newest" },
@@ -72,12 +73,7 @@ export default function StorefrontWorkspace() {
 
   return (
     <main>
-      <div className="topbar">
-        <div className="topbarInner">
-          <a className="brand" href="/storefront" aria-label="PCX Storefront home"><b>PCX</b><small>CERTIFIED PRE-OWNED</small></a>
-          <nav aria-label="Primary"><a className="selected" href="/storefront">Storefront</a><a href="/sell">Sell</a></nav>
-        </div>
-      </div>
+      <StorefrontNav />
       <div className="wrap">
         <div className="hero">
           <p className="eyebrow">CERTIFIED PRE-OWNED MARKETPLACE</p>

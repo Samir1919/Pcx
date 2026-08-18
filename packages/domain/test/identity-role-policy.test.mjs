@@ -22,6 +22,31 @@ test("RBAC matrix separates operational duties", () => {
   for (const role of [Role.CUSTOMER, Role.SUPPORT, Role.TECHNICIAN, Role.SUPERVISOR, Role.INVENTORY, Role.FINANCE]) assert.equal(hasPermission(identity("denied", [role]), Permission.CATALOG_MANAGE), false);
 });
 
+test("admin access is granted only to staff roles, never customer/merchant", () => {
+  for (const role of [Role.SUPPORT, Role.TECHNICIAN, Role.SUPERVISOR, Role.INVENTORY, Role.FINANCE, Role.ADMIN, Role.SUPER_ADMIN]) {
+    assert.equal(hasPermission(identity(role, [role]), Permission.ADMIN_ACCESS), true);
+  }
+  assert.equal(hasPermission(identity("customer", [Role.CUSTOMER]), Permission.ADMIN_ACCESS), false);
+  assert.equal(hasPermission(identity("merchant", [Role.MERCHANT]), Permission.ADMIN_ACCESS), false);
+});
+
+test("merchant can manage only its own listings", () => {
+  const merchant = identity("merchant-1", [Role.MERCHANT]);
+  assert.equal(hasPermission(merchant, Permission.MERCHANT_LISTING_READ_SELF), true);
+  assert.equal(hasPermission(merchant, Permission.MERCHANT_LISTING_MANAGE_SELF), true);
+  assert.equal(hasPermission(merchant, Permission.CATALOG_MANAGE), false);
+  assert.equal(hasPermission(identity("customer", [Role.CUSTOMER]), Permission.MERCHANT_LISTING_MANAGE_SELF), false);
+});
+
+test("ADMIN can assign roles but not self-elevate to SUPER_ADMIN", () => {
+  const admin = identity("admin-1", [Role.ADMIN]);
+  const superAdmin = identity("root-1", [Role.SUPER_ADMIN]);
+  assert.deepEqual(authorizeRoleAssignment(admin, { targetUserId: "user-1", nextRoles: [Role.MERCHANT] }), { allowed: true, reason: "authorized" });
+  assert.deepEqual(authorizeRoleAssignment(admin, { targetUserId: "user-1", nextRoles: [Role.SUPER_ADMIN] }), { allowed: false, reason: "super_admin_required" });
+  assert.deepEqual(authorizeRoleAssignment(admin, { targetUserId: "admin-1", nextRoles: [Role.MERCHANT] }), { allowed: false, reason: "self_elevation_blocked" });
+  assert.deepEqual(authorizeRoleAssignment(superAdmin, { targetUserId: "user-1", nextRoles: [Role.SUPER_ADMIN] }), { allowed: true, reason: "authorized" });
+});
+
 test("authorization defaults to deny and enforces ownership", () => {
   const customer = identity("customer-1", [Role.CUSTOMER]);
   assert.deepEqual(authorize(customer, Permission.ADDRESS_MANAGE_SELF, { ownerId: "customer-1", allowOwner: true }), { allowed: true, basis: "owner" });
@@ -35,9 +60,9 @@ test("authorization defaults to deny and enforces ownership", () => {
 test("role assignment blocks privilege escalation", () => {
   const admin = identity("admin-1", [Role.ADMIN]);
   const superAdmin = identity("root-1", [Role.SUPER_ADMIN]);
-  assert.deepEqual(authorizeRoleAssignment(admin, { targetUserId: "user-1", nextRoles: [Role.FINANCE] }), { allowed: false, reason: "missing_permission" });
+  assert.deepEqual(authorizeRoleAssignment(admin, { targetUserId: "user-1", nextRoles: [Role.ADMIN] }), { allowed: true, reason: "authorized" });
   assert.deepEqual(authorizeRoleAssignment(superAdmin, { targetUserId: "root-1", nextRoles: [Role.SUPER_ADMIN] }), { allowed: false, reason: "self_elevation_blocked" });
-  assert.deepEqual(authorizeRoleAssignment(superAdmin, { targetUserId: "user-1", nextRoles: [Role.ADMIN] }), { allowed: true, reason: "authorized" });
+  assert.deepEqual(authorizeRoleAssignment(superAdmin, { targetUserId: "user-1", nextRoles: [Role.SUPER_ADMIN] }), { allowed: true, reason: "authorized" });
   assert.throws(() => authorizeRoleAssignment(superAdmin, { targetUserId: "user-1", nextRoles: ["OWNER"] }), /unknown role/);
 });
 

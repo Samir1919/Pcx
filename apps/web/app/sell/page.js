@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { storefrontApi } from "../../lib/storefront-api";
+import StorefrontNav from "../StorefrontNav";
 
 const ENTRIES = [
   { key: "DESKTOP_PC", label: "Desktop PC", icon: "🖥️", hint: "Sell a complete desktop build" },
@@ -233,19 +234,14 @@ export default function SellPage() {
 
   return (
     <main>
-      <div className="topbar">
-        <div className="topbarInner">
-          <a className="brand" href="/storefront" aria-label="PCX Storefront home"><b>PCX</b><small>CERTIFIED PRE-OWNED</small></a>
-          <nav aria-label="Primary"><a href="/storefront">Storefront</a><a className="selected" href="/sell">Sell</a></nav>
-        </div>
-      </div>
+      <StorefrontNav />
       <div className="wrap">
         <a className="back" href="/storefront">← Back to storefront</a>
         <div className="sell">
           <h1>Sell to PCX</h1>
           {!identity ? (
             <div className="buyBox">
-              <p className="meta">You need to <a href="/storefront">sign in</a> from an item page before submitting a sell request.</p>
+              <p className="meta">Please browse an item on the storefront and sign in from its page before submitting a sell request.</p>
               <a className="primary" href="/storefront">Go to storefront</a>
             </div>
           ) : result ? (
