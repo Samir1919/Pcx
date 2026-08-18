@@ -1,6 +1,6 @@
 # Task: Admin UI — Acquisition Workflow
 
-- Status: In progress
+- Status: Complete
 - Owner/agent: orchestrator (single agent)
 - Branch: `agent/admin-ui-listing`
 - Risk: Medium (financial-adjacent)
