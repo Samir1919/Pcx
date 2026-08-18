@@ -73,6 +73,18 @@ export async function handleShipmentRequest(request, response, { shipmentService
   if (url.searchParams.size > 0) { send(response, 400, failure("INVALID_REQUEST", "Query parameters are not supported", requestId)); return true; }
 
   const suffix = url.pathname.slice(prefix.length);
+  const method = request.method ?? "GET";
+  if (!suffix && method === "GET") {
+    const cookies = parsedCookies(request);
+    try {
+      send(response, 200, await shipmentService.list(cookies.pcx_access));
+    } catch (error) {
+      const [status, code, message] = map(error);
+      send(response, status, failure(code, message, requestId));
+    }
+    return true;
+  }
+
   let shipmentId = null;
   let op = null;
   if (suffix) {
@@ -82,7 +94,6 @@ export async function handleShipmentRequest(request, response, { shipmentService
     if (!id(shipmentId)) { send(response, 404, failure("SHIPMENT_NOT_FOUND", "Shipment not found", requestId)); return true; }
   }
 
-  const method = request.method ?? "GET";
   const valid = (!suffix && method === "POST") || (shipmentId && op && method === "POST");
   if (!valid) { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
 

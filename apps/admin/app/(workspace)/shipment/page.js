@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { shipmentApi } from "../../../lib/shipment-api.js";
 
 function Banner({ notice, onClose }) { if (!notice) return null; return <div className={`banner ${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}><span>{notice.message}</span><button type="button" onClick={onClose} aria-label="Dismiss message">×</button></div>; }
@@ -22,6 +22,23 @@ async function run(action, setBusy, setNotice) {
 export default function ShipmentPage() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [shipments, setShipments] = useState([]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const payload = await shipmentApi.list();
+      setShipments(payload.data ?? []);
+      setNotice(null);
+    } catch (error) {
+      setNotice({ kind: "error", message: error.status === 401 ? "Sign in to view shipments." : error.message });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   async function create(event) {
     event.preventDefault();
@@ -35,6 +52,7 @@ export default function ShipmentPage() {
       shippingCharge: form.get("shippingCharge") ? Number(form.get("shippingCharge")) : null
     }), setBusy, setNotice);
     event.currentTarget.reset();
+    await load();
   }
 
   async function ship(event) {
@@ -49,6 +67,7 @@ export default function ShipmentPage() {
     };
     await run(() => shipmentApi.ship(form.get("shipmentId"), address), setBusy, setNotice);
     event.currentTarget.reset();
+    await load();
   }
 
   async function deliver(event) {
@@ -56,6 +75,7 @@ export default function ShipmentPage() {
     const form = new FormData(event.currentTarget);
     await run(() => shipmentApi.deliver(form.get("shipmentId")), setBusy, setNotice);
     event.currentTarget.reset();
+    await load();
   }
 
   return (
@@ -66,9 +86,36 @@ export default function ShipmentPage() {
           <h1>Shipment</h1>
           <p>Create, ship, and deliver. Tracking id and lifecycle state are server-owned.</p>
         </div>
+        <button className="refresh" type="button" onClick={load} disabled={loading}>↻ Refresh</button>
       </header>
       <Banner notice={notice} onClose={() => setNotice(null)} />
-      <div className="grid">
+      <section className="panel">
+        <div className="panelTitle">
+          <div>
+            <p className="eyebrow">SHIPMENTS</p>
+            <h2>Recent shipments</h2>
+          </div>
+        </div>
+        {loading ? <p className="state" role="status">Loading shipments…</p> : shipments.length === 0 ? <p className="state">No shipments yet.</p> : (
+          <div className="tableWrap">
+            <table>
+              <thead><tr><th>Shipment</th><th>Order</th><th>Courier</th><th>Tracking</th><th>Status</th></tr></thead>
+              <tbody>
+                {shipments.map((s) => (
+                  <tr key={s.id}>
+                    <td><strong>{s.id.slice(0, 8)}…</strong></td>
+                    <td>{s.orderId.slice(0, 8)}…</td>
+                    <td>{s.courier}</td>
+                    <td>{s.trackingId ?? "—"}</td>
+                    <td><span className="pill">{s.status}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+      <div className="grid" style={{ marginTop: 18 }}>
         <section className="panel formPanel">
           <p className="eyebrow">CREATE</p>
           <h2>New shipment</h2>

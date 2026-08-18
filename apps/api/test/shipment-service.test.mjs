@@ -13,6 +13,7 @@ function fixture(overrides = {}) {
     async markDelivered(id, now) { calls.delivers.push({ id, now }); return { status: "delivered", record: { id, status: ShipmentStatus.DELIVERED } }; },
     async markReturned(id, now) { calls.returns.push({ id, now }); return { status: "returned", record: { id, status: ShipmentStatus.RETURNED } }; },
     async recordEvent(event) { calls.events.push(event); return { id: event.id }; },
+    async list() { return []; },
     async enqueueWebhookEvent(event) { calls.enqueued.push(event); return { ...event, status: "PENDING", retryCount: 0 }; },
     async listPendingWebhookEvents(limit) { return calls.pending.slice(0, limit); },
     async markWebhookApplied(id, now) { calls.applied.push({ id, now }); return { id, status: "APPLIED" }; },

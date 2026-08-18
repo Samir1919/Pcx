@@ -85,6 +85,15 @@ export function createPostgresShipmentRepository({ pool }) {
       });
     },
 
+    async list() {
+      const result = await pool.query(
+        `SELECT id, order_id, courier, tracking_id, package_type, weight, cod_amount, shipping_charge, status, shipped_at, delivered_at, returned_at, created_at
+         FROM shipments ORDER BY created_at DESC LIMIT 100`,
+        []
+      );
+      return result.rows.map(shipment);
+    },
+
     async recordEvent(event) {
 
       const result = await pool.query(
