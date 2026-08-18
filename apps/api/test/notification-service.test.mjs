@@ -10,6 +10,7 @@ function fixture(overrides = {}) {
     async markSent(id, now) { calls.sent.push(id); return { id, status: NotificationStatus.SENT }; },
     async markFailed(id) { calls.failed.push(id); return { id, status: NotificationStatus.FAILED }; },
     async listPending() { return []; },
+    async list() { return []; },
     ...overrides.repository
   };
   const service = createNotificationService({

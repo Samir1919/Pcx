@@ -14,11 +14,27 @@ function map(error) {
   return [500, "INTERNAL_ERROR", "Unexpected server error"];
 }
 
+function accessFromCookie(request) {
+  const header = request.headers?.cookie;
+  if (typeof header !== "string") return undefined;
+  const match = header.match(/pcx_access=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : undefined;
+}
+
 export async function handleNotificationRequest(request, response, { notificationService, requestId }) {
   const url = new URL(request.url, "http://pcx.local");
   if (url.pathname !== "/api/v1/admin/notifications") return false;
   if (!notificationService) { send(response, 503, failure("NOTIFICATION_UNAVAILABLE", "Notifications are temporarily unavailable", requestId)); return true; }
   if (url.searchParams.size > 0) { send(response, 400, failure("INVALID_REQUEST", "Query parameters are not supported", requestId)); return true; }
+  if (request.method === "GET") {
+    try {
+      send(response, 200, await notificationService.list(accessFromCookie(request)));
+    } catch (error) {
+      const [status, code, message] = map(error);
+      send(response, status, failure(code, message, requestId));
+    }
+    return true;
+  }
   if (request.method !== "POST") { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
 
   const chunks = [];

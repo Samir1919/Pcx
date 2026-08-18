@@ -47,6 +47,15 @@ export function createPostgresNotificationRepository({ pool }) {
       return result.rows[0] ? row(result.rows[0]) : null;
     },
 
+    async list() {
+      const result = await pool.query(
+        `SELECT id, user_id, channel, notification_type, reference_type, reference_id, status, payload_snapshot, scheduled_at, sent_at
+         FROM notifications ORDER BY created_at DESC LIMIT 100`,
+        []
+      );
+      return result.rows.map(row);
+    },
+
     async listPending(limit = 20) {
       const result = await pool.query(
         `SELECT id, user_id, channel, notification_type, reference_type, reference_id, status, payload_snapshot, scheduled_at, sent_at

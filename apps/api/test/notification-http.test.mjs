@@ -6,6 +6,7 @@ import { NotificationError } from "../src/modules/notification/notification-serv
 function service(overrides = {}) {
   return {
     async create() { return { id: "n1", status: "PENDING" }; },
+    async list() { return { data: [] }; },
     ...overrides
   };
 }
@@ -31,10 +32,10 @@ async function invoke(path, { method = "POST", cookie, body, notificationService
   return result;
 }
 
-test("notification create route is admin POST only", async () => {
+test("notification create and list routes", async () => {
   assert.equal((await invoke("/api/v1/admin/notifications", { body: { channel: "EMAIL", notificationType: "T" } })).status, 201);
-  assert.equal((await invoke("/api/v1/admin/notifications", { method: "GET" })).status, 405);
-  const invalid = await invoke("/api/v1/admin/notifications", { body: { channel: "FAX", notificationType: "T" }, notificationService: service({ async create(_cred, input) { if (input.channel === "FAX") throw new NotificationError("invalid_input"); return { id: "n1", status: "PENDING" }; } }) });
+  assert.equal((await invoke("/api/v1/admin/notifications", { method: "GET" })).status, 200);
+  const invalid = await invoke("/api/v1/admin/notifications", { body: { channel: "FAX", notificationType: "T" }, notificationService: service({ async create(_cred, input) { if (input.channel === "FAX") throw new NotificationError("invalid_input"); return { id: "n1", status: "PENDING" }; }, async list() { return { data: [] }; } }) });
   assert.equal(invalid.status, 422);
 });
 

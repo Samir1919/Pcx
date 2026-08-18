@@ -9,11 +9,17 @@ const createFields = new Set(["userId", "channel", "notificationType", "referenc
 
 export function createNotificationService({ authService, repository, dispatchers = {} }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  for (const method of ["create", "markSent", "markFailed", "listPending"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  for (const method of ["create", "markSent", "markFailed", "listPending", "list"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
 
   async function actor(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
     if (!hasPermission(identity, Permission.SYSTEM_CONFIGURE)) throw new NotificationError("forbidden");
+    return identity;
+  }
+
+  async function reader(accessCredential) {
+    const identity = await authService.authenticateAccess({ accessCredential });
+    if (!hasPermission(identity, Permission.SYSTEM_CONFIGURE) && !hasPermission(identity, Permission.AUDIT_READ)) throw new NotificationError("forbidden");
     return identity;
   }
 
@@ -42,6 +48,12 @@ export function createNotificationService({ authService, repository, dispatchers
         if (error?.code === "23503") throw new NotificationError("invalid_reference");
         throw error;
       }
+    },
+
+    async list(accessCredential) {
+      await reader(accessCredential);
+      if (typeof repository.list !== "function") throw new NotificationError("invalid_state");
+      return Object.freeze({ data: Object.freeze(await repository.list()) });
     },
 
     async dispatchDue({ limit = 20 } = {}) {
