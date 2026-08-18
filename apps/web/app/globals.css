@@ -505,6 +505,62 @@ a {
   text-decoration: none
 }
 
+.sellEntries {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-top: 22px
+}
+
+.sellEntryCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  padding: 22px;
+  color: var(--ink);
+  cursor: pointer
+}
+
+.sellEntryCard:hover {
+  border-color: #2f8a6d;
+  box-shadow: 0 0 0 3px rgba(47, 138, 109, .12)
+}
+
+.sellEntryIcon {
+  font-size: 34px;
+  line-height: 1
+}
+
+.sellEntryCard strong {
+  font-size: 17px;
+  letter-spacing: -.3px
+}
+
+.sellEntryCard small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5
+}
+
+.entryHeading h2 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: -.5px
+}
+
+.entryHeading .meta {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 4px 0 0
+}
+
 .sr {
   position: absolute;
   width: 1px;

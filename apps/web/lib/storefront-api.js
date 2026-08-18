@@ -59,6 +59,7 @@ export const storefrontApi = Object.freeze({
   productModels: (params) => request(`/api/v1/product-models${query(params)}`),
   productModel: (id) => request(`/api/v1/product-models/${encodeURIComponent(id)}`),
   passport: (pcxId) => request(`/api/v1/passport/${encodeURIComponent(pcxId)}`),
+  quoteRanges: (params) => request(`/api/v1/quote-ranges${query(params)}`),
 
   me: () => request("/api/v1/me"),
   login: (contact, password) => request("/api/v1/auth/login", { method: "POST", body: { contact, password } }),
