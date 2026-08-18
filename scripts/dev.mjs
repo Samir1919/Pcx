@@ -55,7 +55,7 @@ const PROCESSES = [
   {
     label: "api",
     command: "node",
-    args: ["apps/api/src/index.mjs"],
+    args: ["--watch", "apps/api/src/index.mjs"],
     env: {
       // Keep the API's own origin valid for browser rewrite targets, and ensure
       // both storefront/admin browsers are allowed to call it.
