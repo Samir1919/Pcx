@@ -82,7 +82,7 @@ export default function StorefrontWorkspace() {
         <div className="hero">
           <p className="eyebrow">CERTIFIED PRE-OWNED MARKETPLACE</p>
           <h1>Shop verified hardware</h1>
-          <p>Every listing is inspected, graded, and backed by a public passport. Prices are set by PCX — never by the seller. <PassportInfoModal triggerLabel="Learn more" /></p>
+          <p>Every listing is inspected, graded, and backed by a public passport. Prices are set by PCX — never by the seller. <PassportInfoModal triggerAs="span" triggerLabel="Learn more" /></p>
         </div>
         <Banner notice={notice} onClose={() => setNotice(null)} />
         <form className="filters" onSubmit={applyFilters}>
