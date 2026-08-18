@@ -1,7 +1,7 @@
 # PCX Project Status
 
 - Updated: 2026-08-18
-- Current main evidence commit: `51e7a26` (branch `agent/stage3-completion`; adds the admin workspace auth/navigation/seeded-data-views slice on top of full-stack Docker packaging and one-command dev/prod runners)
+- Current main evidence commit: `ed1f826` (merge `agent/admin-ui-listing`; full admin-UI operational-workspace parity across listing, inventory intake, inspection templates, acquisition, shipment, return/refund, warranty/claims, and notifications, plus the `GET /api/v1/admin/listings` backend read endpoint)
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: Stage 3 control-plane completion and next dependency-ready work
 - Current autonomy maturity: Stage 2 in progress; Stage 3 control plane complete for bounded local/CI parallel orchestration (ADR 0008)
