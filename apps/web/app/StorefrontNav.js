@@ -44,6 +44,7 @@ export default function StorefrontNav() {
             <>
               <a href="/login">Sign in</a>
               <a href="/register">Register</a>
+              <a href="/verify">Verify</a>
             </>
           )}
         </nav>

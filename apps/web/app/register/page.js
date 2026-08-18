@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { storefrontApi } from "../../lib/storefront-api";
+import StorefrontNav from "../StorefrontNav";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -24,7 +25,9 @@ export default function RegisterPage() {
     try {
       await storefrontApi.register(email || null, phone || null, password);
       setDone(true);
-      router.replace("/login");
+      // New accounts start PENDING_VERIFICATION; go verify the contact.
+      const contact = email || phone;
+      router.replace(`/verify?contact=${encodeURIComponent(contact)}`);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -34,12 +37,7 @@ export default function RegisterPage() {
 
   return (
     <main>
-      <div className="topbar">
-        <div className="topbarInner">
-          <a className="brand" href="/storefront" aria-label="PCX Storefront home"><b>PCX</b><small>CERTIFIED PRE-OWNED</small></a>
-          <nav aria-label="Primary"><a href="/storefront">Storefront</a><a href="/sell">Sell</a></nav>
-        </div>
-      </div>
+      <StorefrontNav />
       <div className="wrap">
         <div className="sell" style={{ maxWidth: 460, margin: "0 auto" }}>
           <a className="back" href="/storefront">← Back to storefront</a>

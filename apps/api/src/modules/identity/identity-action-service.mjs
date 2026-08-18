@@ -8,8 +8,8 @@ export class IdentityActionError extends Error {
 
 const lifetimes = Object.freeze({ CONTACT_VERIFICATION: 24 * 60 * 60 * 1000, PASSWORD_RESET: 60 * 60 * 1000 });
 
-export function createIdentityActionService({ identityRepository, actionRepository, delivery, abuseControl, audit, clock = () => new Date(), id = randomUUID, credential = generateOpaqueCredential, passwords = { assert: assertPassword, hash: hashPassword } }) {
-  for (const [object, method, name] of [[identityRepository, "findPasswordIdentityByContact", "identityRepository"], [actionRepository, "issue", "actionRepository"], [actionRepository, "verifyContact", "actionRepository"], [actionRepository, "resetPassword", "actionRepository"], [delivery, "send", "delivery"], [abuseControl, "check", "abuseControl"], [audit, "record", "audit"]]) {
+export function createIdentityActionService({ identityRepository, actionRepository, delivery, abuseControl, audit, contactVerifier, clock = () => new Date(), id = randomUUID, credential = generateOpaqueCredential, passwords = { assert: assertPassword, hash: hashPassword } }) {
+  for (const [object, method, name] of [[identityRepository, "findPasswordIdentityByContact", "identityRepository"], [identityRepository, "activateByContact", "identityRepository"], [actionRepository, "issue", "actionRepository"], [actionRepository, "verifyContact", "actionRepository"], [actionRepository, "resetPassword", "actionRepository"], [delivery, "send", "delivery"], [abuseControl, "check", "abuseControl"], [audit, "record", "audit"]]) {
     if (!object || typeof object[method] !== "function") throw new TypeError(`${name}.${method} is required`);
   }
 
@@ -50,6 +50,28 @@ export function createIdentityActionService({ identityRepository, actionReposito
       const result = await actionRepository.verifyContact({ credentialHash: hashOpaqueCredential(raw), now: clock().toISOString() });
       await record("verify_contact", result.status, context, result.userId ?? null);
       if (result.status !== "verified") throw new IdentityActionError("invalid_token");
+      return Object.freeze({ status: "verified" });
+    },
+
+    // Development-only demo-code verification: verifies the supplied code
+    // against the injected verifier and activates the PENDING_VERIFICATION
+    // account directly. Production omits `contactVerifier`, so this fails
+    // closed with invalid_token until a real delivery provider is wired.
+    async verifyContactByCode({ contact, credential: raw }, context = {}) {
+      await controlled("verify_contact", context);
+      if (typeof contact !== "string" || !contact.trim()) throw new IdentityActionError("invalid_token");
+      if (!contactVerifier || typeof contactVerifier.verify !== "function") throw new IdentityActionError("invalid_token");
+      const result = contactVerifier.verify({ credential: raw });
+      if (result?.verified !== true) {
+        await record("verify_contact", "denied", context);
+        throw new IdentityActionError("invalid_token");
+      }
+      const userId = await identityRepository.activateByContact(contact.trim(), clock().toISOString());
+      if (!userId) {
+        await record("verify_contact", "invalid_state", context);
+        throw new IdentityActionError("invalid_token");
+      }
+      await record("verify_contact", "verified", context, userId);
       return Object.freeze({ status: "verified" });
     },
     async resetPassword({ credential: raw, password }, context = {}) {

@@ -31,12 +31,12 @@ export function createPostgresIdentityRepository({ pool }) {
   }
 
   return Object.freeze({
-    async createCustomer({ id, email, phone, passwordHash, createdAt, status = "PENDING_VERIFICATION", contactVerified = false }) {
+    async createCustomer({ id, email, phone, passwordHash, createdAt }) {
       assertPasswordHash(passwordHash);
       return transaction(pool, async (client) => {
         const inserted = await client.query(
-          "INSERT INTO users(id, email, phone, password_hash, status, contact_verified, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $7) RETURNING id, email, phone, status, contact_verified",
-          [id, email, phone, passwordHash, status, contactVerified, createdAt]
+          "INSERT INTO users(id, email, phone, password_hash, status, contact_verified, created_at, updated_at) VALUES ($1, $2, $3, $4, 'PENDING_VERIFICATION', false, $5, $5) RETURNING id, email, phone, status, contact_verified",
+          [id, email, phone, passwordHash, createdAt]
         );
         const role = await client.query("SELECT id FROM roles WHERE code = 'CUSTOMER'");
         if (role.rowCount !== 1) throw new Error("canonical CUSTOMER role is missing");
@@ -60,6 +60,20 @@ export function createPostgresIdentityRepository({ pool }) {
         [normalized]
       );
       return result.rows[0] ?? null;
+    },
+
+    async activateByContact(contact, now) {
+      if (typeof contact !== "string" || contact.length === 0) throw new TypeError("contact is required");
+      const normalized = contact.trim();
+      const byEmail = normalized.includes("@");
+      const result = await pool.query(
+        `UPDATE users SET status = 'ACTIVE', contact_verified = true, updated_at = $2
+         WHERE ${byEmail ? "lower(email) = lower($1)" : "phone = $1"}
+           AND status = 'PENDING_VERIFICATION'
+         RETURNING id`,
+        [normalized, now]
+      );
+      return result.rows[0]?.id ?? null;
     },
 
     async createSession({ userId, familyId, refreshId, refreshHash, refreshExpiresAt, accessId, accessHash, accessExpiresAt, createdAt, ipHash = null, userAgent = null }) {

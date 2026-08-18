@@ -6,6 +6,7 @@ import { createUserAdminRepository } from "./user-admin-repository.mjs";
 import { createUserAdminService } from "./user-admin-service.mjs";
 import { createPostgresIdentityActionRepository } from "./postgres-identity-action-repository.mjs";
 import { createIdentityActionService } from "./identity-action-service.mjs";
+import { createDevContactVerifier } from "./dev-contact-verifier.mjs";
 import { createPostgresAddressRepository } from "./postgres-address-repository.mjs";
 import { createAddressService } from "./address-service.mjs";
 import { createPostgresCatalogRepository } from "../catalog/postgres-catalog-repository.mjs";
@@ -74,18 +75,19 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
     repository,
     abuseControl: control,
     audit: auditSink,
-    mfa,
-    // Local development has no real delivery channel, so newly registered
-    // customers activate immediately. Production keeps the verified-first
-    // PENDING_VERIFICATION flow.
-    autoActivate: process.env.NODE_ENV === "development"
+    mfa
   });
+  // Development-only demo code for customer contact verification, mirroring
+  // the dev MFA adapter. Production omits it, so verify-by-code fails closed
+  // until a real mail/phone delivery provider is configured.
+  const contactVerifier = process.env.NODE_ENV === "development" ? createDevContactVerifier() : undefined;
   const identityActionService = createIdentityActionService({
     identityRepository: repository,
     actionRepository: createPostgresIdentityActionRepository({ pool }),
     delivery,
     abuseControl: control,
-    audit: auditSink
+    audit: auditSink,
+    contactVerifier
   });
   const userAdminService = createUserAdminService({ authService, repository: createUserAdminRepository({ pool }) });
   const addressService = createAddressService({ authService, repository: createPostgresAddressRepository({ pool }) });

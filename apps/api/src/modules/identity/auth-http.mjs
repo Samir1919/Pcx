@@ -8,7 +8,7 @@ import { IdentityActionError } from "./identity-action-service.mjs";
 const secureCookie = process.env.NODE_ENV === "development" ? "" : "Secure; ";
 
 const sessionRoutes = new Set(["register", "login", "refresh", "logout", "verify-mfa"]);
-const identityActionRoutes = new Set(["verify-contact", "forgot-password", "reset-password"]);
+const identityActionRoutes = new Set(["verify-contact", "verify-contact-code", "forgot-password", "reset-password"]);
 const routes = new Set([...sessionRoutes, ...identityActionRoutes]);
 const fields = Object.freeze({
   register: new Set(["email", "phone", "password"]),
@@ -17,6 +17,7 @@ const fields = Object.freeze({
   logout: new Set(),
   "verify-mfa": new Set(["challengeId", "credential"]),
   "verify-contact": new Set(["token"]),
+  "verify-contact-code": new Set(["contact", "code"]),
   "forgot-password": new Set(["contact"]),
   "reset-password": new Set(["token", "password"])
 });
@@ -99,6 +100,7 @@ function validateFields(action, body) {
   }
   if ((action === "refresh" || action === "logout") && Object.keys(body).length > 0) throw new HttpAuthError("INVALID_REQUEST", 400, "Request body must be empty");
   if (action === "verify-contact" && (typeof body.token !== "string" || !body.token)) throw new HttpAuthError("INVALID_REQUEST", 400, "Token is required");
+  if (action === "verify-contact-code" && (typeof body.contact !== "string" || !body.contact.trim() || typeof body.code !== "string" || !body.code)) throw new HttpAuthError("INVALID_REQUEST", 400, "Contact and code are required");
   if (action === "forgot-password" && (typeof body.contact !== "string" || !body.contact.trim())) throw new HttpAuthError("INVALID_REQUEST", 400, "Contact is required");
   if (action === "reset-password" && (typeof body.token !== "string" || !body.token || typeof body.password !== "string")) throw new HttpAuthError("INVALID_REQUEST", 400, "Token and password are required");
 }
@@ -202,6 +204,9 @@ export async function handleAuthRequest(request, response, { authService, identi
       response.writeHead(204).end();
     } else if (action === "verify-contact") {
       const result = await identityActionService.verifyContact({ credential: body.token }, authContext);
+      send(response, 200, { data: { status: result.status } });
+    } else if (action === "verify-contact-code") {
+      const result = await identityActionService.verifyContactByCode({ contact: body.contact, credential: body.code }, authContext);
       send(response, 200, { data: { status: result.status } });
     } else if (action === "forgot-password") {
       await identityActionService.requestPasswordReset({ contact: body.contact }, authContext);
