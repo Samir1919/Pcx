@@ -22,6 +22,7 @@ function fixture(overrides = {}) {
       calls.listed.push(userId);
       return [{ id: "sr", userId, status: SellRequestStatus.DRAFT }];
     },
+    async listAll() { return []; },
     ...overrides.repository
   };
   const service = createSellRequestService({

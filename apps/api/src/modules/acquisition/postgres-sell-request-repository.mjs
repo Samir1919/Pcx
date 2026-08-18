@@ -94,6 +94,11 @@ export function createPostgresSellRequestRepository({ pool }) {
     async listByOwner(userId) {
       const result = await pool.query(`${selectClause} WHERE sr.user_id = $1 ORDER BY sr.created_at DESC`, [userId]);
       return result.rows.map(row);
+    },
+
+    async listAll() {
+      const result = await pool.query(`${selectClause} ORDER BY sr.created_at DESC LIMIT 100`, []);
+      return result.rows.map(row);
     }
   });
 }

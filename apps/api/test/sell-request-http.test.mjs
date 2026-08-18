@@ -11,6 +11,7 @@ function service(overrides = {}) {
     async get() { return { id: "sr-1", status: "DRAFT" }; },
     async create() { return { id: "sr-1", status: "DRAFT" }; },
     async submit() { return { id: "sr-1", status: "SUBMITTED" }; },
+    async listAdmin() { return { data: [] }; },
     ...overrides
   };
 }
@@ -37,6 +38,11 @@ async function invoke(path, { method = "GET", body, headers = {}, sellRequestSer
 test("sell request list and get require no write security", async () => {
   assert.equal((await invoke("/api/v1/sell-requests")).status, 200);
   assert.equal((await invoke("/api/v1/sell-requests/sr-1")).status, 200);
+});
+
+test("admin sell request queue is read-only GET", async () => {
+  assert.equal((await invoke("/api/v1/admin/sell-requests")).status, 200);
+  assert.equal((await invoke("/api/v1/admin/sell-requests", { method: "POST" })).status, 405);
 });
 
 test("sell request create requires CSRF and origin and returns 201", async () => {

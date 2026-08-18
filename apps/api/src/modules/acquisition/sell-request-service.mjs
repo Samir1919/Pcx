@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createSellRequest, createSellerDeclaration, submitSellRequest } from "../../../../../packages/domain/src/acquisition/sell-request.mjs";
 import { UserStatus } from "../../../../../packages/domain/src/identity/constants.mjs";
+import { hasPermission, Permission } from "../../../../../packages/domain/src/index.mjs";
 
 export class SellRequestError extends Error {
   constructor(code) { super(code); this.name = "SellRequestError"; this.code = code; }
@@ -10,7 +11,7 @@ const createFields = new Set(["categoryId", "productModelId", "contactName", "co
 
 export function createSellRequestService({ authService, repository, id = randomUUID, clock = () => new Date() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  for (const method of ["create", "submit", "findByOwner", "listByOwner"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  for (const method of ["create", "submit", "findByOwner", "listByOwner", "listAll"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
 
   async function actor(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -67,6 +68,12 @@ export function createSellRequestService({ authService, repository, id = randomU
     async list(accessCredential) {
       const identity = await actor(accessCredential);
       return Object.freeze(await repository.listByOwner(identity.userId));
+    },
+
+    async listAdmin(accessCredential) {
+      const identity = await authService.authenticateAccess({ accessCredential });
+      if (!hasPermission(identity, Permission.PRICING_MANAGE) && !hasPermission(identity, Permission.ACQUISITION_PAYMENT_MANAGE)) throw new SellRequestError("forbidden");
+      return Object.freeze({ data: Object.freeze(await repository.listAll()) });
     },
 
     async get(accessCredential, requestId) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { acquisitionApi } from "../../../lib/acquisition-api.js";
 
 function Banner({ notice, onClose }) { if (!notice) return null; return <div className={`banner ${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}><span>{notice.message}</span><button type="button" onClick={onClose} aria-label="Dismiss message">×</button></div>; }
@@ -22,6 +22,23 @@ async function run(action, setBusy, setNotice) {
 export default function AcquisitionPage() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [sellRequests, setSellRequests] = useState([]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const payload = await acquisitionApi.sellRequests();
+      setSellRequests(payload.data ?? []);
+      setNotice(null);
+    } catch (error) {
+      setNotice({ kind: "error", message: error.status === 401 ? "Sign in to view sell requests." : error.message });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   async function createValuation(event) {
     event.preventDefault();
@@ -83,9 +100,36 @@ export default function AcquisitionPage() {
           <h1>Acquisition</h1>
           <p>Valuation, offer, acceptance, acquisition, and payment. Agreed price and status are always server-owned.</p>
         </div>
+        <button className="refresh" type="button" onClick={load} disabled={loading}>↻ Refresh</button>
       </header>
       <Banner notice={notice} onClose={() => setNotice(null)} />
-      <div className="grid">
+      <section className="panel">
+        <div className="panelTitle">
+          <div>
+            <p className="eyebrow">SELL REQUESTS</p>
+            <h2>Admin queue</h2>
+          </div>
+        </div>
+        {loading ? <p className="state" role="status">Loading sell requests…</p> : sellRequests.length === 0 ? <p className="state">No sell requests yet.</p> : (
+          <div className="tableWrap">
+            <table>
+              <thead><tr><th>Request</th><th>Request no</th><th>Model</th><th>Status</th><th>Submitted</th></tr></thead>
+              <tbody>
+                {sellRequests.map((r) => (
+                  <tr key={r.id}>
+                    <td><strong>{r.id.slice(0, 8)}…</strong></td>
+                    <td>{r.publicRequestNo ?? "—"}</td>
+                    <td>{r.productModelId.slice(0, 8)}…</td>
+                    <td><span className="pill">{r.status}</span></td>
+                    <td>{r.submittedAt ? new Date(r.submittedAt).toLocaleString() : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+      <div className="grid" style={{ marginTop: 18 }}>
         <section className="panel formPanel">
           <p className="eyebrow">VALUATION</p>
           <h2>Create valuation</h2>
