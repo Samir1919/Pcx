@@ -1,566 +1,1360 @@
+/* ============================================================
+   PCX storefront design system (customer web)
+   ------------------------------------------------------------
+   Mobile-first, fluid, token-driven. No Tailwind, no UI lib —
+   this single stylesheet is the source of truth.
+   Rules for future authors are in docs/guidelines/UI_STYLE_GUIDE.md.
+   ============================================================ */
+
 :root {
+  /* Color tokens */
   --ink: #16211d;
   --muted: #5f6f69;
   --paper: #f7f8f5;
   --panel: #fff;
   --line: #e2e7e2;
   --green: #176b52;
+  --green-strong: #0e4b3a;
   --mint: #e2f1ea;
-  --amber: #8a5a12;
+  --mint-strong: #d2e8de;
+  --accent: #2f8a6d;
+  /* interactive borders, hover accent */
+  --accent-soft: rgba(47, 138, 109, .14);
+  /* focus/hover halo */
+  --danger-text: #7c2923;
+  --danger-bg: #f9e5e2;
+
+  /* Typography */
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* Spacing (fluid scale — preferred over fixed px) */
+  --space-1: clamp(4px, .5vw, 8px);
+  --space-2: clamp(8px, 1vw, 12px);
+  --space-3: clamp(12px, 1.6vw, 20px);
+  --space-4: clamp(18px, 2.4vw, 32px);
+  --space-5: clamp(28px, 4vw, 56px);
+
+  /* Radii */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+
+  /* Elevation */
   --shadow: 0 14px 34px rgba(22, 45, 36, .08);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* Accessibility floor for interactive elements */
+  --touch-target: 2.75rem;
+  /* 44px */
+
+  font-family: var(--font-sans);
   color: var(--ink);
-  background: var(--paper)
+  background: var(--paper);
 }
 
 * {
-  box-sizing: border-box
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  margin: 0
+  margin: 0;
+  overflow-x: hidden;
 }
 
+/* ---------- Base interactive elements ---------- */
 button,
 input,
-select {
-  font: inherit
+select,
+textarea {
+  font: inherit;
+  color: inherit;
 }
 
 button {
-  cursor: pointer
+  cursor: pointer;
 }
 
 button:disabled {
   cursor: not-allowed;
-  opacity: .55
+  opacity: .55;
 }
 
 a {
-  color: var(--green)
+  color: var(--green);
 }
 
+/* Accessible focus for keyboard users — never rely on the browser-only ring. */
+:where(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Honor reduced-motion preferences across the UI. */
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------- Layout primitives ---------- */
+.wrap {
+  max-width: 74rem;
+  /* 1184px — fluid via max-width, never fixed */
+  margin: 0 auto;
+  padding: var(--space-4) clamp(1rem, 4vw, 2.5rem);
+}
+
+/* ---------- Top navigation ---------- */
 .topbar {
   position: sticky;
   top: 0;
   z-index: 10;
   background: rgba(255, 255, 255, .92);
   backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--line)
+  border-bottom: 1px solid var(--line);
 }
 
 .topbarInner {
-  max-width: 1180px;
-  margin: auto;
-  padding: 16px clamp(18px, 4vw, 40px);
+  max-width: 74rem;
+  margin: 0 auto;
+  padding: .75rem clamp(1rem, 4vw, 2.5rem);
   display: flex;
   align-items: center;
-  gap: 18px
+  gap: var(--space-3);
 }
 
 .brand {
   display: flex;
-  align-items: baseline;
-  gap: 9px;
+  align-items: center;
+  gap: .5rem;
   text-decoration: none;
-  color: var(--ink)
+  color: var(--ink);
+  min-height: var(--touch-target);
 }
 
 .brand b {
-  font-size: 24px;
-  letter-spacing: -1px
+  font-size: clamp(1.25rem, 3vw, 1.5rem);
+  letter-spacing: -1px;
 }
 
 .brand small {
-  font-size: 9px;
+  font-size: .56rem;
   letter-spacing: 1.6px;
-  color: var(--green)
+  color: var(--green);
 }
 
-.topbar nav {
+/* Desktop inline navigation — hidden on mobile, shown at ≥40rem. */
+.desktopNav {
   margin-left: auto;
-  display: flex;
-  gap: 6px
+  display: none;
+  gap: .4rem;
+  min-width: 0;
 }
 
-.topbar nav a {
-  padding: 9px 13px;
-  border-radius: 8px;
+.desktopNav a,
+.desktopNav .navLink {
+  padding: .6rem .85rem;
+  border-radius: var(--radius-sm);
   color: var(--muted);
   text-decoration: none;
-  font-size: 14px
+  font-size: .875rem;
+  white-space: nowrap;
+  min-height: var(--touch-target);
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  background: transparent;
 }
 
-.topbar nav a.selected {
+.desktopNav a:hover,
+.desktopNav .navLink:hover {
+  color: var(--green);
+}
+
+.desktopNav a.selected {
   color: var(--green);
   background: var(--mint);
-  font-weight: 700
+  font-weight: 700;
 }
 
-.wrap {
-  max-width: 1180px;
-  margin: auto;
-  padding: 38px clamp(18px, 4vw, 40px)
+/* Mobile header actions — shown only on small screens. */
+.mobileActions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
+.authCta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target);
+  padding: .6rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--green);
+  color: #fff;
+  font-weight: 750;
+  font-size: .875rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.authCta.ghost {
+  background: var(--mint);
+  color: var(--green);
+}
+
+.authCta:hover {
+  background: var(--green-strong);
+  color: #fff;
+}
+
+.navToggle {
+  display: grid;
+  place-items: center;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.navToggle:hover {
+  background: var(--mint);
+}
+
+/* ---------- Mobile navigation drawer ---------- */
+.navDrawerOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(16, 28, 24, .5);
+  backdrop-filter: blur(3px);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.navDrawer {
+  width: min(85vw, 24rem);
+  min-height: 100%;
+  background: var(--panel);
+  box-shadow: -1rem 0 2.5rem rgba(16, 28, 24, .16);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-3) var(--space-3) var(--space-4);
+  animation: navDrawerIn .2s ease-out;
+  overflow-y: auto;
+}
+
+@keyframes navDrawerIn {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+.navDrawerHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.navDrawerClose {
+  display: grid;
+  place-items: center;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  border: 0;
+  border-radius: 50%;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.navDrawerClose:hover {
+  background: var(--mint);
+}
+
+.navDrawerLinks {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.navDrawerLinks a {
+  display: flex;
+  align-items: center;
+  min-height: calc(var(--touch-target) + .5rem);
+  padding: .6rem .75rem;
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+.navDrawerLinks a:hover {
+  background: var(--paper);
+  color: var(--green);
+}
+
+.navDrawerLinks a.selected {
+  color: var(--green);
+  background: var(--mint);
+}
+
+.navDrawerAuth {
+  margin-top: auto;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.drawerBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target);
+  padding: .75rem 1rem;
+  border-radius: var(--radius-sm);
+  font-weight: 750;
+  font-size: 1rem;
+  text-decoration: none;
+}
+
+.drawerBtn.primary {
+  border: 0;
+  background: var(--green);
+  color: #fff;
+}
+
+.drawerBtn.primary:hover {
+  background: var(--green-strong);
+}
+
+.drawerBtn.secondary {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.drawerBtn.secondary:hover {
+  background: var(--paper);
+}
+
+.drawerLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target);
+  color: var(--green);
+  font-weight: 700;
+  font-size: .9375rem;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ---------- Headings & sections ---------- */
 .hero {
-  padding: 34px 0 8px
+  padding: var(--space-4) 0 var(--space-2);
 }
 
 .hero h1 {
-  font-size: clamp(30px, 5vw, 52px);
+  font-size: clamp(1.9rem, 5vw, 3.25rem);
   letter-spacing: -1.8px;
-  margin: 0 0 10px
+  margin: 0 0 .6rem;
+  line-height: 1.05;
 }
 
 .hero p {
   color: var(--muted);
-  max-width: 640px;
+  max-width: 40rem;
   line-height: 1.6;
-  margin: 0
+  margin: 0;
 }
 
 .eyebrow {
-  font-size: 10px;
+  font-size: .75rem;
   font-weight: 800;
   letter-spacing: 1.7px;
   color: var(--green);
-  margin: 0
+  margin: 0;
+  text-transform: uppercase;
 }
 
-.filters {
+.sectionHeading {
+  padding-top: var(--space-5);
+  margin-bottom: var(--space-3);
+}
+
+.sectionHeading h2 {
+  margin: .4rem 0 0;
+  font-size: clamp(1.5rem, 3.4vw, 2.125rem);
+  letter-spacing: -1px;
+  line-height: 1.1;
+}
+
+/* Generic secondary/helper text (used as .meta in several pages). */
+.meta {
+  color: var(--muted);
+  font-size: .8125rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* ---------- Sell banner ---------- */
+.sellBanner {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(120% 140% at 100% 0, rgba(226, 241, 234, .25), rgba(226, 241, 234, 0) 46%),
+    linear-gradient(135deg, var(--green) 0%, var(--green-strong) 100%);
+  color: #fff;
+  text-decoration: none;
+  box-shadow: 0 18px 44px rgba(14, 65, 51, .28);
+}
+
+.sellBanner:hover {
+  box-shadow: 0 22px 54px rgba(14, 65, 51, .36);
+}
+
+.sellBannerCopy {
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.sellBanner .eyebrow {
+  color: var(--mint);
+}
+
+.sellBannerTitle {
+  font-size: clamp(1.6rem, 4vw, 2.5rem);
+  font-weight: 800;
+  letter-spacing: -1.4px;
+  line-height: 1.05;
+}
+
+.sellBannerText {
+  max-width: 35rem;
+  color: rgba(255, 255, 255, .84);
+  line-height: 1.6;
+}
+
+.sellBannerCta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target);
+  margin-top: .25rem;
+  padding: .75rem 1.25rem;
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--green);
+  font-weight: 800;
+  letter-spacing: -.2px;
+}
+
+.sellBannerCta:hover {
+  background: var(--mint);
+}
+
+.sellBannerTrust {
+  margin-top: .6rem;
+  color: rgba(255, 255, 255, .68);
+  font-size: .75rem;
+  font-weight: 700;
+  letter-spacing: .2px;
+}
+
+.sellBannerArt {
+  font-size: clamp(2rem, 6vw, 4rem);
+  letter-spacing: -10px;
+  white-space: nowrap;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, .18));
+}
+
+/* ---------- Why PCX ---------- */
+.whyGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(13.75rem, 100%), 1fr));
+  gap: var(--space-3);
+}
+
+.whyItem {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+  padding: var(--space-3);
+}
+
+.whyIcon {
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.whyItem h3 {
+  margin: .75rem 0 .4rem;
+  font-size: 1rem;
+  letter-spacing: -.3px;
+}
+
+.whyItem p {
+  margin: 0;
+  color: var(--muted);
+  font-size: .8125rem;
+  line-height: 1.55;
+}
+
+/* ---------- Latest listings ---------- */
+.latestHeading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
   flex-wrap: wrap;
-  gap: 12px;
-  align-items: end;
-  margin: 26px 0 22px
+}
+
+.viewAll {
+  font-size: .875rem;
+  font-weight: 750;
+  text-decoration: none;
+  padding: .6rem .9rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--green);
+  min-height: var(--touch-target);
+  display: inline-flex;
+  align-items: center;
+}
+
+.viewAll:hover {
+  background: var(--mint);
+}
+
+/* ---------- How it works ---------- */
+.howGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+}
+
+.howCol {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: var(--space-3);
+}
+
+.howCol h3 {
+  margin: 0 0 var(--space-3);
+  font-size: 1.125rem;
+  letter-spacing: -.4px;
+}
+
+.howCol ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.howCol li {
+  display: flex;
+  gap: .875rem;
+  align-items: flex-start;
+}
+
+.howCol .step {
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--mint);
+  color: var(--green);
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+}
+
+.howCol strong {
+  font-size: .9375rem;
+}
+
+.howCol p {
+  margin: .2rem 0 0;
+  color: var(--muted);
+  font-size: .8125rem;
+  line-height: 1.5;
+}
+
+.howCta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target);
+  margin-top: var(--space-3);
+  padding: .7rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--green);
+  color: #fff;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.howCta:hover {
+  background: var(--green-strong);
+}
+
+/* ---------- Categories ---------- */
+.categoryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(9.5rem, 100%), 1fr));
+  gap: var(--space-2);
+}
+
+.categoryTile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: .6rem;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  padding: var(--space-3);
+  color: var(--ink);
+  min-height: var(--touch-target);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.categoryTile:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.categoryIcon {
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.categoryName {
+  font-size: .875rem;
+  font-weight: 750;
+  letter-spacing: -.2px;
+}
+
+/* ---------- Marketplace ---------- */
+.marketplace {
+  display: block;
+}
+
+.marketplace .hero {
+  padding-top: var(--space-4);
+}
+
+/* ============================================================
+   Search + filters — search-first, fluid, mobile-first
+   ============================================================ */
+.filters {
+  display: grid;
+  gap: var(--space-3);
+  margin: var(--space-3) 0 var(--space-4);
+}
+
+.filterSearch {
+  position: relative;
+  display: grid;
+  gap: .4rem;
+  font-size: .6875rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.filterSearch input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #cdd8d1;
+  border-radius: var(--radius-sm);
+  background-color: var(--panel);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%235f6f69' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: .9rem center;
+  color: var(--ink);
+  padding: .8rem .9rem .8rem 2.75rem;
+  min-height: var(--touch-target);
+  font-size: 1rem;
+  outline: none;
+}
+
+.filterSearch input:focus,
+.filters select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.filterRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
+  gap: var(--space-3);
 }
 
 .filters label {
   display: grid;
-  gap: 6px;
-  font-size: 11px;
+  gap: .4rem;
+  font-size: .6875rem;
   font-weight: 700;
-  color: var(--muted)
+  color: var(--muted);
 }
 
-.filters input,
 .filters select {
   border: 1px solid #cdd8d1;
-  border-radius: 8px;
-  background: white;
+  border-radius: var(--radius-sm);
+  background: var(--panel);
   color: var(--ink);
-  padding: 9px 11px;
+  padding: .7rem .75rem;
+  min-height: var(--touch-target);
+  width: 100%;
   outline: none;
-  min-width: 150px
-}
-
-.filters input:focus,
-.filters select:focus {
-  border-color: #2f8a6d;
-  box-shadow: 0 0 0 3px rgba(47, 138, 109, .12)
+  font-size: .9375rem;
 }
 
 .filters .primary {
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--green);
-  color: white;
-  padding: 10px 16px;
-  font-weight: 750
+  color: #fff;
+  padding: .7rem 1rem;
+  min-height: var(--touch-target);
+  font-weight: 750;
+  width: 100%;
+  align-self: end;
 }
 
+.filters .primary:hover {
+  background: var(--green-strong);
+}
+
+/* ---------- Listing grid + cards ---------- */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 18px
+  grid-template-columns: repeat(auto-fill, minmax(min(15.625rem, 100%), 1fr));
+  gap: var(--space-3);
 }
 
 .card {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow);
-  padding: 20px;
+  padding: var(--space-3);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: .6rem;
   text-decoration: none;
-  color: var(--ink)
+  color: var(--ink);
 }
 
 .card h3 {
   margin: 0;
-  font-size: 17px;
-  letter-spacing: -.3px
+  font-size: 1.0625rem;
+  letter-spacing: -.3px;
 }
 
 .card .meta {
   color: var(--muted);
-  font-size: 12px;
-  line-height: 1.5
+  font-size: .75rem;
+  line-height: 1.5;
 }
 
 .card .price {
-  font-size: 22px;
+  font-size: 1.375rem;
   font-weight: 800;
   letter-spacing: -.5px;
-  margin-top: auto
+  margin-top: auto;
 }
 
 .card .price small {
-  font-size: 11px;
+  font-size: .6875rem;
   font-weight: 600;
   color: var(--muted);
   display: block;
-  margin-top: 2px
+  margin-top: .1rem;
 }
 
 .pill {
   display: inline-block;
-  border-radius: 12px;
-  padding: 4px 9px;
+  border-radius: 999px;
+  padding: .35rem .65rem;
   background: var(--mint);
   color: var(--green);
-  font-size: 10px;
+  font-size: .75rem;
   font-weight: 800;
-  text-transform: uppercase
+  text-transform: uppercase;
+}
+
+.pill-link {
+  cursor: pointer;
+  border: 0;
+}
+
+.pill-link:hover {
+  background: var(--mint-strong);
+}
+
+.pill-link[href] {
+  text-decoration: none;
 }
 
 .state {
-  padding: 60px 20px;
+  padding: var(--space-5) var(--space-3);
   text-align: center;
-  color: var(--muted)
+  color: var(--muted);
 }
 
 .pager {
   display: flex;
   justify-content: center;
-  gap: 10px;
-  margin-top: 28px
+  gap: var(--space-2);
+  margin-top: var(--space-4);
 }
 
 .pager button {
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: white;
-  padding: 10px 16px;
-  color: var(--ink)
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  padding: .65rem 1rem;
+  min-height: var(--touch-target);
+  color: var(--ink);
 }
 
 .pager button:disabled {
-  opacity: .4
+  opacity: .4;
 }
 
+/* ---------- Banner (notice / error) ---------- */
 .banner {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 13px 16px;
-  border-radius: 9px;
-  margin-bottom: 20px
+  gap: var(--space-2);
+  padding: .85rem 1rem;
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-3);
+  color: var(--ink);
 }
 
 .banner.error {
-  background: #f9e5e2;
-  color: #7c2923
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+.banner.success {
+  background: var(--mint);
+  color: var(--green);
 }
 
 .banner button {
   border: 0;
   background: transparent;
   color: inherit;
-  font-size: 20px
+  font-size: 1.25rem;
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
 }
 
+/* ---------- Passport detail ---------- */
 .passport {
-  max-width: 760px;
-  margin: auto
+  max-width: 47.5rem;
+  margin: 0 auto;
 }
 
 .passport .card {
-  padding: 26px
+  padding: var(--space-3);
 }
 
 .passport h1 {
-  margin: 0 0 6px;
-  font-size: clamp(26px, 4vw, 38px);
-  letter-spacing: -1.2px
+  margin: 0 0 .4rem;
+  font-size: clamp(1.6rem, 4vw, 2.375rem);
+  letter-spacing: -1.2px;
 }
 
 .passport .meta {
   color: var(--muted);
-  line-height: 1.6
+  line-height: 1.6;
 }
 
 .passport .price {
-  font-size: 26px;
+  font-size: 1.625rem;
   font-weight: 800;
-  margin-top: 14px
+  margin-top: var(--space-2);
 }
 
 .passport dl {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 14px;
-  margin: 22px 0 0
+  grid-template-columns: repeat(auto-fit, minmax(min(11.25rem, 100%), 1fr));
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
 }
 
 .passport dt {
-  font-size: 10px;
+  font-size: .75rem;
   font-weight: 800;
   letter-spacing: 1px;
   color: var(--muted);
   text-transform: uppercase;
-  margin-bottom: 4px
+  margin-bottom: .25rem;
 }
 
 .passport dd {
   margin: 0;
-  font-weight: 700
+  font-weight: 700;
 }
 
+/* ---------- Buy box ---------- */
 .buyBox {
-  margin-top: 26px;
+  margin-top: var(--space-4);
   border-top: 1px solid var(--line);
-  padding-top: 20px;
+  padding-top: var(--space-3);
   display: flex;
   flex-direction: column;
-  gap: 12px
+  gap: var(--space-2);
 }
 
 .buyBox h2 {
   margin: 0;
-  font-size: 20px;
-  letter-spacing: -.4px
+  font-size: 1.25rem;
+  letter-spacing: -.4px;
 }
 
 .buyBox label {
   display: grid;
-  gap: 6px;
-  font-size: 11px;
+  gap: .4rem;
+  font-size: .6875rem;
   font-weight: 700;
-  color: var(--muted)
+  color: var(--muted);
 }
 
 .buyBox input {
   border: 1px solid #cdd8d1;
-  border-radius: 8px;
-  background: white;
+  border-radius: var(--radius-sm);
+  background: var(--panel);
   color: var(--ink);
-  padding: 10px 11px;
-  font: inherit;
-  outline: none
+  padding: .75rem .9rem;
+  min-height: var(--touch-target);
+  font-size: 1rem;
+  outline: none;
 }
 
 .buyBox input:focus {
-  border-color: #2f8a6d;
-  box-shadow: 0 0 0 3px rgba(47, 138, 109, .12)
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .buyBox .primary,
 .buyBox .secondary {
-  display: inline-block;
-  border-radius: 8px;
-  padding: 11px 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  padding: .75rem 1rem;
+  min-height: var(--touch-target);
   font-weight: 750;
   text-align: center;
-  text-decoration: none
+  text-decoration: none;
 }
 
 .buyBox .primary {
   border: 0;
   background: var(--green);
-  color: white
+  color: #fff;
+}
+
+.buyBox .primary:hover {
+  background: var(--green-strong);
 }
 
 .buyBox .secondary {
   border: 1px solid var(--line);
-  background: white;
-  color: var(--ink)
+  background: var(--panel);
+  color: var(--ink);
 }
 
+/* ---------- Sell form + pages ---------- */
 .sell {
-  max-width: 760px;
-  margin: auto
+  max-width: 47.5rem;
+  margin: 0 auto;
 }
 
 .sell h1 {
-  margin: 0 0 6px;
-  font-size: clamp(26px, 4vw, 38px);
-  letter-spacing: -1.2px
+  margin: 0 0 .4rem;
+  font-size: clamp(1.6rem, 4vw, 2.375rem);
+  letter-spacing: -1.2px;
 }
 
 .sellForm {
   display: grid;
-  gap: 14px;
-  margin-top: 22px
+  gap: var(--space-2);
+  margin-top: var(--space-3);
 }
 
 .sellForm label {
   display: grid;
-  gap: 6px;
-  font-size: 11px;
+  gap: .4rem;
+  font-size: .6875rem;
   font-weight: 700;
-  color: var(--muted)
+  color: var(--muted);
 }
 
 .sellForm label.check {
   display: flex;
   align-items: center;
-  gap: 8px
+  gap: .5rem;
 }
 
 .sellForm input,
 .sellForm select {
   border: 1px solid #cdd8d1;
-  border-radius: 8px;
-  background: white;
+  border-radius: var(--radius-sm);
+  background: var(--panel);
   color: var(--ink);
-  padding: 10px 11px;
-  font: inherit;
-  outline: none
+  padding: .75rem .9rem;
+  min-height: var(--touch-target);
+  font-size: 1rem;
+  outline: none;
 }
 
 .sellForm input:focus,
 .sellForm select:focus {
-  border-color: #2f8a6d;
-  box-shadow: 0 0 0 3px rgba(47, 138, 109, .12)
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .sellForm .primary,
 .sell .primary {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--green);
-  color: white;
-  padding: 11px 16px;
+  color: #fff;
+  padding: .75rem 1rem;
+  min-height: var(--touch-target);
   font-weight: 750;
   text-align: center;
-  text-decoration: none
+  text-decoration: none;
+}
+
+.sellForm .primary:hover,
+.sell .primary:hover {
+  background: var(--green-strong);
+}
+
+.sell .secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--ink);
+  padding: .75rem 1rem;
+  min-height: var(--touch-target);
+  font-weight: 750;
+  text-align: center;
+  text-decoration: none;
 }
 
 .specReview {
   background: var(--mint);
-  border-radius: 10px;
-  padding: 14px 16px
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
 }
 
 .specReview .specTitle {
-  margin: 0 0 10px;
-  font-size: 13px;
+  margin: 0 0 .6rem;
+  font-size: .8125rem;
   font-weight: 800;
-  color: var(--green)
+  color: var(--green);
 }
 
 .specReview dl {
   margin: 0;
   display: grid;
-  gap: 6px
+  gap: .4rem;
 }
 
 .specReview dl div {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  font-size: 13px
+  gap: var(--space-2);
+  font-size: .8125rem;
 }
 
 .specReview dt {
   color: var(--muted);
-  font-weight: 700
+  font-weight: 700;
 }
 
 .specReview dd {
   margin: 0;
-  font-weight: 700
+  font-weight: 700;
 }
 
 .estimate {
   background: var(--mint);
-  border-radius: 12px;
-  padding: 18px;
-  margin-top: 18px
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  margin-top: var(--space-3);
 }
 
 .estimate .eprice {
-  font-size: 26px;
+  font-size: 1.625rem;
   font-weight: 800;
-  color: var(--green)
+  color: var(--green);
 }
 
 .estimate .disclaimer {
   color: var(--muted);
-  font-size: 12px;
-  margin: 8px 0 0
+  font-size: .75rem;
+  margin: .5rem 0 0;
 }
 
 .back {
-  display: inline-block;
-  margin-bottom: 22px;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch-target);
+  margin-bottom: var(--space-3);
   color: var(--green);
-  font-size: 13px;
+  font-size: .8125rem;
   font-weight: 700;
-  text-decoration: none
+  text-decoration: none;
+  padding: .25rem .5rem .25rem 0;
 }
 
 .sellEntries {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 16px;
-  margin-top: 22px
+  grid-template-columns: repeat(auto-fit, minmax(min(11.25rem, 100%), 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-3);
 }
 
 .sellEntryCard {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 10px;
+  gap: .6rem;
   text-align: left;
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   background: var(--panel);
   box-shadow: var(--shadow);
-  padding: 22px;
+  padding: var(--space-3);
   color: var(--ink);
-  cursor: pointer
+  cursor: pointer;
 }
 
 .sellEntryCard:hover {
-  border-color: #2f8a6d;
-  box-shadow: 0 0 0 3px rgba(47, 138, 109, .12)
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .sellEntryIcon {
-  font-size: 34px;
-  line-height: 1
+  font-size: 2.125rem;
+  line-height: 1;
 }
 
 .sellEntryCard strong {
-  font-size: 17px;
-  letter-spacing: -.3px
+  font-size: 1.0625rem;
+  letter-spacing: -.3px;
 }
 
 .sellEntryCard small {
   color: var(--muted);
-  font-size: 12px;
-  line-height: 1.5
+  font-size: .75rem;
+  line-height: 1.5;
 }
 
 .entryHeading h2 {
   margin: 0;
-  font-size: 22px;
-  letter-spacing: -.5px
+  font-size: 1.375rem;
+  letter-spacing: -.5px;
 }
 
 .entryHeading .meta {
   color: var(--muted);
-  font-size: 12px;
+  font-size: .75rem;
   line-height: 1.5;
-  margin: 4px 0 0
+  margin: .25rem 0 0;
 }
 
+/* ---------- Tables (model specs, merchant) ---------- */
+.tableWrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .875rem;
+}
+
+th,
+td {
+  text-align: left;
+  padding: .7rem .5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+th {
+  color: var(--muted);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.specTable td {
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+
+.actions button {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--ink);
+  padding: .5rem .8rem;
+  min-height: var(--touch-target);
+  font-size: .8125rem;
+}
+
+/* Destructive action. */
+.danger {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  padding: .5rem .8rem;
+  min-height: var(--touch-target);
+  font-size: .8125rem;
+  font-weight: 700;
+}
+
+.danger:hover {
+  filter: brightness(.95);
+}
+
+/* ---------- Model page ---------- */
+.model h1 {
+  margin: 0 0 .4rem;
+  font-size: clamp(1.6rem, 4vw, 2.375rem);
+  letter-spacing: -1.2px;
+}
+
+.specTitle {
+  margin: var(--space-3) 0 var(--space-2);
+  font-size: 1.125rem;
+  letter-spacing: -.4px;
+}
+
+/* ---------- Modal ---------- */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: clamp(1rem, 5vw, 2.5rem);
+  background: rgba(16, 28, 24, .5);
+  backdrop-filter: blur(3px);
+}
+
+.modalDialog {
+  position: relative;
+  width: 100%;
+  max-width: 32.5rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: var(--space-3) var(--space-3) 1.5rem;
+}
+
+.modalDialog h2 {
+  margin: 0 0 .875rem;
+  font-size: 1.375rem;
+  letter-spacing: -.5px;
+  padding-right: 2.5rem;
+}
+
+.modalDialog p {
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0 0 .75rem;
+}
+
+.modalDialog p:last-child {
+  margin-bottom: 0;
+}
+
+.modalClose {
+  position: absolute;
+  top: .875rem;
+  right: .875rem;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  border: 0;
+  border-radius: 50%;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 1.375rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.modalClose:hover {
+  background: var(--mint);
+}
+
+/* ---------- Utility ---------- */
 .sr {
   position: absolute;
   width: 1px;
@@ -570,7 +1364,7 @@ a {
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
-  border: 0
+  border: 0;
 }
 
 .learn-more {
@@ -583,7 +1377,7 @@ a {
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
-  padding: 0
+  padding: 0;
 }
 
 .card .passport-verified-trigger {
@@ -592,129 +1386,61 @@ a {
   white-space: nowrap;
   cursor: pointer;
   text-decoration: underline;
-  text-underline-offset: 2px
+  text-underline-offset: 2px;
 }
 
-.pill-link {
-  cursor: pointer;
-  border: 0
-}
+/* ============================================================
+   Responsive
+   ------------------------------------------------------------
+   Mobile-first: base rules above already work at 320px.
+   Below we only ADD layout for larger screens and fix the
+   navigation into a scrollable row at the smallest sizes.
+   ============================================================ */
 
-.pill-link:hover {
-  background: #d2e8de
-}
-
-.pill-link[href] {
-  text-decoration: none
-}
-
-.model h1 {
-  margin: 0 0 6px;
-  font-size: clamp(26px, 4vw, 38px);
-  letter-spacing: -1.2px
-}
-
-.specTitle {
-  margin: 26px 0 12px;
-  font-size: 18px;
-  letter-spacing: -.4px
-}
-
-.specTable {
-  width: 100%;
-  border-collapse: collapse
-}
-
-.specTable tr {
-  border-bottom: 1px solid var(--line)
-}
-
-.specTable th,
-.specTable td {
-  text-align: left;
-  padding: 11px 8px;
-  font-size: 14px
-}
-
-.specTable th {
-  color: var(--muted);
-  font-weight: 700
-}
-
-.specTable td {
-  font-weight: 600
-}
-
-.modalOverlay {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: clamp(16px, 5vw, 40px);
-  background: rgba(16, 28, 24, .5);
-  backdrop-filter: blur(3px)
-}
-
-.modalDialog {
-  position: relative;
-  width: 100%;
-  max-width: 520px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  box-shadow: var(--shadow);
-  padding: 28px 28px 26px
-}
-
-.modalDialog h2 {
-  margin: 0 0 14px;
-  font-size: 22px;
-  letter-spacing: -.5px;
-  padding-right: 40px
-}
-
-.modalDialog p {
-  color: var(--muted);
-  line-height: 1.6;
-  margin: 0 0 12px
-}
-
-.modalDialog p:last-child {
-  margin-bottom: 0
-}
-
-.modalClose {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  width: 36px;
-  height: 36px;
-  border: 0;
-  border-radius: 50%;
-  background: var(--paper);
-  color: var(--ink);
-  font-size: 22px;
-  line-height: 1;
-  cursor: pointer
-}
-
-.modalClose:hover {
-  background: var(--mint)
-}
-
-@media(max-width:620px) {
-  .topbarInner {
-    flex-wrap: wrap
+/* Tablet and up: switch to the inline desktop nav; hide mobile actions. */
+@media (min-width: 40rem) {
+  .desktopNav {
+    display: flex;
   }
 
-  .topbar nav {
-    margin-left: 0;
-    width: 100%
+  .mobileActions {
+    display: none;
   }
 
-  .filters label {
-    flex: 1 1 100%
+  .sellBanner {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+
+  .howGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Desktop: align the Apply action beside the filter row. */
+@media (min-width: 48rem) {
+  .filters {
+    grid-template-columns: 1fr auto;
+    align-items: end;
+  }
+
+  .filterSearch {
+    grid-column: 1 / -1;
+  }
+
+  .filterRow {
+    grid-column: 1 / 2;
+  }
+
+  .filters .primary {
+    width: auto;
+    grid-column: 2 / 3;
+  }
+}
+
+/* Desktop modal: center the dialog vertically. */
+@media (min-width: 40rem) {
+  .modalOverlay {
+    align-items: center;
   }
 }

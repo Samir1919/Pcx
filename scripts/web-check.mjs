@@ -24,9 +24,15 @@ const BASE_ADMIN = process.env.PCX_ADMIN_ORIGIN ?? "http://localhost:3001";
 const CHECKS = [
   {
     group: "web",
+    name: "home",
+    url: `${BASE_WEB}/`,
+    selectors: ["text=Have hardware? Turn it into cash.", "text=Buy pre-owned with confidence", "text=Latest certified hardware", "text=Shop by category"]
+  },
+  {
+    group: "web",
     name: "storefront",
     url: `${BASE_WEB}/storefront`,
-    selectors: ["text=Shop verified hardware", "text=Have hardware? Sell to PCX."]
+    selectors: ["text=Shop verified hardware"]
   },
   {
     group: "web",

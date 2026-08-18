@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import HomeWorkspace from "./home/workspace";
 export default function HomePage() {
-  redirect("/storefront");
+  return <HomeWorkspace />;
 }
