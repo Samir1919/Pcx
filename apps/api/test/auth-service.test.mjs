@@ -129,10 +129,9 @@ test("mfa verification completes with a session and fails closed without provide
 
 test("access authentication hashes credentials and returns a safe immutable identity", async () => {
   let received;
-  const { service } = fixture({ repository: { async findActiveIdentityByAccessHash(hash) { received = hash; return { userId: "u1", status: "ACTIVE", contactVerified: true, roles: ["CUSTOMER"], email: "private@example.com" }; } } });
+  const { service } = fixture({ repository: { async findActiveIdentityByAccessHash(hash) { received = hash; return { userId: "u1", email: "buyer@example.com", phone: "01700000000", fullName: "PCX Buyer", status: "ACTIVE", contactVerified: true, roles: ["CUSTOMER"] }; } } });
   const identity = await service.authenticateAccess({ accessCredential: "raw-access" });
   assert.ok(Buffer.isBuffer(received));
   assert.equal(received.length, 32);
-  assert.deepEqual(identity, { userId: "u1", status: "ACTIVE", contactVerified: true, roles: ["CUSTOMER"] });
-  assert.equal(Object.hasOwn(identity, "email"), false);
+  assert.deepEqual(identity, { userId: "u1", email: "buyer@example.com", phone: "01700000000", fullName: "PCX Buyer", status: "ACTIVE", contactVerified: true, roles: ["CUSTOMER"] });
 });

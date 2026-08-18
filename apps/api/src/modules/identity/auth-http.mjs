@@ -11,7 +11,7 @@ const sessionRoutes = new Set(["register", "login", "refresh", "logout", "verify
 const identityActionRoutes = new Set(["verify-contact", "verify-contact-code", "forgot-password", "reset-password"]);
 const routes = new Set([...sessionRoutes, ...identityActionRoutes]);
 const fields = Object.freeze({
-  register: new Set(["email", "phone", "password"]),
+  register: new Set(["email", "phone", "fullName", "password"]),
   login: new Set(["contact", "password"]),
   refresh: new Set(),
   logout: new Set(),

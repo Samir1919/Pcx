@@ -63,7 +63,7 @@ export const storefrontApi = Object.freeze({
 
   me: () => request("/api/v1/me"),
   login: (contact, password) => request("/api/v1/auth/login", { method: "POST", body: { contact, password } }),
-  register: (email, phone, password) => request("/api/v1/auth/register", { method: "POST", body: { email, phone, password } }),
+  register: (email, phone, fullName, password) => request("/api/v1/auth/register", { method: "POST", body: { email, phone, fullName, password } }),
   verifyContactCode: (contact, code) => request("/api/v1/auth/verify-contact-code", { method: "POST", body: { contact, code } }),
   logout: () => request("/api/v1/auth/logout", { method: "POST", body: {}, headers: csrfHeaders() }),
 

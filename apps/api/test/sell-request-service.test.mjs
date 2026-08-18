@@ -51,6 +51,31 @@ test("create derives owner, normalizes contact, and owns status", async () => {
   assert.equal(calls.created[0].declaration.ownershipDeclared, true);
 });
 
+test("create reuses contact details from the authenticated identity", async () => {
+  const { service, calls } = fixture({
+    authService: {
+      async authenticateAccess() {
+        return { userId: "owner-1", email: "seller@example.com", phone: "01711111111", fullName: "Identity Seller", status: "ACTIVE", roles: ["CUSTOMER"] };
+      }
+    }
+  });
+  const result = await service.create("access", {
+    categoryId: "gpu",
+    // Deliberately stale form values: server must prefer the identity's data.
+    contactName: "Form Name",
+    contactPhone: "01999999999",
+    contactEmail: "form@example.com",
+    fulfilmentPreference: FulfilmentPreference.PICKUP,
+    ownershipDeclared: true
+  });
+  assert.equal(result.contactName, "Identity Seller");
+  assert.equal(result.contactPhone, "01711111111");
+  assert.equal(result.contactEmail, "seller@example.com");
+  assert.equal(calls.created[0].request.contactName, "Identity Seller");
+  assert.equal(calls.created[0].request.contactPhone, "01711111111");
+  assert.equal(calls.created[0].request.contactEmail, "seller@example.com");
+});
+
 test("create rejects unknown fields, invalid preference, and mass assignment", async () => {
   const { service } = fixture();
   await assert.rejects(

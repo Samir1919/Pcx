@@ -59,6 +59,12 @@ export function createSellRequestService({ authService, repository, id = randomU
       const identity = await actor(accessCredential);
       const fields = allowed(input);
       const now = clock().toISOString();
+      // Contact details are reused from the authenticated identity whenever
+      // present, so the sell form never re-asks for them after sign-in. The
+      // form-provided values only act as a fallback for incomplete identities.
+      const contactName = (identity.fullName ?? fields.contactName) || undefined;
+      const contactPhone = (identity.phone ?? fields.contactPhone) || undefined;
+      const contactEmail = identity.email ?? fields.contactEmail ?? undefined;
       let request;
       try {
         request = createSellRequest({
@@ -66,9 +72,9 @@ export function createSellRequestService({ authService, repository, id = randomU
           userId: identity.userId,
           categoryId: fields.categoryId,
           productModelId: fields.productModelId,
-          contactName: fields.contactName,
-          contactPhone: fields.contactPhone,
-          contactEmail: fields.contactEmail,
+          contactName,
+          contactPhone,
+          contactEmail,
           fulfilmentPreference: fields.fulfilmentPreference,
           selectedSpecs: fields.selectedSpecs,
           sellEntry: fields.sellEntry,

@@ -31,12 +31,12 @@ export function createPostgresIdentityRepository({ pool }) {
   }
 
   return Object.freeze({
-    async createCustomer({ id, email, phone, passwordHash, createdAt }) {
+    async createCustomer({ id, email, phone, fullName = null, passwordHash, createdAt }) {
       assertPasswordHash(passwordHash);
       return transaction(pool, async (client) => {
         const inserted = await client.query(
-          "INSERT INTO users(id, email, phone, password_hash, status, contact_verified, created_at, updated_at) VALUES ($1, $2, $3, $4, 'PENDING_VERIFICATION', false, $5, $5) RETURNING id, email, phone, status, contact_verified",
-          [id, email, phone, passwordHash, createdAt]
+          "INSERT INTO users(id, email, phone, full_name, password_hash, status, contact_verified, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, 'PENDING_VERIFICATION', false, $6, $6) RETURNING id, email, phone, full_name, status, contact_verified",
+          [id, email, phone, fullName, passwordHash, createdAt]
         );
         const role = await client.query("SELECT id FROM roles WHERE code = 'CUSTOMER'");
         if (role.rowCount !== 1) throw new Error("canonical CUSTOMER role is missing");
@@ -50,7 +50,7 @@ export function createPostgresIdentityRepository({ pool }) {
       const normalized = contact.trim();
       const byEmail = normalized.includes("@");
       const result = await pool.query(
-        `SELECT u.id, u.email, u.phone, u.password_hash, u.status, u.contact_verified,
+        `SELECT u.id, u.email, u.phone, u.full_name, u.password_hash, u.status, u.contact_verified,
                 COALESCE(array_agg(r.code) FILTER (WHERE r.code IS NOT NULL), '{}') roles
          FROM users u
          LEFT JOIN user_roles ur ON ur.user_id = u.id
@@ -90,7 +90,7 @@ export function createPostgresIdentityRepository({ pool }) {
     async findActiveIdentityByAccessHash(accessHash, now) {
       assertHash(accessHash, "accessHash");
       const result = await pool.query(
-        `SELECT u.id user_id, u.status, u.contact_verified,
+        `SELECT u.id user_id, u.email, u.phone, u.full_name, u.status, u.contact_verified,
                 COALESCE(array_agg(r.code) FILTER (WHERE r.code IS NOT NULL), '{}') roles
          FROM access_sessions s
          JOIN users u ON u.id = s.user_id
@@ -103,7 +103,7 @@ export function createPostgresIdentityRepository({ pool }) {
         [accessHash, now]
       );
       const row = result.rows[0];
-      return row ? { userId: row.user_id, status: row.status, contactVerified: row.contact_verified, roles: row.roles } : null;
+      return row ? { userId: row.user_id, email: row.email, phone: row.phone, fullName: row.full_name, status: row.status, contactVerified: row.contact_verified, roles: row.roles } : null;
     },
 
     async rotateRefresh({ presentedHash, newRefreshId, newRefreshHash, newRefreshExpiresAt, newAccessId, newAccessHash, newAccessExpiresAt, now, ipHash = null, userAgent = null }) {

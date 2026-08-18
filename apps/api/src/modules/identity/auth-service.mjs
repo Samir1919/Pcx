@@ -78,17 +78,20 @@ export function createAuthService({
       if (!identity) throw new AuthenticationError("invalid_access");
       return Object.freeze({
         userId: identity.userId,
+        email: identity.email ?? null,
+        phone: identity.phone ?? null,
+        fullName: identity.fullName ?? null,
         status: identity.status,
         contactVerified: identity.contactVerified === true,
         roles: Object.freeze([...(identity.roles ?? [])])
       });
     },
 
-    async register({ email, phone, password }, context = {}) {
+    async register({ email, phone, fullName, password }, context = {}) {
       await control("register", context);
       passwords.assert(password);
       const now = clock();
-      const candidate = createCustomerRegistrationCandidate({ id: id(), email, phone, createdAt: now });
+      const candidate = createCustomerRegistrationCandidate({ id: id(), email, phone, fullName, createdAt: now });
       try {
         const customer = await repository.createCustomer({ ...candidate, passwordHash: await passwords.hash(password) });
         await record("register", "succeeded", context, customer.id);
@@ -124,7 +127,7 @@ export function createAuthService({
       }
       const session = await issueSession(identity.id, context);
       await record("login", "succeeded", context, identity.id);
-      return Object.freeze({ status: "authenticated", identity: Object.freeze({ userId: identity.id, roles: Object.freeze([...(identity.roles ?? [])]) }), session });
+      return Object.freeze({ status: "authenticated", identity: Object.freeze({ userId: identity.id, email: identity.email ?? null, phone: identity.phone ?? null, fullName: identity.fullName ?? null, roles: Object.freeze([...(identity.roles ?? [])]) }), session });
     },
 
     async verifyMfa({ challengeId, credential }, context = {}) {
