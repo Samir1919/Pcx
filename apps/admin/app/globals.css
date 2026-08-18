@@ -681,8 +681,32 @@ textarea:focus {
   margin-bottom: 7px
 }
 
-.modalDialog input {
+.modalDialog input,
+.modalDialog select {
   width: 100%
+}
+
+.modalDialog .readonlyField {
+  display: block;
+  margin-bottom: 12px
+}
+
+.modalDialog .readonlyField span {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 7px
+}
+
+.modalDialog .readonlyField code {
+  display: block;
+  padding: 10px 11px;
+  border: 1px dashed #ced8d2;
+  border-radius: 8px;
+  background: var(--paper);
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--green)
 }
 
 .dialogError {
