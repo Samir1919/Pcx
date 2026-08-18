@@ -266,110 +266,110 @@ export default function SellPage() {
           ) : (
             <Banner notice={error ? { kind: "error", message: error } : null} onClose={() => setError(null)} />
           )}
+        </div>
 
-          {!result && !entry && (
-            <>
-              <div className="hero" style={{ paddingTop: 18 }}>
-                <p className="eyebrow">SELL-TO-PCX</p>
-                <h1 style={{ fontSize: 30 }}>What are you selling?</h1>
-                <p>Choose an entry to continue. Your quote is an estimated range — the final offer is made only after physical inspection.</p>
-              </div>
-              <div className="sellEntries">
-                {ENTRIES.map((e) => (
-                  <button key={e.key} type="button" className="sellEntryCard" onClick={() => chooseEntry(e.key)}>
-                    <span className="sellEntryIcon">{e.icon}</span>
-                    <strong>{e.label}</strong>
-                    <small>{e.hint}</small>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-
-          {!result && entry && (
-            <form className="sellForm" onSubmit={handleSubmit}>
-              <button type="button" className="learn-more" onClick={() => chooseEntry(null)} style={{ justifySelf: "start" }}>← Choose a different entry</button>
-              <div className="entryHeading"><h2>{build ? build.title : partEntry.title}</h2><p className="meta">{disclaimer()}</p></div>
-
-              {build && build.roles.map((role) => (
-                <label key={role.role}><span>{role.label}{role.required ? " *" : ""}</span>
-                  <select value={buildRoles.selections[role.role] ?? ""} onChange={(e) => setBuildSelection(role.role, e.target.value)} required={role.required}>
-                    <option value="">Select {role.label}</option>
-                    {(buildRoles.models[role.role] ?? []).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-                  </select>
-                </label>
+        {!result && !entry && (
+          <>
+            <div className="hero" style={{ paddingTop: 18 }}>
+              <p className="eyebrow">SELL-TO-PCX</p>
+              <h1 style={{ fontSize: 30 }}>What are you selling?</h1>
+              <p>Choose an entry to continue. Your quote is an estimated range — the final offer is made only after physical inspection.</p>
+            </div>
+            <div className="sellEntries">
+              {ENTRIES.map((e) => (
+                <button key={e.key} type="button" className="sellEntryCard" onClick={() => chooseEntry(e.key)}>
+                  <span className="sellEntryIcon">{e.icon}</span>
+                  <strong>{e.label}</strong>
+                  <small>{e.hint}</small>
+                </button>
               ))}
+            </div>
+          </>
+        )}
 
-              {partEntry && (
-                <>
-                  <label><span>Part category *</span>
-                    <select value={partCategoryId} onChange={(e) => { setPartCategoryId(e.target.value); setPartModelId(""); }} required>
-                      <option value="">Select part category</option>
-                      {partEntry.children.map((slug) => {
-                        const c = categoryBySlug[slug];
-                        return c ? <option key={c.id} value={c.id}>{c.name}</option> : null;
-                      })}
-                    </select>
-                  </label>
-                  <label><span>Part model *</span>
-                    <select value={partModelId} onChange={(e) => setPartModelId(e.target.value)} required>
-                      <option value="">Select part model</option>
-                      {partModels.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-                    </select>
-                  </label>
-                </>
-              )}
+        {!result && entry && (
+          <form className="sellForm" onSubmit={handleSubmit}>
+            <button type="button" className="learn-more" onClick={() => chooseEntry(null)} style={{ justifySelf: "start" }}>← Choose a different entry</button>
+            <div className="entryHeading"><h2>{build ? build.title : partEntry.title}</h2><p className="meta">{disclaimer()}</p></div>
 
-              {quote.range && (
-                <div className="estimate">
-                  <div className="eprice">{moneyRange(quote.range)}</div>
-                  <p className="disclaimer">{disclaimer()}</p>
-                </div>
-              )}
-
-              <div className="entryHeading" style={{ marginTop: 12 }}><h2>Contact & fulfilment</h2></div>
-              {identity ? (
-                <>
-                  {identity.fullName
-                    ? <p className="meta">Name: {identity.fullName}</p>
-                    : <label><span>Your name *</span><input type="text" value={fallbackName} onChange={(e) => setFallbackName(e.target.value)} required /></label>}
-                  {identity.phone
-                    ? <p className="meta">Phone: {identity.phone}</p>
-                    : <label><span>Phone *</span><input type="tel" value={fallbackPhone} onChange={(e) => setFallbackPhone(e.target.value)} required /></label>}
-                  {identity.email
-                    ? <p className="meta">Email: {identity.email}</p>
-                    : <label><span>Email (optional)</span><input type="email" value={fallbackEmail} onChange={(e) => setFallbackEmail(e.target.value)} /></label>}
-                </>
-              ) : (
-                <div className="card">
-                  <p className="meta">You can view your estimated quote without an account, but signing in is required to submit.</p>
-                  <a className="primary" href="/login">Sign in to continue</a>
-                  <a className="learn-more" href="/register">Create an account</a>
-                </div>
-              )}
-
-              <label><span>Fulfilment preference</span>
-                <select value={fulfilmentPreference} onChange={(e) => setFulfilmentPreference(e.target.value)}>
-                  <option value="DROP_OFF">Drop off</option>
-                  <option value="PICKUP">Pickup</option>
-                  <option value="COURIER">Courier</option>
+            {build && build.roles.map((role) => (
+              <label key={role.role}><span>{role.label}{role.required ? " *" : ""}</span>
+                <select value={buildRoles.selections[role.role] ?? ""} onChange={(e) => setBuildSelection(role.role, e.target.value)} required={role.required}>
+                  <option value="">Select {role.label}</option>
+                  {(buildRoles.models[role.role] ?? []).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
               </label>
-              <label><span>Estimated age</span><input type="text" value={ageEstimate} onChange={(e) => setAgeEstimate(e.target.value)} placeholder="e.g. 2 years" /></label>
-              <label><span>Warranty remaining (if any)</span><input type="text" value={warrantyRemaining} onChange={(e) => setWarrantyRemaining(e.target.value)} placeholder="e.g. none" /></label>
-              <label className="check"><input type="checkbox" checked={repairDeclared} onChange={(e) => setRepairDeclared(e.target.checked)} /><span>Has repair history</span></label>
-              {repairDeclared && <label><span>Repair notes</span><input type="text" value={repairNotes} onChange={(e) => setRepairNotes(e.target.value)} /></label>}
-              <label className="check"><input type="checkbox" checked={boxAvailable} onChange={(e) => setBoxAvailable(e.target.checked)} /><span>Original box available</span></label>
-              <label className="check"><input type="checkbox" checked={invoiceAvailable} onChange={(e) => setInvoiceAvailable(e.target.checked)} /><span>Invoice available</span></label>
-              <label className="check"><input type="checkbox" checked readOnly /><span>I confirm I own this item</span></label>
-              {identity ? (
-                <button className="primary" type="submit" disabled={busy}>{busy ? "Submitting…" : "Submit sell request"}</button>
-              ) : (
-                <a className="primary" href="/login">Sign in to submit</a>
-              )}
-            </form>
-          )}
-        </div>
+            ))}
+
+            {partEntry && (
+              <>
+                <label><span>Part category *</span>
+                  <select value={partCategoryId} onChange={(e) => { setPartCategoryId(e.target.value); setPartModelId(""); }} required>
+                    <option value="">Select part category</option>
+                    {partEntry.children.map((slug) => {
+                      const c = categoryBySlug[slug];
+                      return c ? <option key={c.id} value={c.id}>{c.name}</option> : null;
+                    })}
+                  </select>
+                </label>
+                <label><span>Part model *</span>
+                  <select value={partModelId} onChange={(e) => setPartModelId(e.target.value)} required>
+                    <option value="">Select part model</option>
+                    {partModels.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                  </select>
+                </label>
+              </>
+            )}
+
+            {quote.range && (
+              <div className="estimate">
+                <div className="eprice">{moneyRange(quote.range)}</div>
+                <p className="disclaimer">{disclaimer()}</p>
+              </div>
+            )}
+
+            <div className="entryHeading" style={{ marginTop: 12 }}><h2>Contact & fulfilment</h2></div>
+            {identity ? (
+              <>
+                {identity.fullName
+                  ? <p className="meta">Name: {identity.fullName}</p>
+                  : <label><span>Your name *</span><input type="text" value={fallbackName} onChange={(e) => setFallbackName(e.target.value)} required /></label>}
+                {identity.phone
+                  ? <p className="meta">Phone: {identity.phone}</p>
+                  : <label><span>Phone *</span><input type="tel" value={fallbackPhone} onChange={(e) => setFallbackPhone(e.target.value)} required /></label>}
+                {identity.email
+                  ? <p className="meta">Email: {identity.email}</p>
+                  : <label><span>Email (optional)</span><input type="email" value={fallbackEmail} onChange={(e) => setFallbackEmail(e.target.value)} /></label>}
+              </>
+            ) : (
+              <div className="card">
+                <p className="meta">You can view your estimated quote without an account, but signing in is required to submit.</p>
+                <a className="primary" href="/login">Sign in to continue</a>
+                <a className="learn-more" href="/register">Create an account</a>
+              </div>
+            )}
+
+            <label><span>Fulfilment preference</span>
+              <select value={fulfilmentPreference} onChange={(e) => setFulfilmentPreference(e.target.value)}>
+                <option value="DROP_OFF">Drop off</option>
+                <option value="PICKUP">Pickup</option>
+                <option value="COURIER">Courier</option>
+              </select>
+            </label>
+            <label><span>Estimated age</span><input type="text" value={ageEstimate} onChange={(e) => setAgeEstimate(e.target.value)} placeholder="e.g. 2 years" /></label>
+            <label><span>Warranty remaining (if any)</span><input type="text" value={warrantyRemaining} onChange={(e) => setWarrantyRemaining(e.target.value)} placeholder="e.g. none" /></label>
+            <label className="check"><input type="checkbox" checked={repairDeclared} onChange={(e) => setRepairDeclared(e.target.checked)} /><span>Has repair history</span></label>
+            {repairDeclared && <label><span>Repair notes</span><input type="text" value={repairNotes} onChange={(e) => setRepairNotes(e.target.value)} /></label>}
+            <label className="check"><input type="checkbox" checked={boxAvailable} onChange={(e) => setBoxAvailable(e.target.checked)} /><span>Original box available</span></label>
+            <label className="check"><input type="checkbox" checked={invoiceAvailable} onChange={(e) => setInvoiceAvailable(e.target.checked)} /><span>Invoice available</span></label>
+            <label className="check"><input type="checkbox" checked readOnly /><span>I confirm I own this item</span></label>
+            {identity ? (
+              <button className="primary" type="submit" disabled={busy}>{busy ? "Submitting…" : "Submit sell request"}</button>
+            ) : (
+              <a className="primary" href="/login">Sign in to submit</a>
+            )}
+          </form>
+        )}
       </div>
     </main>
   );
