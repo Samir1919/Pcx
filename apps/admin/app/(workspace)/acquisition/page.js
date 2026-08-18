@@ -113,13 +113,18 @@ export default function AcquisitionPage() {
         {loading ? <p className="state" role="status">Loading sell requests…</p> : sellRequests.length === 0 ? <p className="state">No sell requests yet.</p> : (
           <div className="tableWrap">
             <table>
-              <thead><tr><th>Request</th><th>Request no</th><th>Model</th><th>Status</th><th>Submitted</th></tr></thead>
+              <thead><tr><th>Request</th><th>Entry</th><th>Build</th><th>Model</th><th>Status</th><th>Submitted</th></tr></thead>
               <tbody>
                 {sellRequests.map((r) => (
                   <tr key={r.id}>
                     <td><strong>{r.id.slice(0, 8)}…</strong></td>
-                    <td>{r.publicRequestNo ?? "—"}</td>
-                    <td>{r.productModelId.slice(0, 8)}…</td>
+                    <td>{r.sellEntry ?? "—"}</td>
+                    <td>
+                      {r.buildComponents && r.buildComponents.length > 0
+                        ? r.buildComponents.map((c) => <span key={c.role} className="pill" style={{ marginRight: 4 }}>{c.role}</span>)
+                        : "—"}
+                    </td>
+                    <td>{r.productModelId ? `${r.productModelId.slice(0, 8)}…` : "—"}</td>
                     <td><span className="pill">{r.status}</span></td>
                     <td>{r.submittedAt ? new Date(r.submittedAt).toLocaleString() : "—"}</td>
                   </tr>
