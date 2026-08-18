@@ -75,14 +75,14 @@ export default function StorefrontWorkspace() {
       <div className="topbar">
         <div className="topbarInner">
           <a className="brand" href="/storefront" aria-label="PCX Storefront home"><b>PCX</b><small>CERTIFIED PRE-OWNED</small></a>
-          <nav aria-label="Primary"><a className="selected" href="/storefront">Storefront</a></nav>
+          <nav aria-label="Primary"><a className="selected" href="/storefront">Storefront</a><a href="/sell">Sell</a></nav>
         </div>
       </div>
       <div className="wrap">
         <div className="hero">
           <p className="eyebrow">CERTIFIED PRE-OWNED MARKETPLACE</p>
           <h1>Shop verified hardware</h1>
-          <p>Every listing is inspected, graded, and backed by a public passport. Prices are set by PCX — never by the seller. <PassportInfoModal triggerAs="span" triggerLabel="Learn more" /></p>
+          <p>Every listing is inspected, graded, and backed by a public passport. Prices are set by PCX — never by the seller. <PassportInfoModal triggerAs="span" triggerLabel="Learn more" /> <a href="/sell">Have hardware? Sell to PCX.</a></p>
         </div>
         <Banner notice={notice} onClose={() => setNotice(null)} />
         <form className="filters" onSubmit={applyFilters}>

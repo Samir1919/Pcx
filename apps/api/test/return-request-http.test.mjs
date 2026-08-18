@@ -11,6 +11,7 @@ function service(overrides = {}) {
     async approve() { return { id: "r1", status: "APPROVED" }; },
     async receive() { return { id: "r1", status: "RECEIVED" }; },
     async settleRefund() { return { id: "r1", status: "REFUNDED", resolutionAmount: 1000 }; },
+    async list() { return { data: [] }; },
     ...overrides
   };
 }
@@ -59,7 +60,7 @@ test("return approve/receive/refund routes are wired", async () => {
   assert.equal(badAmount.status, 422);
 });
 
-test("return route rejects unknown methods and missing service", async () => {
-  assert.equal((await invoke("/api/v1/returns", { method: "GET" })).status, 405);
+test("return list route and missing service", async () => {
+  assert.equal((await invoke("/api/v1/returns", { method: "GET" })).status, 200);
   assert.equal((await invoke("/api/v1/returns", { body: {}, returnRequestService: null })).status, 503);
 });

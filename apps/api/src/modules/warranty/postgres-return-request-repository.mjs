@@ -80,6 +80,14 @@ export function createPostgresReturnRequestRepository({ pool }) {
       });
     },
 
+    async list() {
+      const result = await pool.query(
+        "SELECT id, order_item_id, status, reason_code, customer_notes, requested_at, received_at, resolution_type, resolution_amount FROM return_requests ORDER BY requested_at DESC LIMIT 100",
+        []
+      );
+      return result.rows.map(toRecord);
+    },
+
     async findById(id) {
       const result = await pool.query("SELECT id, order_item_id, status, reason_code, customer_notes, requested_at, received_at, resolution_type, resolution_amount FROM return_requests WHERE id::text = $1", [id]);
       return result.rows[0] ? toRecord(result.rows[0]) : null;

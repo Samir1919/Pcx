@@ -13,7 +13,7 @@ const createFields = new Set(["orderId", "courier", "packageType", "weight", "co
 
 export function createShipmentService({ authService, repository, id = randomUUID, clock = () => new Date(), courier = createSandboxCourier(), webhookSecret = null, maxWebhookRetries = 5 }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  for (const method of ["create", "markShipped", "markDelivered", "markReturned", "recordEvent"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  for (const method of ["create", "markShipped", "markDelivered", "markReturned", "recordEvent", "list"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
   if (!courier || typeof courier.createShipment !== "function") throw new TypeError("courier.createShipment is required");
   if (webhookSecret != null && typeof webhookSecret !== "string") throw new TypeError("webhookSecret must be a string");
   if (!Number.isInteger(maxWebhookRetries) || maxWebhookRetries < 0) throw new TypeError("maxWebhookRetries must be a non-negative integer");
@@ -50,6 +50,12 @@ export function createShipmentService({ authService, repository, id = randomUUID
   });
 
   return Object.freeze({
+
+    async list(accessCredential) {
+      await actor(accessCredential);
+      if (typeof repository.list !== "function") throw new ShipmentError("invalid_state");
+      return Object.freeze({ data: Object.freeze(await repository.list()) });
+    },
 
     async create(accessCredential, input) {
       await actor(accessCredential);

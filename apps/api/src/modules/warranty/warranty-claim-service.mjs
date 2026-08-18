@@ -12,7 +12,8 @@ const resolutionFields = new Set(["claimId", "resolutionType", "notes", "costAmo
 
 export function createWarrantyClaimService({ authService, repository, id = randomUUID, clock = () => new Date() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  for (const method of ["createWarranty", "createClaim", "createResolution", "findWarrantyById", "markClaimResolved"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  for (const method of ["createWarranty", "createClaim", "createResolution", "findWarrantyById", "markClaimResolved", "listWarranties", "listClaims"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  if (typeof repository.listWarranties !== "function" || typeof repository.listClaims !== "function") throw new TypeError("repository warranty/claim list methods are required");
 
   async function actor(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -61,6 +62,16 @@ export function createWarrantyClaimService({ authService, repository, id = rando
         if (error?.code === "23503") throw new WarrantyClaimError("invalid_reference");
         throw error;
       }
+    },
+
+    async listWarranties(accessCredential) {
+      await actor(accessCredential);
+      return Object.freeze({ data: Object.freeze(await repository.listWarranties()) });
+    },
+
+    async listClaims(accessCredential) {
+      await actor(accessCredential);
+      return Object.freeze({ data: Object.freeze(await repository.listClaims()) });
     },
 
     async resolveClaim(accessCredential, input) {

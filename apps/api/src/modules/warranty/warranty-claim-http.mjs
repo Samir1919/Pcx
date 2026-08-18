@@ -77,7 +77,20 @@ export async function handleWarrantyClaimRequest(request, response, { warrantyCl
 
   if (!warrantyClaimService) { send(response, 503, failure("WARRANTY_UNAVAILABLE", "Warranty/claims are temporarily unavailable", requestId)); return true; }
   if (url.searchParams.size > 0) { send(response, 400, failure("INVALID_REQUEST", "Query parameters are not supported", requestId)); return true; }
-  if (request.method !== "POST") { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
+
+  const method = request.method ?? "GET";
+  if (method === "GET" && (op === "createWarranty" || op === "createClaim")) {
+    const cookies = parsedCookies(request);
+    try {
+      const data = op === "createWarranty" ? await warrantyClaimService.listWarranties(cookies.pcx_access) : await warrantyClaimService.listClaims(cookies.pcx_access);
+      send(response, 200, data);
+    } catch (error) {
+      const [status, code, message] = map(error);
+      send(response, status, failure(code, message, requestId));
+    }
+    return true;
+  }
+  if (method !== "POST") { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
 
   const cookies = parsedCookies(request);
   try {

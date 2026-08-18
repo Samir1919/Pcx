@@ -85,6 +85,22 @@ export function createPostgresWarrantyClaimRepository({ pool }) {
       return resolution(result.rows[0]);
     },
 
+    async listWarranties() {
+      const result = await pool.query(
+        "SELECT id, order_item_id, inventory_item_id, policy_snapshot, status, starts_at, ends_at FROM warranties ORDER BY created_at DESC LIMIT 100",
+        []
+      );
+      return result.rows.map(warranty);
+    },
+
+    async listClaims() {
+      const result = await pool.query(
+        "SELECT id, warranty_id, order_item_id, status, reason_code, symptoms, requested_at, received_at, resolved_at FROM claims ORDER BY requested_at DESC LIMIT 100",
+        []
+      );
+      return result.rows.map(claim);
+    },
+
     async findWarrantyById(id) {
       const result = await pool.query("SELECT id, order_item_id, inventory_item_id, policy_snapshot, status, starts_at, ends_at FROM warranties WHERE id::text = $1", [id]);
       return result.rows[0] ? warranty(result.rows[0]) : null;

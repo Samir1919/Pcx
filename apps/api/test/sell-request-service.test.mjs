@@ -22,6 +22,7 @@ function fixture(overrides = {}) {
       calls.listed.push(userId);
       return [{ id: "sr", userId, status: SellRequestStatus.DRAFT }];
     },
+    async listAll() { return []; },
     ...overrides.repository
   };
   const service = createSellRequestService({
@@ -62,6 +63,90 @@ test("create rejects unknown fields, invalid preference, and mass assignment", a
   );
   await assert.rejects(
     service.create("access", { categoryId: "gpu", contactName: "N", contactPhone: "0", fulfilmentPreference: FulfilmentPreference.PICKUP, ownershipDeclared: false }),
+    (error) => error instanceof SellRequestError && error.code === "invalid_input"
+  );
+});
+
+test("create captures sellEntry and validated build components", async () => {
+  const { service, calls } = fixture();
+  await service.create("access", {
+    categoryId: "gpu",
+    contactName: "Seller",
+    contactPhone: "01700000000",
+    fulfilmentPreference: FulfilmentPreference.COURIER,
+    ownershipDeclared: true,
+    sellEntry: "DESKTOP_PC",
+    buildComponents: [{ role: "cpu", productModelId: "cpu-model" }, { role: "ram", productModelId: "ram-model" }]
+  });
+  assert.equal(calls.created[0].request.sellEntry, "DESKTOP_PC");
+  assert.deepEqual(calls.created[0].request.buildComponents, [
+    { role: "cpu", productModelId: "cpu-model" },
+    { role: "ram", productModelId: "ram-model" }
+  ]);
+  await assert.rejects(
+    service.create("access", {
+      categoryId: "gpu",
+      contactName: "Seller",
+      contactPhone: "01700000000",
+      fulfilmentPreference: FulfilmentPreference.COURIER,
+      ownershipDeclared: true,
+      sellEntry: "TRADE_IN"
+    }),
+    (error) => error instanceof SellRequestError && error.code === "invalid_input"
+  );
+  await assert.rejects(
+    service.create("access", {
+      categoryId: "gpu",
+      contactName: "Seller",
+      contactPhone: "01700000000",
+      fulfilmentPreference: FulfilmentPreference.COURIER,
+      ownershipDeclared: true,
+      buildComponents: [{ role: "cpu", productModelId: "a" }, { role: "cpu", productModelId: "b" }]
+    }),
+    (error) => error instanceof SellRequestError && error.code === "invalid_input"
+  );
+});
+
+test("create captures seller-declared selected specs", async () => {
+  const { service, calls } = fixture();
+  const result = await service.create("access", {
+    categoryId: "gpu",
+    contactName: "Seller",
+    contactPhone: "01700000000",
+    fulfilmentPreference: FulfilmentPreference.COURIER,
+    ownershipDeclared: true,
+    selectedSpecs: [{ key: "vram_gb", value: 12 }, { key: "condition", value: "good" }]
+  });
+  assert.deepEqual(result.selectedSpecs, [{ key: "vram_gb", value: 12 }, { key: "condition", value: "good" }]);
+  assert.deepEqual(calls.created[0].request.selectedSpecs, [{ key: "vram_gb", value: 12 }, { key: "condition", value: "good" }]);
+});
+
+test("create returns a placeholder estimated range with a final-offer disclaimer", async () => {
+  const { service } = fixture();
+  const result = await service.create("access", {
+    categoryId: "80000000-0000-0000-0000-000000000003",
+    contactName: "Seller",
+    contactPhone: "01700000000",
+    fulfilmentPreference: FulfilmentPreference.COURIER,
+    ownershipDeclared: true
+  });
+  assert.equal(result.estimatedRange.basis, "placeholder-rule-engine");
+  assert.equal(typeof result.estimatedRange.low, "number");
+  assert.equal(typeof result.estimatedRange.high, "number");
+  assert.match(result.estimatedRange.disclaimer, /not a final offer/i);
+});
+
+test("create rejects non-scalar selected spec values", async () => {
+  const { service } = fixture();
+  await assert.rejects(
+    service.create("access", {
+      categoryId: "gpu",
+      contactName: "Seller",
+      contactPhone: "01700000000",
+      fulfilmentPreference: FulfilmentPreference.COURIER,
+      ownershipDeclared: true,
+      selectedSpecs: [{ key: "vram_gb", value: { nested: true } }]
+    }),
     (error) => error instanceof SellRequestError && error.code === "invalid_input"
   );
 });

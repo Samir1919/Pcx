@@ -66,6 +66,22 @@ function map(error) {
 
 export async function handleSellRequestRequest(request, response, { sellRequestService, allowedOrigins, requestId }) {
   const url = new URL(request.url, "http://pcx.local");
+
+  // Admin queue: GET /api/v1/admin/sell-requests (read-only, non-owner-scoped).
+  if (url.pathname === "/api/v1/admin/sell-requests") {
+    if (!sellRequestService) { send(response, 503, failure("SELL_REQUEST_UNAVAILABLE", "Sell requests are temporarily unavailable", requestId)); return true; }
+    if (url.searchParams.size > 0) { send(response, 400, failure("INVALID_REQUEST", "Query parameters are not supported", requestId)); return true; }
+    if (request.method !== "GET") { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
+    const cookies = parsedCookies(request);
+    try {
+      send(response, 200, await sellRequestService.listAdmin(cookies.pcx_access));
+    } catch (error) {
+      const [status, code, message] = map(error);
+      send(response, status, failure(code, message, requestId));
+    }
+    return true;
+  }
+
   const prefix = "/api/v1/sell-requests";
   if (url.pathname !== prefix && !url.pathname.startsWith(`${prefix}/`)) return false;
   if (!sellRequestService) { send(response, 503, failure("SELL_REQUEST_UNAVAILABLE", "Sell requests are temporarily unavailable", requestId)); return true; }

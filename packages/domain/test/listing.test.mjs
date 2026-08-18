@@ -27,6 +27,7 @@ test("public listing card exposes only approved disclosure fields", () => {
   const listing = createPublicListing({
     id: "l1",
     publicSlug: "pcx-gaming-tower",
+    inventoryItemId: "inv-1",
     pcxItemId: "PCX-1",
     modelId: "m1",
     name: "GPU",
@@ -45,6 +46,8 @@ test("public listing card exposes only approved disclosure fields", () => {
 test("public passport exposes only approved disclosure fields", () => {
   const passport = createPublicPassport({
     pcxItemId: "PCX-1",
+    inventoryItemId: "inv-1",
+    listingId: "l1",
     modelId: "m1",
     name: "GPU",
     categoryId: "gpu",

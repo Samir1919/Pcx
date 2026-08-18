@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import { storefrontApi } from "../../../lib/storefront-api";
 import { money } from "../../../lib/format";
 import PassportInfoModal from "../PassportInfoModal";
+import BuyFlow from "../BuyFlow";
 
 export default function PassportPage() {
   const params = useParams();
@@ -39,6 +40,7 @@ export default function PassportPage() {
               <PassportInfoModal triggerAs="span" triggerLabel="Public passport" triggerClassName="pill pill-link" />
               <h1>{passport.name}</h1>
               <div className="meta">PCX item {passport.pcxItemId}</div>
+              <a className="pill pill-link" href={`/model/${encodeURIComponent(passport.modelId)}`}>View full model specifications</a>
               <div className="price">{money(passport.price)}<small>PCX-set price</small></div>
               <dl>
                 <div><dt>Status</dt><dd>{passport.status}</dd></div>
@@ -47,6 +49,7 @@ export default function PassportPage() {
                 <div><dt>Published</dt><dd>{passport.publishedAt ? new Date(passport.publishedAt).toLocaleDateString() : "—"}</dd></div>
               </dl>
               {passport.verificationSummary && <p className="meta" style={{ marginTop: 18 }}>{passport.verificationSummary}</p>}
+              <BuyFlow listing={passport} />
             </div>
           ) : <p className="state">Passport not found.</p>}
         </div>

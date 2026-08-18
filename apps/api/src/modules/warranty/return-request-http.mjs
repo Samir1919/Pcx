@@ -73,7 +73,19 @@ export async function handleReturnRequest(request, response, { returnRequestServ
   if (!returnRequestService) { send(response, 503, failure("RETURN_UNAVAILABLE", "Returns are temporarily unavailable", requestId)); return true; }
   if (url.searchParams.size > 0) { send(response, 400, failure("INVALID_REQUEST", "Query parameters are not supported", requestId)); return true; }
 
+  const method = request.method ?? "GET";
   const suffix = url.pathname.slice(prefix.length);
+  if (!suffix && method === "GET") {
+    const cookies = parsedCookies(request);
+    try {
+      send(response, 200, await returnRequestService.list(cookies.pcx_access));
+    } catch (error) {
+      const [status, code, message] = map(error);
+      send(response, status, failure(code, message, requestId));
+    }
+    return true;
+  }
+
   let returnId = null;
   let op = null;
   if (suffix) {
@@ -83,7 +95,6 @@ export async function handleReturnRequest(request, response, { returnRequestServ
     if (!id(returnId)) { send(response, 404, failure("RETURN_NOT_FOUND", "Return request not found", requestId)); return true; }
   }
 
-  const method = request.method ?? "GET";
   const valid = (!suffix && method === "POST") || (returnId && op && method === "POST");
   if (!valid) { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
 

@@ -36,7 +36,11 @@
     "db:restore-drill": "sh scripts/db-restore-drill.sh",
     "release:preflight": "node scripts/release-preflight.mjs",
     "autonomous:loop": "node scripts/autonomous-loop.mjs --dry-run",
+    "web:check": "node scripts/web-check.mjs",
     "verify": "npm run verify:e0 && npm run lint && npm run typecheck && npm test && npm run build && npm run security",
     "verify:ci": "npm run verify && npm run test:integration && npm run smoke"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1"
   }
 }

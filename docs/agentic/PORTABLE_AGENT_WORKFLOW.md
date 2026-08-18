@@ -35,6 +35,8 @@ Ground context → specify bounded slice → inspect code/tests
 
 Agents must not claim success from generated code alone. Completion requires observable verification appropriate to the change.
 
+For customer web (`apps/web`) and admin web (`apps/admin`) UI changes, an HTTP 200 from `curl` is NOT sufficient evidence that a page works. React runtime errors, console errors, and failed API requests happen client-side and are invisible to `curl`. Run `npm run web:check` (Playwright headless Chromium, `scripts/web-check.mjs`) against the running `npm run dev` stack; it loads the key web/admin pages and fails on page errors, `console.error`, failed requests, or missing content. When a test must also click through auth-gated flows, drive the browser with `--only web` / `--only admin` and extend `scripts/web-check.mjs` with the exact selectors.
+
 ## Continuation semantics
 
 An open-ended human instruction to continue dependency-ready work persists across task, branch, commit, handoff, and chat-response boundaries. For that instruction, use this outer loop:

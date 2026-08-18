@@ -13,6 +13,7 @@ export { createCustomerRegistrationCandidate, createOwnAddress } from "./identit
 export { archiveCatalogRecord, CatalogStatus, createBrand, createCategory, createProductModel } from "./catalog/catalog-records.mjs";
 export { assertUniqueModelSpecificationValues, createModelSpecificationValue, createSpecificationDefinition, SpecificationDataType } from "./catalog/specifications.mjs";
 export { createSellRequest, createSellerDeclaration, FulfilmentPreference, parseSellRequestStatus, SellRequestStatus, submitSellRequest } from "./acquisition/sell-request.mjs";
+export { BuildComponentRole, createBuildComponent, parseSellEntry, SellEntry, validateBuildComponents } from "./acquisition/sell-entry.mjs";
 export { acceptOffer, AcquisitionPaymentStatus, AcquisitionSourceType, createAcquisition, createOffer, createValuation, markAcquisitionPaid, OfferStatus, ValuationType } from "./acquisition/valuation-offer.mjs";
 export { assertPrimarySerialIdentifier, createInventoryItem, createSerialIdentifier, InventoryItemStatus, normalizeSerialIdentifier, SerialIdentifierType } from "./inventory/inventory-item.mjs";
 export { assertUniqueInspectionTemplateItems, createInspectionTemplate, createInspectionTemplateItem, InspectionResultType, InspectionTemplateStatus } from "./inspection/inspection-template.mjs";
@@ -25,4 +26,5 @@ export { createPaymentProviderConfig, maskCredentials, normalizeCredentials, Pay
 
 export { approveReturn, createReturnRequest, markReturnReceived, ReturnRequestStatus, settleRefund } from "./warranty/return-refund.mjs";
 export { createClaim, createClaimResolution, createWarranty, ClaimStatus, ResolutionType, WarrantyStatus } from "./warranty/warranty-claim.mjs";
+export { archiveIndicativePrice, createIndicativePrice, IndicativePriceStatus, toPublicQuoteRange } from "./pricing/indicative-price.mjs";
 export { createBkashGateway, createSandboxCourier, createSandboxNotificationDispatcher, createSandboxPaymentGateway } from "./vendor/vendor-adapters.mjs";

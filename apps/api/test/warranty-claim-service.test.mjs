@@ -11,6 +11,8 @@ function fixture(overrides = {}) {
     async createResolution(record) { calls.resolutions.push(record); return record; },
     async findWarrantyById(id) { return id === "w1" ? { id, status: WarrantyStatus.ACTIVE } : null; },
     async markClaimResolved() { return { status: "resolved", record: { id: "c1", status: ClaimStatus.RESOLVED } }; },
+    async listWarranties() { return []; },
+    async listClaims() { return []; },
     ...overrides.repository
   };
   const service = createWarrantyClaimService({

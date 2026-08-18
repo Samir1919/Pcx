@@ -10,6 +10,7 @@ function service(overrides = {}) {
     async create() { return { id: "s1", status: "DRAFT" }; },
     async ship() { return { id: "s1", status: "SHIPPED" }; },
     async deliver() { return { id: "s1", status: "DELIVERED" }; },
+    async list() { return { data: [] }; },
     ...overrides
   };
 }
@@ -63,7 +64,7 @@ test("shipment ship requires an address and deliver maps invalid state", async (
 });
 
 
-test("shipment route rejects unknown methods and missing service", async () => {
-  assert.equal((await invoke("/api/v1/admin/shipments", { method: "GET" })).status, 405);
+test("shipment list route and missing service", async () => {
+  assert.equal((await invoke("/api/v1/admin/shipments", { method: "GET" })).status, 200);
   assert.equal((await invoke("/api/v1/admin/shipments", { body: {}, shipmentService: null })).status, 503);
 });

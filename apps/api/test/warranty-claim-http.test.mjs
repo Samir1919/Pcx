@@ -10,6 +10,8 @@ function service(overrides = {}) {
     async createWarranty() { return { id: "w1", status: "ACTIVE" }; },
     async createClaim() { return { id: "c1", status: "REQUESTED" }; },
     async resolveClaim() { return { claim: { id: "c1", status: "RESOLVED" }, resolution: { id: "cr1" } }; },
+    async listWarranties() { return { data: [] }; },
+    async listClaims() { return { data: [] }; },
     ...overrides
   };
 }
@@ -52,7 +54,8 @@ test("warranty/claims map forbidden and invalid state", async () => {
   assert.equal(invalidState.status, 409);
 });
 
-test("warranty route rejects unknown methods and missing service", async () => {
-  assert.equal((await invoke("/api/v1/admin/warranties", { method: "GET" })).status, 405);
+test("warranty list routes and missing service", async () => {
+  assert.equal((await invoke("/api/v1/admin/warranties", { method: "GET" })).status, 200);
+  assert.equal((await invoke("/api/v1/admin/claims", { method: "GET" })).status, 200);
   assert.equal((await invoke("/api/v1/admin/warranties", { body: {}, warrantyClaimService: null })).status, 503);
 });

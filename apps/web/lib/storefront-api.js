@@ -1,6 +1,15 @@
-async function request(path) {
-  const response = await fetch(path, { method: "GET", headers: { accept: "application/json" }, credentials: "include" });
-  const payload = await response.json().catch(() => null);
+async function request(path, options = {}) {
+  const headers = { accept: "application/json", ...(options.headers ?? {}) };
+  if (options.body != null) headers["content-type"] = "application/json";
+  const response = await fetch(path, {
+    method: options.method ?? "GET",
+    headers,
+    credentials: "include",
+    body: options.body == null ? undefined : JSON.stringify(options.body)
+  });
+  const text = await response.text();
+  let payload = null;
+  try { payload = text ? JSON.parse(text) : null; } catch { payload = null; }
   if (!response.ok) throw new StorefrontApiError(payload?.error?.code ?? "REQUEST_FAILED", payload?.error?.message ?? "The request could not be completed", response.status);
   return payload;
 }
@@ -14,6 +23,23 @@ export class StorefrontApiError extends Error {
   }
 }
 
+function cookieValue(name) {
+  if (typeof document === "undefined") return null;
+  for (const part of document.cookie.split(";")) {
+    const index = part.indexOf("=");
+    if (index < 1) continue;
+    const key = part.slice(0, index).trim();
+    if (key !== name) continue;
+    try { return decodeURIComponent(part.slice(index + 1).trim()); } catch { return null; }
+  }
+  return null;
+}
+
+function csrfHeaders() {
+  const token = cookieValue("pcx_csrf");
+  return token ? { "x-csrf-token": token } : {};
+}
+
 function query(params) {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params ?? {})) {
@@ -23,11 +49,25 @@ function query(params) {
   return text ? `?${text}` : "";
 }
 
-// Read-only public storefront surface. Never sends credentials-bearing writes
-// and never requests serial/cost/private evidence.
+// Public storefront surface. Read paths never request serial/cost/private
+// evidence; writes carry the double-submit CSRF token from the session cookie
+// and rely on server-side authorization/ownership checks for every action.
 export const storefrontApi = Object.freeze({
   categories: () => request("/api/v1/categories"),
   brands: () => request("/api/v1/brands"),
   listings: (params) => request(`/api/v1/listings${query(params)}`),
-  passport: (pcxId) => request(`/api/v1/passport/${encodeURIComponent(pcxId)}`)
+  productModels: (params) => request(`/api/v1/product-models${query(params)}`),
+  productModel: (id) => request(`/api/v1/product-models/${encodeURIComponent(id)}`),
+  passport: (pcxId) => request(`/api/v1/passport/${encodeURIComponent(pcxId)}`),
+  quoteRanges: (params) => request(`/api/v1/quote-ranges${query(params)}`),
+
+  me: () => request("/api/v1/me"),
+  login: (contact, password) => request("/api/v1/auth/login", { method: "POST", body: { contact, password } }),
+  logout: () => request("/api/v1/auth/logout", { method: "POST", body: {}, headers: csrfHeaders() }),
+
+  reserve: (inventoryItemId) => request("/api/v1/reservations", { method: "POST", body: { inventoryItemId }, headers: csrfHeaders() }),
+  createSellRequest: (body) => request("/api/v1/sell-requests", { method: "POST", body, headers: csrfHeaders() }),
+  createOrder: (items) => request("/api/v1/orders", { method: "POST", body: { items }, headers: csrfHeaders() }),
+  createPayment: (payment) => request("/api/v1/payments", { method: "POST", body: payment, headers: csrfHeaders() }),
+  confirmPayment: (providerTransactionId) => request("/api/v1/payments/confirm", { method: "POST", body: { providerTransactionId }, headers: csrfHeaders() })
 });
