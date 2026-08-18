@@ -21,6 +21,7 @@ The Sell-to-PCX flow now offers four public entry points (Desktop PC, PC Parts, 
 - `apps/api/src/server.mjs`, `apps/api/src/modules/identity/auth-runtime.mjs` — routing/wiring.
 - `apps/web/app/sell/page.js`, `apps/web/lib/storefront-api.js`, `apps/web/app/globals.css` — redesigned web sell flow.
 - `apps/admin/app/(workspace)/acquisition/page.js` — queue columns.
+- `apps/admin/app/(workspace)/quotes/page.js`, `apps/admin/lib/quotes-api.js`, `apps/admin/app/user-shell.js`, `apps/admin/lib/catalog-api.js` — new admin "Quotes" nav + page to set indicative ranges (category default / model override) and review append-only history.
 
 ## Acceptance criteria
 
@@ -57,9 +58,9 @@ Additive migrations `0024`, `0025`, `0026`. Non-destructive. No production deplo
 
 ## Remaining work and next safe action
 
-1. Admin UI for creating indicative prices (backend endpoints + tests are in place).
-2. Fix the Offer form mismatch (`expiresAt` required by domain, not sent by admin UI) and `publicRequestNo` generation.
-3. Sell request detail view + remaining REVIEWING/inspection/offer state machine.
+1. Fix the Offer form mismatch (`expiresAt` required by domain, not sent by admin UI) and `publicRequestNo` generation.
+2. Sell request detail view + remaining REVIEWING/inspection/offer state machine.
+3. (Optional) Show the human-readable model/category name in the quotes history table instead of id snippets.
 
 ## Blockers requiring human decision
 
