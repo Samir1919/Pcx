@@ -21,13 +21,15 @@ test("sell request repository persists draft, declaration, and owner-scoped subm
     await pool.query("INSERT INTO users(id,email,status) VALUES ($1,'seller@example.com','ACTIVE')", [userId]);
 
     const created = await repository.create(
-      { id: requestId, publicRequestNo: null, userId, categoryId: "7a000000-0000-4000-8000-000000000010", productModelId: null, contactName: "Seller", contactPhone: "01700000000", contactEmail: null, fulfilmentPreference: "PICKUP", status: "DRAFT", submittedAt: null, createdAt: now, updatedAt: now },
+      { id: requestId, publicRequestNo: null, userId, categoryId: "7a000000-0000-4000-8000-000000000010", productModelId: null, contactName: "Seller", contactPhone: "01700000000", contactEmail: null, fulfilmentPreference: "PICKUP", selectedSpecs: [], sellEntry: "DESKTOP_PC", buildComponents: [{ role: "cpu", productModelId: "7a000000-0000-4000-8000-000000000020" }, { role: "ram", productModelId: "7a000000-0000-4000-8000-000000000021" }], status: "DRAFT", submittedAt: null, createdAt: now, updatedAt: now },
       { id: declarationId, sellRequestId: requestId, ageEstimate: null, warrantyRemaining: null, repairDeclared: false, repairNotes: null, boxAvailable: true, invoiceAvailable: false, ownershipDeclared: true, createdAt: now },
       now
     );
     assert.equal(created.id, requestId);
     assert.equal(created.status, "DRAFT");
     assert.equal(created.declaration.ownershipDeclared, true);
+    assert.equal(created.sellEntry, "DESKTOP_PC");
+    assert.deepEqual(created.buildComponents, [{ role: "cpu", productModelId: "7a000000-0000-4000-8000-000000000020" }, { role: "ram", productModelId: "7a000000-0000-4000-8000-000000000021" }]);
 
     assert.equal((await repository.findByOwner(userId, requestId)).id, requestId);
     assert.equal(await repository.findByOwner("7a000000-0000-4000-8000-000000000099", requestId), null);

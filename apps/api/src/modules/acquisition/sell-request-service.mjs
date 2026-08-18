@@ -7,7 +7,7 @@ export class SellRequestError extends Error {
   constructor(code) { super(code); this.name = "SellRequestError"; this.code = code; }
 }
 
-const createFields = new Set(["categoryId", "productModelId", "contactName", "contactPhone", "contactEmail", "fulfilmentPreference", "selectedSpecs", "ageEstimate", "warrantyRemaining", "repairDeclared", "repairNotes", "boxAvailable", "invoiceAvailable", "ownershipDeclared"]);
+const createFields = new Set(["categoryId", "productModelId", "contactName", "contactPhone", "contactEmail", "fulfilmentPreference", "selectedSpecs", "sellEntry", "buildComponents", "ageEstimate", "warrantyRemaining", "repairDeclared", "repairNotes", "boxAvailable", "invoiceAvailable", "ownershipDeclared"]);
 
 // PLACEHOLDER preliminary estimated ranges per launch category. This is the
 // documented rule-engine interface required by the approved backlog (E3):
@@ -71,6 +71,8 @@ export function createSellRequestService({ authService, repository, id = randomU
           contactEmail: fields.contactEmail,
           fulfilmentPreference: fields.fulfilmentPreference,
           selectedSpecs: fields.selectedSpecs,
+          sellEntry: fields.sellEntry,
+          buildComponents: fields.buildComponents,
           createdAt: now
         });
       } catch {

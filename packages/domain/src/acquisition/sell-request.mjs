@@ -1,3 +1,5 @@
+import { parseSellEntry, validateBuildComponents } from "./sell-entry.mjs";
+
 export const SellRequestStatus = Object.freeze({
   DRAFT: "DRAFT",
   SUBMITTED: "SUBMITTED",
@@ -70,6 +72,8 @@ export function createSellRequest({
   contactEmail = null,
   fulfilmentPreference,
   selectedSpecs = [],
+  sellEntry = null,
+  buildComponents = [],
   createdAt = new Date()
 }) {
   const status = SellRequestStatus.DRAFT;
@@ -86,6 +90,8 @@ export function createSellRequest({
     contactEmail: optionalEmail(contactEmail, "contactEmail"),
     fulfilmentPreference,
     selectedSpecs: optionalSelectedSpecs(selectedSpecs),
+    sellEntry: parseSellEntry(sellEntry),
+    buildComponents: validateBuildComponents(buildComponents),
     status,
     submittedAt: null,
     createdAt: now,

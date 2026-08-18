@@ -67,6 +67,46 @@ test("create rejects unknown fields, invalid preference, and mass assignment", a
   );
 });
 
+test("create captures sellEntry and validated build components", async () => {
+  const { service, calls } = fixture();
+  await service.create("access", {
+    categoryId: "gpu",
+    contactName: "Seller",
+    contactPhone: "01700000000",
+    fulfilmentPreference: FulfilmentPreference.COURIER,
+    ownershipDeclared: true,
+    sellEntry: "DESKTOP_PC",
+    buildComponents: [{ role: "cpu", productModelId: "cpu-model" }, { role: "ram", productModelId: "ram-model" }]
+  });
+  assert.equal(calls.created[0].request.sellEntry, "DESKTOP_PC");
+  assert.deepEqual(calls.created[0].request.buildComponents, [
+    { role: "cpu", productModelId: "cpu-model" },
+    { role: "ram", productModelId: "ram-model" }
+  ]);
+  await assert.rejects(
+    service.create("access", {
+      categoryId: "gpu",
+      contactName: "Seller",
+      contactPhone: "01700000000",
+      fulfilmentPreference: FulfilmentPreference.COURIER,
+      ownershipDeclared: true,
+      sellEntry: "TRADE_IN"
+    }),
+    (error) => error instanceof SellRequestError && error.code === "invalid_input"
+  );
+  await assert.rejects(
+    service.create("access", {
+      categoryId: "gpu",
+      contactName: "Seller",
+      contactPhone: "01700000000",
+      fulfilmentPreference: FulfilmentPreference.COURIER,
+      ownershipDeclared: true,
+      buildComponents: [{ role: "cpu", productModelId: "a" }, { role: "cpu", productModelId: "b" }]
+    }),
+    (error) => error instanceof SellRequestError && error.code === "invalid_input"
+  );
+});
+
 test("create captures seller-declared selected specs", async () => {
   const { service, calls } = fixture();
   const result = await service.create("access", {
