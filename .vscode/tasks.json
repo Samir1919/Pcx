@@ -5,7 +5,10 @@
       "label": "PCX: Verify all",
       "type": "shell",
       "command": "npm run verify",
-      "group": { "kind": "test", "isDefault": true },
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
       "problemMatcher": []
     },
     {
@@ -19,6 +22,13 @@
       "label": "PCX: Start local services",
       "type": "shell",
       "command": "docker compose -f infra/docker-compose.yml up -d",
+      "problemMatcher": []
+    },
+    {
+      "label": "PCX: Browser-check web/admin",
+      "type": "shell",
+      "command": "npm run web:check",
+      "group": "test",
       "problemMatcher": []
     }
   ]
