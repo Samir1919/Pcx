@@ -29,5 +29,6 @@ export const storefrontApi = Object.freeze({
   categories: () => request("/api/v1/categories"),
   brands: () => request("/api/v1/brands"),
   listings: (params) => request(`/api/v1/listings${query(params)}`),
+  productModel: (id) => request(`/api/v1/product-models/${encodeURIComponent(id)}`),
   passport: (pcxId) => request(`/api/v1/passport/${encodeURIComponent(pcxId)}`)
 });

@@ -39,6 +39,7 @@ export default function PassportPage() {
               <PassportInfoModal triggerAs="span" triggerLabel="Public passport" triggerClassName="pill pill-link" />
               <h1>{passport.name}</h1>
               <div className="meta">PCX item {passport.pcxItemId}</div>
+              <a className="pill pill-link" href={`/model/${encodeURIComponent(passport.modelId)}`}>View full model specifications</a>
               <div className="price">{money(passport.price)}<small>PCX-set price</small></div>
               <dl>
                 <div><dt>Status</dt><dd>{passport.status}</dd></div>
