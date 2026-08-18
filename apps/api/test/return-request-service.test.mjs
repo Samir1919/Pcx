@@ -13,6 +13,7 @@ function fixture(overrides = {}) {
     async markReceived() { return { status: "received", record: { id: "r1", status: ReturnRequestStatus.RECEIVED } }; },
     async settleRefund() { return { status: "refunded", record: { id: "r1", status: ReturnRequestStatus.REFUNDED, resolutionAmount: 1000 } }; },
     async findById() { return { id: "r1", status: ReturnRequestStatus.RECEIVED }; },
+    async list() { return []; },
     ...overrides.repository
   };
   const service = createReturnRequestService({

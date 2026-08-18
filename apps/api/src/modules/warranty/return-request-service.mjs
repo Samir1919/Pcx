@@ -10,7 +10,7 @@ const createFields = new Set(["orderItemId", "reasonCode", "customerNotes"]);
 
 export function createReturnRequestService({ authService, repository, id = randomUUID, clock = () => new Date() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  for (const method of ["create", "approve", "markReceived", "settleRefund", "findById", "findRefundableByOrderItem", "orderItemInventoryId"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  for (const method of ["create", "approve", "markReceived", "settleRefund", "findById", "findRefundableByOrderItem", "orderItemInventoryId", "list"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
 
   async function customer(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -21,6 +21,12 @@ export function createReturnRequestService({ authService, repository, id = rando
   async function refundActor(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
     if (!hasPermission(identity, Permission.REFUND_MANAGE)) throw new ReturnRequestError("forbidden");
+    return identity;
+  }
+
+  async function reader(accessCredential) {
+    const identity = await authService.authenticateAccess({ accessCredential });
+    if (!hasPermission(identity, Permission.REFUND_MANAGE) && !hasPermission(identity, Permission.AUDIT_READ)) throw new ReturnRequestError("forbidden");
     return identity;
   }
 
@@ -66,6 +72,12 @@ export function createReturnRequestService({ authService, repository, id = rando
       const result = await repository.markReceived(returnId, clock().toISOString());
       if (result.status !== "received") throw new ReturnRequestError("invalid_state");
       return result.record;
+    },
+
+    async list(accessCredential) {
+      await reader(accessCredential);
+      if (typeof repository.list !== "function") throw new ReturnRequestError("invalid_state");
+      return Object.freeze({ data: Object.freeze(await repository.list()) });
     },
 
     async settleRefund(accessCredential, returnId, amount) {
