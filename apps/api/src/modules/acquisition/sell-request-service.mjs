@@ -7,7 +7,7 @@ export class SellRequestError extends Error {
   constructor(code) { super(code); this.name = "SellRequestError"; this.code = code; }
 }
 
-const createFields = new Set(["categoryId", "productModelId", "contactName", "contactPhone", "contactEmail", "fulfilmentPreference", "ageEstimate", "warrantyRemaining", "repairDeclared", "repairNotes", "boxAvailable", "invoiceAvailable", "ownershipDeclared"]);
+const createFields = new Set(["categoryId", "productModelId", "contactName", "contactPhone", "contactEmail", "fulfilmentPreference", "selectedSpecs", "ageEstimate", "warrantyRemaining", "repairDeclared", "repairNotes", "boxAvailable", "invoiceAvailable", "ownershipDeclared"]);
 
 export function createSellRequestService({ authService, repository, id = randomUUID, clock = () => new Date() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
@@ -40,6 +40,7 @@ export function createSellRequestService({ authService, repository, id = randomU
           contactPhone: fields.contactPhone,
           contactEmail: fields.contactEmail,
           fulfilmentPreference: fields.fulfilmentPreference,
+          selectedSpecs: fields.selectedSpecs,
           createdAt: now
         });
       } catch {

@@ -67,6 +67,35 @@ test("create rejects unknown fields, invalid preference, and mass assignment", a
   );
 });
 
+test("create captures seller-declared selected specs", async () => {
+  const { service, calls } = fixture();
+  const result = await service.create("access", {
+    categoryId: "gpu",
+    contactName: "Seller",
+    contactPhone: "01700000000",
+    fulfilmentPreference: FulfilmentPreference.COURIER,
+    ownershipDeclared: true,
+    selectedSpecs: [{ key: "vram_gb", value: 12 }, { key: "condition", value: "good" }]
+  });
+  assert.deepEqual(result.selectedSpecs, [{ key: "vram_gb", value: 12 }, { key: "condition", value: "good" }]);
+  assert.deepEqual(calls.created[0].request.selectedSpecs, [{ key: "vram_gb", value: 12 }, { key: "condition", value: "good" }]);
+});
+
+test("create rejects non-scalar selected spec values", async () => {
+  const { service } = fixture();
+  await assert.rejects(
+    service.create("access", {
+      categoryId: "gpu",
+      contactName: "Seller",
+      contactPhone: "01700000000",
+      fulfilmentPreference: FulfilmentPreference.COURIER,
+      ownershipDeclared: true,
+      selectedSpecs: [{ key: "vram_gb", value: { nested: true } }]
+    }),
+    (error) => error instanceof SellRequestError && error.code === "invalid_input"
+  );
+});
+
 test("get and submit enforce ownership and DRAFT-only transition", async () => {
   const { service } = fixture();
   assert.deepEqual((await service.get("access", "existing")).id, "existing");

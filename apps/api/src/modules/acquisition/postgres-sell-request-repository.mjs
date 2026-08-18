@@ -24,6 +24,7 @@ function row(record) {
     contactPhone: record.contact_phone,
     contactEmail: record.contact_email,
     fulfilmentPreference: record.fulfilment_preference,
+    selectedSpecs: record.selected_specs ?? [],
     status: record.status,
     submittedAt: record.submitted_at,
     createdAt: new Date(record.created_at).toISOString(),
@@ -44,7 +45,7 @@ function row(record) {
 const selectClause = `
   SELECT sr.id, sr.public_request_no, sr.user_id, sr.category_id, sr.product_model_id,
          sr.contact_name, sr.contact_phone, sr.contact_email, sr.fulfilment_preference,
-         sr.status, sr.submitted_at, sr.created_at, sr.updated_at,
+         sr.status, sr.selected_specs, sr.submitted_at, sr.created_at, sr.updated_at,
          sd.id AS declaration_id, sd.age_estimate, sd.warranty_remaining, sd.repair_declared,
          sd.repair_notes, sd.box_available, sd.invoice_available, sd.ownership_declared
   FROM sell_requests sr
@@ -57,10 +58,10 @@ export function createPostgresSellRequestRepository({ pool }) {
     async create(request, declaration, now) {
       return transaction(pool, async (client) => {
         const inserted = await client.query(
-          `INSERT INTO sell_requests(id, public_request_no, user_id, contact_name, contact_phone, contact_email, category_id, product_model_id, status, fulfilment_preference, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)
-           RETURNING id, public_request_no, user_id, category_id, product_model_id, contact_name, contact_phone, contact_email, fulfilment_preference, status, submitted_at, created_at, updated_at`,
-          [request.id, request.publicRequestNo, request.userId, request.contactName, request.contactPhone, request.contactEmail, request.categoryId, request.productModelId, request.status, request.fulfilmentPreference, now]
+          `INSERT INTO sell_requests(id, public_request_no, user_id, contact_name, contact_phone, contact_email, category_id, product_model_id, status, fulfilment_preference, selected_specs, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12, $12)
+           RETURNING id, public_request_no, user_id, category_id, product_model_id, contact_name, contact_phone, contact_email, fulfilment_preference, status, selected_specs, submitted_at, created_at, updated_at`,
+          [request.id, request.publicRequestNo, request.userId, request.contactName, request.contactPhone, request.contactEmail, request.categoryId, request.productModelId, request.status, request.fulfilmentPreference, JSON.stringify(request.selectedSpecs ?? []), now]
         );
         await client.query(
           `INSERT INTO seller_declarations(id, sell_request_id, age_estimate, warranty_remaining, repair_declared, repair_notes, box_available, invoice_available, ownership_declared, created_at)

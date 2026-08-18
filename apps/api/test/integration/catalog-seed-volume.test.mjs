@@ -15,13 +15,13 @@ test("launch catalog seeds are complete, idempotent, safe, and queryable at real
   const volumeBrand = "86000000-0000-0000-0000-000000000002";
   try {
     const categories = await pool.query("SELECT slug FROM categories WHERE id::text LIKE '80000000-%' ORDER BY sort_order");
-    assert.deepEqual(categories.rows.map(({ slug }) => slug), ["desktop-pc","laptop","gpu","cpu","motherboard","ram","storage","psu","monitor","accessory"]);
+    assert.deepEqual(categories.rows.map(({ slug }) => slug), ["desktop-pc", "laptop", "gpu", "cpu", "motherboard", "ram", "storage", "psu", "monitor", "accessory"]);
     assert.equal((await pool.query("SELECT count(*)::int count FROM brands WHERE id::text LIKE '81000000-%'")).rows[0].count, 14);
     assert.equal((await pool.query("SELECT count(*)::int count FROM product_models WHERE id::text LIKE '82000000-%'")).rows[0].count, 20);
-    assert.equal((await pool.query("SELECT count(*)::int count FROM spec_definitions WHERE id::text LIKE '83000000-%'")).rows[0].count, 8);
-    assert.equal((await pool.query("SELECT count(*)::int count FROM model_spec_values WHERE id::text LIKE '84000000-%'")).rows[0].count, 9);
+    assert.equal((await pool.query("SELECT count(*)::int count FROM spec_definitions WHERE id::text LIKE '83000000-%'")).rows[0].count, 23);
+    assert.equal((await pool.query("SELECT count(*)::int count FROM model_spec_values WHERE id::text LIKE '84000000-%'")).rows[0].count, 33);
     const columns = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name='product_models'");
-    for (const forbidden of ["serial","health_score","acquisition_cost","price","warranty"]) assert.equal(columns.rows.some(({ column_name }) => column_name.includes(forbidden)), false);
+    for (const forbidden of ["serial", "health_score", "acquisition_cost", "price", "warranty"]) assert.equal(columns.rows.some(({ column_name }) => column_name.includes(forbidden)), false);
 
     await pool.query("DELETE FROM product_models WHERE id::text LIKE '85000000-%'");
     await pool.query("DELETE FROM brands WHERE id=$1", [volumeBrand]);

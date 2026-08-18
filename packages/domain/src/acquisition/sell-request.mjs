@@ -42,6 +42,22 @@ function optionalBoolean(value, name) {
   return value;
 }
 
+// Selected specifications are the seller's declaration only. Each entry is a
+// plain JSON-safe object with a string key and a scalar value; the values are
+// captured for the S04 "Variant/Specs" step and never set price/grade/health.
+function optionalSelectedSpecs(value) {
+  if (value == null) return Object.freeze([]);
+  if (!Array.isArray(value)) throw new TypeError("selectedSpecs must be an array");
+  return Object.freeze(value.map((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) throw new TypeError("selectedSpecs entries must be objects");
+    const key = requiredString(entry.key, "entry.key");
+    const val = entry.value;
+    const valid = val == null || typeof val === "string" || typeof val === "boolean" || (typeof val === "number" && Number.isFinite(val));
+    if (!valid) throw new TypeError("selectedSpecs values must be scalar");
+    return Object.freeze({ key, value: val ?? null });
+  }));
+}
+
 // A sell request is created only as a DRAFT. Status is server-owned; the client
 // never supplies it. The owner is derived from the authenticated identity.
 export function createSellRequest({
@@ -53,6 +69,7 @@ export function createSellRequest({
   contactPhone,
   contactEmail = null,
   fulfilmentPreference,
+  selectedSpecs = [],
   createdAt = new Date()
 }) {
   const status = SellRequestStatus.DRAFT;
@@ -68,6 +85,7 @@ export function createSellRequest({
     contactPhone: requiredString(contactPhone, "contactPhone"),
     contactEmail: optionalEmail(contactEmail, "contactEmail"),
     fulfilmentPreference,
+    selectedSpecs: optionalSelectedSpecs(selectedSpecs),
     status,
     submittedAt: null,
     createdAt: now,

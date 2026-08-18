@@ -32,6 +32,26 @@ Enable a customer to see a ProductModel's typed specifications (full Desktop PC 
 ## Branch / commit
 - Branch: `agent/customer-catalog-model-view-sell-quote`
 - Commit: `f5351da` Add customer product-model spec view and desktop/part catalog specs
+- Commit (Slice 3a): sell-request selected-specs capture (structural)
+
+## Slice 3a — Sell-request spec/select capture (structural part, committed)
+- Migration `0023_sell_request_selected_specs.sql` adds `sell_requests.selected_specs jsonb NOT NULL DEFAULT '[]'`.
+- Domain `createSellRequest` now accepts `selectedSpecs` (array of `{key, value}` scalar, frozen); invalid/non-scalar values rejected.
+- Service `createFields` allowlists `selectedSpecs`; repository INSERT/SELECT/row mapping persist it.
+- Tests added in `sell-request-service.test.mjs` (capture + non-scalar rejection); `catalog-seed-volume.test.mjs` seed-count assertions updated 8→23 spec definitions and 9→33 model spec values to reflect the legitimate catalog enrichment.
+
+## Verification (Slice 3a)
+- `npm run typecheck` pass, `npm run lint` pass.
+- `node --test apps/api/test/sell-request-service.test.mjs` 5/5 pass.
+- `node --test apps/api/test/integration/catalog-seed-volume.test.mjs` 1/1 pass.
+- Migration 0023 applied live; `information_schema` confirms `sell_requests.selected_specs jsonb` default `'[]'`.
+
+## Known pre-existing/environment test failures (not caused by this slice)
+With `TEST_DATABASE_URL` now set locally, previously-skipped DB/unit tests run and surface 4 failures unrelated to catalog/sell-request:
+1. `auth-http` "login issues secure scoped cookies" — `NODE_ENV=development` drops `Secure` attribute, but the test expects it unconditionally.
+2. `deepseek executor keeps json_object` — external AI adapter behavior.
+3. `listing repository persists draft...` (integration) — listing table untouched by these migrations.
+4. `identity migration is repeatable...` (integration) — identity migrations untouched.
 
 ## Remaining work (dependency-ready)
 1. **Slice 2 — Storefront buy path (customer can actually purchase).**
