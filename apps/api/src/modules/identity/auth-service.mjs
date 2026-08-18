@@ -30,7 +30,8 @@ export function createAuthService({
   id = randomUUID,
   credential = generateOpaqueCredential,
   passwords = { assert: assertPassword, hash: hashPassword, verify: verifyPassword },
-  mfa
+  mfa,
+  autoActivate = false
 }) {
   for (const method of ["createCustomer", "findPasswordIdentityByContact", "createSession", "rotateRefresh", "revokeFamilyByRefreshHash"]) {
     requiredDependency(repository, method, "repository");
@@ -90,7 +91,16 @@ export function createAuthService({
       const now = clock();
       const candidate = createCustomerRegistrationCandidate({ id: id(), email, phone, createdAt: now });
       try {
-        const customer = await repository.createCustomer({ ...candidate, passwordHash: await passwords.hash(password) });
+        // Development-only convenience: when delivery is a no-op the
+        // contact-verification token can never reach the user, so a fresh
+        // account would stay PENDING_VERIFICATION and be unable to sign in.
+        // `autoActivate` activates the account immediately; production keeps
+        // the verified-first flow (PENDING_VERIFICATION until contact verify).
+        const customer = await repository.createCustomer({
+          ...candidate,
+          passwordHash: await passwords.hash(password),
+          ...(autoActivate ? { status: "ACTIVE", contactVerified: true } : {})
+        });
         await record("register", "succeeded", context, customer.id);
         return Object.freeze({ status: "registered", customer: Object.freeze({ id: customer.id, status: customer.status, contactVerified: customer.contact_verified ?? customer.contactVerified }) });
       } catch (error) {

@@ -74,7 +74,11 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
     repository,
     abuseControl: control,
     audit: auditSink,
-    mfa
+    mfa,
+    // Local development has no real delivery channel, so newly registered
+    // customers activate immediately. Production keeps the verified-first
+    // PENDING_VERIFICATION flow.
+    autoActivate: process.env.NODE_ENV === "development"
   });
   const identityActionService = createIdentityActionService({
     identityRepository: repository,

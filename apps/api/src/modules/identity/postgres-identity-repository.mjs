@@ -31,12 +31,12 @@ export function createPostgresIdentityRepository({ pool }) {
   }
 
   return Object.freeze({
-    async createCustomer({ id, email, phone, passwordHash, createdAt }) {
+    async createCustomer({ id, email, phone, passwordHash, createdAt, status = "PENDING_VERIFICATION", contactVerified = false }) {
       assertPasswordHash(passwordHash);
       return transaction(pool, async (client) => {
         const inserted = await client.query(
-          "INSERT INTO users(id, email, phone, password_hash, status, contact_verified, created_at, updated_at) VALUES ($1, $2, $3, $4, 'PENDING_VERIFICATION', false, $5, $5) RETURNING id, email, phone, status, contact_verified",
-          [id, email, phone, passwordHash, createdAt]
+          "INSERT INTO users(id, email, phone, password_hash, status, contact_verified, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $7) RETURNING id, email, phone, status, contact_verified",
+          [id, email, phone, passwordHash, status, contactVerified, createdAt]
         );
         const role = await client.query("SELECT id FROM roles WHERE code = 'CUSTOMER'");
         if (role.rowCount !== 1) throw new Error("canonical CUSTOMER role is missing");
