@@ -631,6 +631,97 @@ textarea:focus {
 }
 
 /* ------------------------------------------------------------------ */
+/* Modal dialog (inline edit/publish actions)                          */
+/* ------------------------------------------------------------------ */
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(16px, 5vw, 40px);
+  background: rgba(16, 28, 24, .5);
+  backdrop-filter: blur(3px)
+}
+
+.modalDialog {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 28px 28px 26px
+}
+
+.modalDialog h2 {
+  margin: 0 0 10px;
+  padding-right: 40px
+}
+
+.modalDialog p {
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0 0 16px;
+  font-size: 13px
+}
+
+.modalDialog label {
+  display: block
+}
+
+.modalDialog label>span {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 7px
+}
+
+.modalDialog input {
+  width: 100%
+}
+
+.dialogError {
+  color: var(--red) !important;
+  margin: 12px 0 0 !important;
+  font-size: 12px !important
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px
+}
+
+.modalActions .primary {
+  margin: 0
+}
+
+.modalClose {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer
+}
+
+.modalClose:hover {
+  background: var(--mint)
+}
+
+/* ------------------------------------------------------------------ */
 /* Auth surfaces                                                       */
 /* ------------------------------------------------------------------ */
 
