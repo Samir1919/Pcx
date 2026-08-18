@@ -1,6 +1,6 @@
 # Task: Admin/Web CRUD & List Improvements
 
-- Status: In progress
+- Status: Complete
 - Owner/agent: Cline (autonomous continuation)
 - Branch: `agent/admin-web-crud-list-improvements`
 - Risk: Medium (admin UI surface, some new read-only backend endpoints)
@@ -37,11 +37,11 @@ Close admin UI CRUD/read gaps by (1) replacing `window.prompt` catalog edits wit
 
 ## Acceptance criteria
 
-- [ ] Catalog edit uses a modal and can edit all server-supported fields per resource.
-- [ ] Acquisition workspace shows sell requests.
-- [ ] Inventory item detail is reachable.
-- [ ] Shipment/return/warranty/notification workspaces show read-only lists.
-- [ ] `npm run verify` passes; no `window.prompt` remains in admin workspaces.
+- [x] Catalog edit uses a modal and can edit all server-supported fields per resource.
+- [x] Acquisition workspace shows sell requests.
+- [x] Inventory item detail is reachable.
+- [x] Shipment/return/warranty/notification workspaces show read-only lists.
+- [x] `npm run verify` passes; no `window.prompt` remains in admin workspaces.
 
 ## State/API/schema/UI impact
 
