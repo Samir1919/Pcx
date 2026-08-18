@@ -341,6 +341,96 @@ a {
   border: 0
 }
 
+.learn-more {
+  display: inline-block;
+  border: 0;
+  background: transparent;
+  color: var(--green);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  padding: 0
+}
+
+.card .passport-verified-trigger {
+  color: var(--green);
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px
+}
+
+.pill-link {
+  cursor: pointer;
+  border: 0
+}
+
+.pill-link:hover {
+  background: #d2e8de
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(16px, 5vw, 40px);
+  background: rgba(16, 28, 24, .5);
+  backdrop-filter: blur(3px)
+}
+
+.modalDialog {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 28px 28px 26px
+}
+
+.modalDialog h2 {
+  margin: 0 0 14px;
+  font-size: 22px;
+  letter-spacing: -.5px;
+  padding-right: 40px
+}
+
+.modalDialog p {
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0 0 12px
+}
+
+.modalDialog p:last-child {
+  margin-bottom: 0
+}
+
+.modalClose {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer
+}
+
+.modalClose:hover {
+  background: var(--mint)
+}
+
 @media(max-width:620px) {
   .topbarInner {
     flex-wrap: wrap

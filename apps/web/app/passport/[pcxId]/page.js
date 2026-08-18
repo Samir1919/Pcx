@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { storefrontApi } from "../../../lib/storefront-api";
 import { money } from "../../../lib/format";
+import PassportInfoModal from "../PassportInfoModal";
 
 export default function PassportPage() {
   const params = useParams();
@@ -35,7 +36,7 @@ export default function PassportPage() {
           <a className="back" href="/storefront">← Back to storefront</a>
           {loading ? <p className="state" role="status">Loading passport…</p> : error ? <div className="banner error" role="alert"><span>{error}</span></div> : passport ? (
             <div className="card">
-              <span className="pill">Public passport</span>
+              <PassportInfoModal triggerAs="span" triggerLabel="Public passport" triggerClassName="pill pill-link" />
               <h1>{passport.name}</h1>
               <div className="meta">PCX item {passport.pcxItemId}</div>
               <div className="price">{money(passport.price)}<small>PCX-set price</small></div>

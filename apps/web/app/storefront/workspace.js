@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { storefrontApi } from "../../lib/storefront-api";
 import { money } from "../../lib/format";
+import PassportInfoModal from "../passport/PassportInfoModal";
 
 const sorts = [
   { key: "newest", label: "Newest" },
@@ -81,7 +82,7 @@ export default function StorefrontWorkspace() {
         <div className="hero">
           <p className="eyebrow">CERTIFIED PRE-OWNED MARKETPLACE</p>
           <h1>Shop verified hardware</h1>
-          <p>Every listing is inspected, graded, and backed by a public passport. Prices are set by PCX — never by the seller.</p>
+          <p>Every listing is inspected, graded, and backed by a public passport. Prices are set by PCX — never by the seller. <PassportInfoModal triggerLabel="Learn more" /></p>
         </div>
         <Banner notice={notice} onClose={() => setNotice(null)} />
         <form className="filters" onSubmit={applyFilters}>
@@ -99,7 +100,7 @@ export default function StorefrontWorkspace() {
                   <span className="pill">Certified</span>
                   <h3>{item.name}</h3>
                   <div className="meta">{names.brand[item.brandId] ?? "Unknown brand"} · {names.category[item.categoryId] ?? "Unknown category"}</div>
-                  <div className="price">{money(item.price)}<small>PCX-set price · passport verified</small></div>
+                  <div className="price">{money(item.price)}<small>PCX-set price · <PassportInfoModal triggerAs="span" triggerLabel="passport verified" triggerClassName="passport-verified-trigger" /></small></div>
                 </a>
               ))}
             </div>
