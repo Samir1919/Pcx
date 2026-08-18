@@ -14,8 +14,14 @@ test("launch catalog seeds are complete, idempotent, safe, and queryable at real
   const volumeCategory = "86000000-0000-0000-0000-000000000001";
   const volumeBrand = "86000000-0000-0000-0000-000000000002";
   try {
-    const categories = await pool.query("SELECT slug FROM categories WHERE id::text LIKE '80000000-%' ORDER BY sort_order");
-    assert.deepEqual(categories.rows.map(({ slug }) => slug), ["desktop-pc", "laptop", "gpu", "cpu", "motherboard", "ram", "storage", "psu", "monitor", "accessory"]);
+    const categories = await pool.query("SELECT slug,parent_id FROM categories WHERE id::text LIKE '80000000-%' ORDER BY sort_order");
+    assert.deepEqual(categories.rows.map(({ slug }) => slug), ["desktop-pc", "pc-parts", "laptop", "laptop-parts", "monitor", "accessory", "gpu", "cpu", "motherboard", "ram", "storage", "psu", "laptop-ram", "laptop-storage", "battery", "keyboard", "charger", "screen"]);
+    const parentBySlug = Object.fromEntries(categories.rows.map(({ slug, parent_id }) => [slug, parent_id]));
+    const pcPartsId = "80000000-0000-0000-0000-000000000011";
+    const laptopPartsId = "80000000-0000-0000-0000-000000000012";
+    for (const slug of ["gpu", "cpu", "motherboard", "ram", "storage", "psu"]) assert.equal(parentBySlug[slug], pcPartsId, `${slug} should nest under PC Parts`);
+    for (const slug of ["laptop-ram", "laptop-storage", "battery", "keyboard", "charger", "screen"]) assert.equal(parentBySlug[slug], laptopPartsId, `${slug} should nest under Laptop Parts`);
+    for (const slug of ["desktop-pc", "pc-parts", "laptop", "laptop-parts", "monitor", "accessory"]) assert.equal(parentBySlug[slug], null, `${slug} should stay at catalog root`);
     assert.equal((await pool.query("SELECT count(*)::int count FROM brands WHERE id::text LIKE '81000000-%'")).rows[0].count, 14);
     assert.equal((await pool.query("SELECT count(*)::int count FROM product_models WHERE id::text LIKE '82000000-%'")).rows[0].count, 20);
     assert.equal((await pool.query("SELECT count(*)::int count FROM spec_definitions WHERE id::text LIKE '83000000-%'")).rows[0].count, 23);
