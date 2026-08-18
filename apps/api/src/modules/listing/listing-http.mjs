@@ -122,6 +122,19 @@ export async function handleListingRequest(request, response, { listingService, 
   if (url.searchParams.size > 0) { send(response, 400, failure("INVALID_REQUEST", "Query parameters are not supported", requestId)); return true; }
 
   const suffix = url.pathname.slice(prefix.length);
+  const method = request.method ?? "GET";
+  const listMode = !suffix && method === "GET";
+  if (listMode) {
+    const cookies = parsedCookies(request);
+    try {
+      send(response, 200, await listingService.listAdmin(cookies.pcx_access, {}));
+    } catch (error) {
+      const [status, code, message] = map(error);
+      send(response, status, failure(code, message, requestId));
+    }
+    return true;
+  }
+
   let listingId = null;
   let op = null;
   if (suffix) {
@@ -132,7 +145,6 @@ export async function handleListingRequest(request, response, { listingService, 
     else { send(response, 404, failure("LISTING_NOT_FOUND", "Listing not found", requestId)); return true; }
   }
 
-  const method = request.method ?? "GET";
   const valid = (!suffix && method === "POST") || (op === "publish" && method === "POST") || (op === "setPrice" && method === "POST");
   if (!valid) { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
 

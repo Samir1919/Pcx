@@ -107,6 +107,39 @@ export function createPostgresListingRepository({ pool }) {
       return result.rows[0] ?? null;
     },
 
+    async listAdmin({ limit = 50, cursor = null } = {}) {
+      if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new TypeError("listing admin limit is invalid");
+      const values = [];
+      const where = [];
+      const add = (value) => { values.push(value); return `$${values.length}`; };
+      if (cursor) {
+        const decoded = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
+        where.push(`(l.created_at, l.id::text) < (${add(decoded.value)}, ${add(decoded.id)})`);
+      }
+      const pageSize = add(limit + 1);
+      const result = await pool.query(
+        `SELECT l.id, l.inventory_item_id, l.status, l.public_slug, l.published_at, l.created_at,
+                ii.pcx_item_id, pm.id AS model_id, pm.name AS model_name,
+                lp.price
+         FROM listings l
+         JOIN inventory_items ii ON ii.id = l.inventory_item_id
+         JOIN product_models pm ON pm.id = ii.product_model_id
+         LEFT JOIN LATERAL (
+           SELECT price FROM listing_prices WHERE listing_id = l.id AND valid_to IS NULL ORDER BY valid_from DESC LIMIT 1
+         ) lp ON true
+         ${where.length > 0 ? `WHERE ${where.join(" AND ")}` : ""}
+         ORDER BY l.created_at DESC, l.id DESC
+         LIMIT ${pageSize}`,
+        values
+      );
+      const hasNext = result.rows.length > limit;
+      const rows = result.rows.slice(0, limit);
+      const nextCursor = hasNext
+        ? Buffer.from(JSON.stringify({ id: rows.at(-1).id, value: new Date(rows.at(-1).created_at).toISOString() })).toString("base64url")
+        : null;
+      return { records: rows, nextCursor };
+    },
+
     async searchPublished({ categoryId = null, brandId = null, q = null, limit = 20, cursor = null, sort = "newest" } = {}) {
       if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50 || !new Set(["newest", "price_asc", "price_desc"]).has(sort)) throw new TypeError("listing search filters are invalid");
       const values = [];
