@@ -59,7 +59,17 @@ export function createListingService({ authService, repository, id = randomUUID,
       } catch {
         throw new ListingError("invalid_state");
       }
-      const result = await repository.publish(listingId, published.publicSlug, clock().toISOString());
+      let result;
+      try {
+        result = await repository.publish(listingId, published.publicSlug, clock().toISOString());
+      } catch (error) {
+        // 23505 is one of the listing unique constraints: either another active
+        // (PUBLISHED/RESERVED) listing already exists for the same InventoryItem,
+        // or the public slug is already taken. Surface a clean conflict instead of
+        // a raw database error, which would otherwise become a generic 500.
+        if (error?.code === "23505") throw new ListingError("conflict");
+        throw error;
+      }
       if (result.status !== "published") throw new ListingError("invalid_state");
       return result.record;
     },

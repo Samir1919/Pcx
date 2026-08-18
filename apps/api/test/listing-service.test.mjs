@@ -36,6 +36,20 @@ test("createDraft and publish are permission-gated with server-owned status", as
   await assert.rejects(denied.service.createDraft("access", { inventoryItemId: "inv-1" }), (error) => error.code === "forbidden");
 });
 
+test("publish maps a duplicate active listing/slug constraint to a clean conflict", async () => {
+  const duplicate = fixture({ repository: { async publish() { const error = new Error("duplicate key"); error.code = "23505"; throw error; } } });
+  await assert.rejects(
+    duplicate.service.publish("access", "l1", { publicSlug: "taken" }),
+    (error) => error.code === "conflict"
+  );
+
+  const unexpected = fixture({ repository: { async publish() { throw new Error("boom"); } } });
+  await assert.rejects(
+    unexpected.service.publish("access", "l1", { publicSlug: "taken" }),
+    (error) => error.code !== "conflict"
+  );
+});
+
 test("setPrice requires pricing permission and positive server-owned amount", async () => {
   const { service, calls } = fixture();
   const price = await service.setPrice("access", { listingId: "l1", price: 15000 });
