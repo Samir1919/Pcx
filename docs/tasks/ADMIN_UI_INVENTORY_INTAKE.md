@@ -1,8 +1,8 @@
 # Task: Admin UI — Inventory Intake
 
-- Status: In progress
+- Status: Complete
 - Owner/agent: orchestrator (single agent)
-- Branch: `agent/admin-ui-inventory-intake`
+- Branch: `agent/admin-ui-listing`
 - Risk: Medium
 - Related epic: E4 (physical intake) / E14 (admin operations)
 - Related ADRs: 0004 (Next.js admin web)
