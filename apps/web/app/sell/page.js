@@ -270,9 +270,9 @@ export default function SellPage() {
 
         {!result && !entry && (
           <>
-            <div className="hero" style={{ paddingTop: 18 }}>
+            <div className="hero sellHero">
               <p className="eyebrow">SELL-TO-PCX</p>
-              <h1 style={{ fontSize: 30 }}>What are you selling?</h1>
+              <h1>What are you selling?</h1>
               <p>Choose an entry to continue. Your quote is an estimated range — the final offer is made only after physical inspection.</p>
             </div>
             <div className="sellEntries">
@@ -289,7 +289,7 @@ export default function SellPage() {
 
         {!result && entry && (
           <form className="sellForm" onSubmit={handleSubmit}>
-            <button type="button" className="learn-more" onClick={() => chooseEntry(null)} style={{ justifySelf: "start" }}>← Choose a different entry</button>
+            <button type="button" className="learn-more" onClick={() => chooseEntry(null)}>← Choose a different entry</button>
             <div className="entryHeading"><h2>{build ? build.title : partEntry.title}</h2><p className="meta">{disclaimer()}</p></div>
 
             {build && build.roles.map((role) => (
@@ -328,7 +328,7 @@ export default function SellPage() {
               </div>
             )}
 
-            <div className="entryHeading" style={{ marginTop: 12 }}><h2>Contact & fulfilment</h2></div>
+            <div className="entryHeading"><h2>Contact & fulfilment</h2></div>
             {identity ? (
               <>
                 {identity.fullName

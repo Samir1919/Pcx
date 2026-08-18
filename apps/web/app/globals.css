@@ -392,6 +392,12 @@ a {
   margin: 0;
 }
 
+/* Sell page hero: a compact variant of the default hero. */
+.sellHero h1 {
+  font-size: clamp(1.6rem, 3.2vw, 2.25rem);
+  letter-spacing: -1px;
+}
+
 .eyebrow {
   font-size: .75rem;
   font-weight: 800;
@@ -1034,8 +1040,14 @@ a {
 .sellForm .entryHeading,
 .sellForm .estimate,
 .sellForm .card,
-.sellForm .primary {
+.sellForm .primary,
+.sellForm label.check,
+.sellForm>.meta {
   grid-column: 1 / -1;
+}
+
+.sellForm .learn-more {
+  justify-self: start;
 }
 
 .sellForm label {
