@@ -13,6 +13,7 @@ const NAV = [
   { href: "/acquisition", label: "Acquisition", icon: "acquisition" },
   { href: "/shipment", label: "Shipment", icon: "shipment" },
   { href: "/returns", label: "Returns", icon: "return" },
+  { href: "/warranty", label: "Warranty", icon: "warranty" },
   { href: "/verification", label: "Verification", icon: "verification" },
   { href: "/payments", label: "Payments", icon: "payments" },
   { href: "/audit", label: "Audit logs", icon: "audit" }
@@ -77,6 +78,14 @@ function Icon({ name }) {
         <svg {...props}>
           <path d="M9 14 4 9l5-5" />
           <path d="M4 9h9a7 7 0 0 1 7 7v4" />
+        </svg>
+      );
+    case "warranty":
+      return (
+        <svg {...props}>
+          <path d="M12 2a10 10 0 1 0 10 10h-6" />
+          <path d="M12 2a10 10 0 0 1 10 10" />
+          <path d="M12 8v4l2.5 2.5" />
         </svg>
       );
     case "verification":
