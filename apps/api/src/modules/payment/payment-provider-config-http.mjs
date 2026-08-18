@@ -77,7 +77,10 @@ export async function handlePaymentProviderConfigRequest(request, response, { pa
 
   const parsed = cookies(request);
   try {
-    security(request, allowedOrigins, parsed);
+    // GET (list) is a same-origin read; browsers do not send an Origin header
+    // on same-origin GETs, so only mutating requests run the Origin + CSRF
+    // double-submit gate. Authorization is still enforced by the service.
+    if (isSave || isActivate) security(request, allowedOrigins, parsed);
     if (isList) {
       send(response, 200, { data: await paymentProviderConfigService.listConfigs(parsed.pcx_access, provider) });
     } else if (isSave) {

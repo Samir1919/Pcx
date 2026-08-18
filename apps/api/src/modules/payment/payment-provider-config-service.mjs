@@ -56,16 +56,36 @@ export function createPaymentProviderConfigService({ authService, repository, ci
   return Object.freeze({
     async saveConfig(accessCredential, input) {
       await admin(accessCredential);
-      const fields = exact(input, new Set(["provider", "mode", "credentials", "active"]));
+      const fields = exact(input, new Set(["provider", "mode", "credentials"]));
       const provider = safeProvider(fields.provider);
       const mode = safeMode(fields.mode);
+      let incoming;
+      try {
+        incoming = normalizeCredentials(fields.credentials);
+      } catch {
+        throw new PaymentProviderConfigError("invalid_input");
+      }
+      // Preserve credentials omitted from a partial save (a blank field means
+      // "keep the current value"). Merge the existing stored credentials first
+      // so a partial update never wipes previously saved secrets.
+      const existing = await repository.findByProviderAndMode(provider, mode);
+      let previous = {};
+      try {
+        if (existing) previous = JSON.parse(cipher.decrypt(existing.encryptedCredentials));
+      } catch {
+        previous = {};
+      }
       let credentials;
       try {
-        credentials = normalizeCredentials(fields.credentials);
+        credentials = normalizeCredentials({ ...previous, ...incoming });
       } catch {
         throw new PaymentProviderConfigError("invalid_input");
       }
       const now = clock();
+      // Activation is server-owned and can only change through setActiveMode().
+      // A save never mutates it: an existing config keeps its current flag and
+      // a brand-new config stays inactive until explicitly activated.
+      const active = existing ? existing.active === true : false;
       let record;
       try {
         record = createPaymentProviderConfig({
@@ -73,7 +93,7 @@ export function createPaymentProviderConfigService({ authService, repository, ci
           provider,
           mode,
           credentials,
-          active: fields.active === true,
+          active,
           createdAt: now
         });
       } catch {

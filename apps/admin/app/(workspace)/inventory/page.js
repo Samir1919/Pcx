@@ -6,7 +6,9 @@ import { opsApi } from "../../../lib/ops-api";
 export default function InventoryPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [notice, setNotice] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -23,6 +25,26 @@ export default function InventoryPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  async function intake(event) {
+    event.preventDefault();
+    setBusy(true);
+    setNotice(null);
+    const form = new FormData(event.currentTarget);
+    try {
+      await opsApi.intakeInventory({
+        productModelId: form.get("productModelId"),
+        identifiers: [{ identifierType: "SERIAL", value: form.get("serial"), isPrimary: true }]
+      });
+      event.currentTarget.reset();
+      setNotice({ kind: "success", message: "Physical item received and registered." });
+      await load();
+    } catch (err) {
+      setNotice({ kind: "error", message: err.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <>
       <header>
@@ -34,6 +56,7 @@ export default function InventoryPage() {
         <button className="refresh" type="button" onClick={load} disabled={loading}>↻ Refresh</button>
       </header>
       {error ? <div className="banner error" role="alert"><span>{error}</span></div> : null}
+      {notice ? <div className={`banner ${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}><span>{notice.message}</span></div> : null}
       <section className="panel">
         {loading ? <p className="state" role="status">Loading inventory…</p> : items.length === 0 ? <p className="state">No inventory items found.</p> : (
           <div className="tableWrap">
@@ -52,6 +75,16 @@ export default function InventoryPage() {
             </table>
           </div>
         )}
+      </section>
+      <section className="panel formPanel">
+        <p className="eyebrow">PHYSICAL INTAKE</p>
+        <h2>Register an item</h2>
+        <p>New items start as RECEIVED. Serial is normalized server-side and cannot be registered twice.</p>
+        <form onSubmit={intake}>
+          <label><span>Product model ID</span><input name="productModelId" required /></label>
+          <label><span>Primary serial</span><input name="serial" required /></label>
+          <button className="primary" disabled={busy || loading}>{busy ? "Registering…" : "Register item"}</button>
+        </form>
       </section>
     </>
   );

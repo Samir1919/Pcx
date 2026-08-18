@@ -7,7 +7,7 @@ export { ApiError as CatalogApiError, csrfToken } from "./api-client.js";
 export const catalogApi = Object.freeze({
   categories: () => apiRequest("/api/v1/categories"),
   brands: () => apiRequest("/api/v1/brands"),
-  models: (query = "") => apiRequest(`/api/v1/product-models?limit=50${query}`),
+  models: ({ cursor } = {}) => apiRequest(`/api/v1/product-models?limit=50${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`),
   model: (id) => apiRequest(`/api/v1/product-models/${encodeURIComponent(id)}`),
   definitions: (categoryId) => apiRequest(`/api/v1/admin/attribute-definitions${categoryId ? `?categoryId=${encodeURIComponent(categoryId)}` : ""}`),
   modelValues: (modelId) => apiRequest(`/api/v1/admin/product-models/${encodeURIComponent(modelId)}/specifications`),

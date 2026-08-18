@@ -10,6 +10,7 @@ function service(overrides = {}) {
     async createDraft() { return { id: "l1", status: "DRAFT" }; },
     async publish() { return { id: "l1", status: "PUBLISHED" }; },
     async setPrice() { return { id: "p1", price: 15000 }; },
+    async listAdmin() { return { data: [{ id: "l1", modelName: "GPU" }], meta: { nextCursor: null } }; },
     async publicPassport() { return { pcxItemId: "PCX-1", status: "PUBLISHED" }; },
     async searchPublic() { return { data: [{ id: "l1", pcxItemId: "PCX-1" }], meta: { nextCursor: null } }; },
     ...overrides
@@ -71,7 +72,11 @@ test("listing maps forbidden, conflict, and invalid state", async () => {
   assert.equal(state.status, 409);
 });
 
-test("listing route rejects GET and missing service", async () => {
-  assert.equal((await invoke("/api/v1/admin/listings", { method: "GET" })).status, 405);
+test("admin listing list is a permission-gated GET and rejects query params", async () => {
+  assert.equal((await invoke("/api/v1/admin/listings")).status, 200);
+  assert.equal((await invoke("/api/v1/admin/listings?x=1")).status, 400);
+});
+
+test("listing route rejects unsupported methods and missing service", async () => {
   assert.equal((await invoke("/api/v1/admin/listings", { method: "POST", body: {}, listingService: null })).status, 503);
 });

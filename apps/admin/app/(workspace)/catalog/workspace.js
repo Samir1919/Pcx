@@ -15,6 +15,8 @@ export default function CatalogWorkspace() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [modelsCursor, setModelsCursor] = useState(null);
+  const [modelsNextCursor, setModelsNextCursor] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -26,6 +28,8 @@ export default function CatalogWorkspace() {
         catalogApi.definitions(categoryFilter)
       ]);
       setData({ categories: categories.data, brands: brands.data, models: models.data, definitions: definitions.data });
+      setModelsCursor(null);
+      setModelsNextCursor(models.meta?.nextCursor ?? null);
       setNotice(null);
     } catch (error) {
       setNotice({ kind: "error", message: error.status === 401 ? "Sign in with an authorized admin account to manage the catalog." : error.message });
@@ -33,6 +37,21 @@ export default function CatalogWorkspace() {
       setLoading(false);
     }
   }, [categoryFilter]);
+
+  const loadModelsPage = useCallback(async (cursor) => {
+    setLoading(true);
+    try {
+      const result = await catalogApi.models({ cursor });
+      setData((prev) => ({ ...prev, models: result.data }));
+      setModelsCursor(cursor ?? null);
+      setModelsNextCursor(result.meta?.nextCursor ?? null);
+      setNotice(null);
+    } catch (error) {
+      setNotice({ kind: "error", message: error.status === 401 ? "Sign in with an authorized admin account to manage the catalog." : error.message });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
@@ -139,39 +158,47 @@ export default function CatalogWorkspace() {
           ) : rows.length === 0 ? (
             <p className="state">No active records found.</p>
           ) : (
-            <div className="tableWrap">
-              <table>
-                <thead><tr><th>Name</th><th>Context</th><th>Status</th><th><span className="sr">Actions</span></th></tr></thead>
-                <tbody>
-                  {rows.map((r) => (
-                    <tr key={r.id}>
-                      <td>
-                        <strong>
+            <>
+              <div className="tableWrap">
+                <table>
+                  <thead><tr><th>Name</th><th>Context</th><th>Status</th><th><span className="sr">Actions</span></th></tr></thead>
+                  <tbody>
+                    {rows.map((r) => (
+                      <tr key={r.id}>
+                        <td>
+                          <strong>
+                            {active === "models"
+                              ? <a className="modelLink" href={`/catalog/models/${encodeURIComponent(r.id)}/specifications`}>{r.name}</a>
+                              : r.name ?? r.label}
+                          </strong>
+                          <small>{r.slug ?? r.key}</small>
+                        </td>
+                        <td>
                           {active === "models"
-                            ? <a className="modelLink" href={`/catalog/models/${encodeURIComponent(r.id)}/specifications`}>{r.name}</a>
-                            : r.name ?? r.label}
-                        </strong>
-                        <small>{r.slug ?? r.key}</small>
-                      </td>
-                      <td>
-                        {active === "models"
-                          ? `${names.brand[r.brandId] ?? "Unknown brand"} · ${names.category[r.categoryId] ?? "Unknown category"}`
-                          : active === "definitions"
-                            ? `${names.category[r.categoryId] ?? "Unknown category"} · ${r.dataType}${r.unit ? ` · ${r.unit}` : ""}`
-                            : r.parentId ? "Nested category" : "Catalog root"}
-                      </td>
-                      <td><span className="pill">Active</span></td>
-                      <td>
-                        <div className="actions">
-                          <button type="button" disabled={busy} onClick={() => edit(r)}>Edit</button>
-                          <button className="danger" type="button" disabled={busy} onClick={() => archive(r)}>Archive</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                            ? `${names.brand[r.brandId] ?? "Unknown brand"} · ${names.category[r.categoryId] ?? "Unknown category"}`
+                            : active === "definitions"
+                              ? `${names.category[r.categoryId] ?? "Unknown category"} · ${r.dataType}${r.unit ? ` · ${r.unit}` : ""}`
+                              : r.parentId ? "Nested category" : "Catalog root"}
+                        </td>
+                        <td><span className="pill">Active</span></td>
+                        <td>
+                          <div className="actions">
+                            <button type="button" disabled={busy} onClick={() => edit(r)}>Edit</button>
+                            <button className="danger" type="button" disabled={busy} onClick={() => archive(r)}>Archive</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {active === "models" && (
+                <div className="pager">
+                  <button type="button" disabled={!modelsCursor || loading} onClick={() => loadModelsPage(null)}>← First</button>
+                  <button type="button" disabled={!modelsNextCursor || loading} onClick={() => loadModelsPage(modelsNextCursor)}>Next →</button>
+                </div>
+              )}
+            </>
           )}
         </section>
         <section className="panel formPanel">

@@ -12,27 +12,59 @@
  * A dry-run mode (`--dry-run`) runs the pipeline without creating real git
  * worktrees, so it is safe to run in CI.
  */
+import { readFileSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 
-import { dirname } from "node:path";
-import { createDeepSeekExecutor } from "./ai-executor.mjs";
-import { createOpenAiReviewer } from "./ai-review.mjs";
+import { dirname, resolve } from "node:path";
+import { createDeepSeekExecutor, createProviderExecutor, createProviderPoolExecutor } from "./ai-executor.mjs";
+import { createOpenAiReviewer, createProviderPoolReviewer, createProviderReviewer } from "./ai-review.mjs";
 import { createFileLogStore, createShellGit, runParallelWorkers, summarizeRuns, validateTaskGraph } from "./control-plane.mjs";
 
 
 
 
 
+// Minimal, dependency-free `.env` loader (dotenv-compatible for the subset this
+// repository uses). Existing environment variables are never overwritten, and
+// quoted/unquoted `KEY=VALUE` lines plus inline `#` comments are supported.
+// The autonomous loop is invoked directly (not through `npm run dev`), so it
+// must load `.env` itself to see `DEEPSEEK_*` / `OPENAI_*` adapter settings.
+const loadEnvFile = (path) => {
+  let content;
+  try {
+    content = readFileSync(path, "utf8");
+  } catch {
+    return false;
+  }
+  for (const rawLine of content.split("\n")) {
+    const line = rawLine.trim();
+    if (line === "" || line.startsWith("#")) continue;
+    const equals = line.indexOf("=");
+    if (equals === -1) continue;
+    const key = line.slice(0, equals).trim();
+    let value = line.slice(equals + 1).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    } else {
+      const comment = value.indexOf(" #");
+      if (comment !== -1) value = value.slice(0, comment).trim();
+    }
+    if (key !== "" && !(key in process.env)) process.env[key] = value;
+  }
+  return true;
+};
+
 const DEFAULT_GRAPH = "work/autonomous-graph.json";
 const DEFAULT_LOG = ".worktrees/autonomous-loop.log";
+const PROVIDER_NAMES = new Set(["deepseek", "openai", "anthropic", "kimi"]);
 
 const asNonEmptyString = (value, field) => {
   if (typeof value !== "string" || value.trim() === "") throw new Error(`${field} must be a non-empty string`);
   return value.trim();
 };
 
-const parseArgs = (argv = []) => {
-  const args = { graph: DEFAULT_GRAPH, log: DEFAULT_LOG, dryRun: false, maxBatches: null, noPersistGraph: false, realExecutor: false, approvalRequired: false, deepseekExecutor: false, openAiReview: false, integrationTarget: "main" };
+export const parseArgs = (argv = []) => {
+  const args = { graph: DEFAULT_GRAPH, log: DEFAULT_LOG, dryRun: false, maxBatches: null, noPersistGraph: false, realExecutor: false, approvalRequired: false, deepseekExecutor: false, openAiReview: false, executorProvider: null, reviewerProvider: null, executorPool: false, reviewerPool: false, integrationTarget: "main" };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--graph") {
@@ -51,6 +83,20 @@ const parseArgs = (argv = []) => {
       args.deepseekExecutor = true;
     } else if (arg === "--openai-review") {
       args.openAiReview = true;
+    } else if (arg === "--executor-pool") {
+      args.executorPool = true;
+    } else if (arg === "--reviewer-pool") {
+      args.reviewerPool = true;
+    } else if (arg === "--executor-provider") {
+      const value = asNonEmptyString(argv[index + 1], "--executor-provider");
+      if (!PROVIDER_NAMES.has(value)) throw new Error(`--executor-provider must be one of ${[...PROVIDER_NAMES].join(", ")}`);
+      args.executorProvider = value;
+      index += 1;
+    } else if (arg === "--reviewer-provider") {
+      const value = asNonEmptyString(argv[index + 1], "--reviewer-provider");
+      if (!PROVIDER_NAMES.has(value)) throw new Error(`--reviewer-provider must be one of ${[...PROVIDER_NAMES].join(", ")}`);
+      args.reviewerProvider = value;
+      index += 1;
     } else if (arg === "--approval-required") {
       args.approvalRequired = true;
     } else if (arg === "--max-batches") {
@@ -224,19 +270,36 @@ const writeSummary = (summary) => {
 };
 
 const main = async () => {
+  loadEnvFile(resolve(process.cwd(), ".env"));
   const args = parseArgs(process.argv.slice(2));
   const graph = await loadGraph(args.graph);
   await mkdir(dirname(args.log), { recursive: true });
   const logStore = createFileLogStore({ path: args.log });
   const git = args.dryRun ? null : createShellGit();
-  // Executor selection: --deepseek-executor uses the DeepSeek API (reads
-  // DEEPSEEK_API_KEY/DEEPSEEK_MODEL from the environment). --real-executor uses
-  // the local marker-file executor. Otherwise the default no-op executor is used.
-  const executor = args.deepseekExecutor ? createDeepSeekExecutor() : args.realExecutor ? createRealExecutor() : undefined;
-  // Reviewer selection: --openai-review uses the OpenAI API (reads
-  // OPENAI_API_KEY/OPENAI_MODEL from the environment). Otherwise the
-  // deterministic local review adapter is used.
-  const reviewer = args.openAiReview ? createOpenAiReviewer() : undefined;
+  // Executor selection (priority): --executor-provider <name> → generic provider
+  // adapter; --deepseek-executor → DeepSeek; --real-executor → local marker-file
+  // executor. The generic provider reads its `<PREFIX>_*` env config and fails
+  // fast when the provider is held or missing a key. Otherwise the no-op
+  // executor (undefined) is used.
+  const executor = args.executorProvider
+    ? createProviderExecutor({ name: args.executorProvider })
+    : args.executorPool
+      ? createProviderPoolExecutor()
+      : args.deepseekExecutor
+        ? createDeepSeekExecutor()
+        : args.realExecutor
+          ? createRealExecutor()
+          : undefined;
+  // Reviewer selection (priority): --reviewer-provider <name> → generic provider
+  // adapter; --reviewer-pool → provider pool; --openai-review → OpenAI.
+  // Otherwise the deterministic local review adapter is used.
+  const reviewer = args.reviewerProvider
+    ? createProviderReviewer({ name: args.reviewerProvider })
+    : args.reviewerPool
+      ? createProviderPoolReviewer()
+      : args.openAiReview
+        ? createOpenAiReviewer()
+        : undefined;
   const approvalBoundary = args.approvalRequired ? { requiresApproval: ["create_commit"], approved: [] } : undefined;
   const summary = await runAutonomousLoop({ graph, git, logStore, maxBatches: args.maxBatches, executor, reviewer, approvalBoundary, integrationTarget: args.integrationTarget });
   process.stdout.write(`${writeSummary(summary)}\n`);

@@ -4,12 +4,20 @@ import { useCallback, useEffect, useState } from "react";
 import { catalogApi } from "../../../lib/catalog-api";
 import { opsApi } from "../../../lib/ops-api";
 
+const resultTypes = ["PASS_FAIL", "NUMBER", "TEXT", "SELECT", "BOOLEAN"];
+
+function newItem() {
+  return { code: "", label: "", resultType: "PASS_FAIL", isMandatory: false, isCritical: false, sortOrder: 0 };
+}
+
 export default function VerificationPage() {
   const [categories, setCategories] = useState([]);
   const [categoryId, setCategoryId] = useState("");
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [notice, setNotice] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -21,14 +29,11 @@ export default function VerificationPage() {
         if (list.length > 0) {
           setCategoryId(list[0].id);
         } else {
-          // No categories: land in a resolved (non-loading) state instead of
-          // hanging on "Loading templates…" forever.
           setLoading(false);
         }
       })
       .catch(() => {
         if (cancelled) return;
-        // Surface a stable error and clear loading so the page never hangs.
         setError("Unable to load verification categories.");
         setLoading(false);
       });
@@ -51,6 +56,45 @@ export default function VerificationPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  const [name, setName] = useState("");
+  const [version, setVersion] = useState("1.0");
+  const [items, setItems] = useState([newItem()]);
+
+  function updateItem(index, patch) {
+    setItems((prev) => prev.map((item, i) => (i === index ? { ...item, ...patch } : item)));
+  }
+
+  async function createTemplate(event) {
+    event.preventDefault();
+    setBusy(true);
+    setNotice(null);
+    try {
+      await opsApi.createTemplate({
+        categoryId,
+        name,
+        version,
+        items: items.map((item) => ({
+          code: item.code,
+          label: item.label,
+          resultType: item.resultType,
+          unit: null,
+          isMandatory: item.isMandatory,
+          isCritical: item.isCritical,
+          sortOrder: Number(item.sortOrder) || 0
+        }))
+      });
+      setName("");
+      setVersion("1.0");
+      setItems([newItem()]);
+      setNotice({ kind: "success", message: "Inspection template created." });
+      await load();
+    } catch (err) {
+      setNotice({ kind: "error", message: err.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <>
       <header>
@@ -62,6 +106,7 @@ export default function VerificationPage() {
         <button className="refresh" type="button" onClick={load} disabled={loading}>↻ Refresh</button>
       </header>
       {error ? <div className="banner error" role="alert"><span>{error}</span></div> : null}
+      {notice ? <div className={`banner ${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}><span>{notice.message}</span></div> : null}
       <section className="panel">
         <div className="panelTitle">
           <div>
@@ -92,6 +137,34 @@ export default function VerificationPage() {
             </table>
           </div>
         )}
+      </section>
+      <section className="panel formPanel">
+        <p className="eyebrow">CREATE TEMPLATE</p>
+        <h2>New inspection template</h2>
+        <p>Templates are versioned and active. Item codes are canonical lowercase snake_case and unique.</p>
+        <form onSubmit={createTemplate}>
+          <label><span>Name</span><input value={name} onChange={(e) => setName(e.target.value)} required /></label>
+          <label><span>Version</span><input value={version} onChange={(e) => setVersion(e.target.value)} required /></label>
+          <div>
+            <p className="eyebrow">CHECK ITEMS</p>
+            {items.map((item, index) => (
+              <div key={index} className="itemRow" style={{ border: "1px solid var(--line)", borderRadius: "8px", padding: "10px", marginBottom: "10px" }}>
+                <label><span>Code</span><input value={item.code} onChange={(e) => updateItem(index, { code: e.target.value })} pattern="[a-z][a-z0-9_]*" required /></label>
+                <label><span>Label</span><input value={item.label} onChange={(e) => updateItem(index, { label: e.target.value })} required /></label>
+                <label><span>Result type</span>
+                  <select value={item.resultType} onChange={(e) => updateItem(index, { resultType: e.target.value })}>
+                    {resultTypes.map((rt) => <option key={rt} value={rt}>{rt}</option>)}
+                  </select>
+                </label>
+                <label className="check"><input type="checkbox" checked={item.isMandatory} onChange={(e) => updateItem(index, { isMandatory: e.target.checked })} /><span>Mandatory</span></label>
+                <label className="check"><input type="checkbox" checked={item.isCritical} onChange={(e) => updateItem(index, { isCritical: e.target.checked })} /><span>Critical</span></label>
+                <button type="button" disabled={items.length <= 1} onClick={() => setItems((prev) => prev.filter((_, i) => i !== index))}>Remove</button>
+              </div>
+            ))}
+            <button type="button" onClick={() => setItems((prev) => [...prev, newItem()])}>Add item</button>
+          </div>
+          <button className="primary" disabled={busy || loading}>{busy ? "Creating…" : "Create template"}</button>
+        </form>
       </section>
     </>
   );

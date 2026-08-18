@@ -11,11 +11,17 @@ const priceFields = new Set(["listingId", "price", "reason"]);
 
 export function createListingService({ authService, repository, id = randomUUID, clock = () => new Date() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  for (const method of ["createDraft", "publish", "createPrice", "findById"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  for (const method of ["createDraft", "publish", "createPrice", "findById", "listAdmin"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
 
   async function actor(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
     if (!hasPermission(identity, Permission.PRICING_MANAGE)) throw new ListingError("forbidden");
+    return identity;
+  }
+
+  async function reader(accessCredential) {
+    const identity = await authService.authenticateAccess({ accessCredential });
+    if (!hasPermission(identity, Permission.PRICING_READ)) throw new ListingError("forbidden");
     return identity;
   }
 
@@ -58,6 +64,26 @@ export function createListingService({ authService, repository, id = randomUUID,
       return result.record;
     },
 
+    async listAdmin(accessCredential, filters = {}) {
+      await reader(accessCredential);
+      const result = await repository.listAdmin(filters);
+      return Object.freeze({
+        data: Object.freeze(result.records.map((row) => Object.freeze({
+          id: row.id,
+          inventoryItemId: row.inventory_item_id,
+          status: row.status,
+          publicSlug: row.public_slug,
+          publishedAt: row.published_at ? new Date(row.published_at).toISOString() : null,
+          createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
+          pcxItemId: row.pcx_item_id,
+          modelId: row.model_id,
+          modelName: row.model_name,
+          price: row.price == null ? null : Number(row.price)
+        }))),
+        meta: Object.freeze({ nextCursor: result.nextCursor })
+      });
+    },
+
     async setPrice(accessCredential, input) {
       const identity = await actor(accessCredential);
       const fields = exact(input, priceFields);
@@ -78,8 +104,19 @@ export function createListingService({ authService, repository, id = randomUUID,
       const row = await repository.findPublicPassport(pcxItemId);
       if (!row) return null;
       try {
-        return createPublicPassport({ ...row, specifications: [] });
-      } catch {
+        return createPublicPassport({
+          pcxItemId: row.pcx_item_id,
+          modelId: row.model_id,
+          name: row.name,
+          categoryId: row.category_id,
+          brandId: row.brand_id,
+          price: row.price == null ? null : Number(row.price),
+          status: row.status,
+          publishedAt: row.published_at,
+          specifications: []
+        });
+      } catch (error) {
+        console.error("[listing] publicPassport construction failed", { pcxItemId, error });
         return null;
       }
     },

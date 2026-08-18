@@ -10,7 +10,8 @@ function fixture(overrides = {}) {
     async publish(id, slug, now) { calls.publishes.push({ id, slug, now }); return { status: "published", record: { id, publicSlug: slug, status: ListingStatus.PUBLISHED } }; },
     async createPrice(record) { calls.prices.push(record); return record; },
     async findById(id) { calls.finds.push(id); return id === "l1" ? { id, inventoryItemId: "inv-1", status: ListingStatus.DRAFT, publicSlug: null, publishedAt: null } : null; },
-    async findPublicPassport(pcxItemId) { calls.passports.push(pcxItemId); return pcxItemId === "PCX-1" ? { pcxItemId, modelId: "m1", name: "GPU", categoryId: "gpu", brandId: "b1", status: "PUBLISHED", publishedAt: "2026-08-16T12:00:00.000Z", price: 15000, serial: "SECRET" } : null; },
+    async listAdmin(filters) { calls.listAdmin = filters; return { records: [{ id: "l1", inventory_item_id: "inv-1", status: "DRAFT", public_slug: null, published_at: null, created_at: "2026-08-16T12:00:00.000Z", pcx_item_id: "PCX-1", model_id: "m1", model_name: "GPU", price: null }], nextCursor: null }; },
+    async findPublicPassport(pcxItemId) { calls.passports.push(pcxItemId); return pcxItemId === "PCX-1" ? { pcx_item_id: "PCX-1", model_id: "m1", name: "GPU", category_id: "gpu", brand_id: "b1", status: "PUBLISHED", published_at: "2026-08-16T12:00:00.000Z", price: "15000", serial: "SECRET" } : null; },
     async searchPublished(filters) { calls.searches = filters; return { records: [{ id: "l1", public_slug: "pcx-gaming-tower", pcx_item_id: "PCX-1", model_id: "m1", name: "GPU", category_id: "gpu", brand_id: "b1", price: 15000, published_at: "2026-08-16T12:00:00.000Z" }], nextCursor: null }; },
     ...overrides.repository
   };
@@ -45,6 +46,19 @@ test("setPrice requires pricing permission and positive server-owned amount", as
   await assert.rejects(service.setPrice("access", { listingId: "missing", price: 10 }), (error) => error.code === "not_found");
 });
 
+test("listAdmin requires pricing read and maps snake_case admin rows", async () => {
+  const { service, calls } = fixture();
+  const result = await service.listAdmin("access", {});
+  assert.equal(result.data[0].modelName, "GPU");
+  assert.equal(result.data[0].pcxItemId, "PCX-1");
+  assert.equal(result.data[0].price, null);
+  assert.equal(result.meta.nextCursor, null);
+  assert.deepEqual(calls.listAdmin, {});
+
+  const denied = fixture({ authService: { async authenticateAccess() { return { userId: "u", status: "ACTIVE", roles: ["CUSTOMER"] }; } } });
+  await assert.rejects(denied.service.listAdmin("access", {}), (error) => error.code === "forbidden");
+});
+
 test("public search returns safe listing cards with pagination meta", async () => {
   const { service, calls } = fixture();
   const result = await service.searchPublic({ categoryId: "gpu", q: "GPU", limit: 10, sort: "newest" });
@@ -55,10 +69,16 @@ test("public search returns safe listing cards with pagination meta", async () =
   assert.equal(calls.searches.categoryId, "gpu");
 });
 
-test("public passport never leaks serial or internal fields", async () => {
+test("public passport maps snake_case row and never leaks serial or internal fields", async () => {
   const { service } = fixture();
   const passport = await service.publicPassport("PCX-1");
+  assert.notEqual(passport, null);
   assert.equal(passport.pcxItemId, "PCX-1");
+  assert.equal(passport.modelId, "m1");
+  assert.equal(passport.categoryId, "gpu");
+  assert.equal(passport.brandId, "b1");
+  assert.equal(passport.status, "PUBLISHED");
+  assert.equal(passport.price, 15000);
   assert.equal(Object.hasOwn(passport, "serial"), false);
   assert.equal(await service.publicPassport("missing"), null);
 });
