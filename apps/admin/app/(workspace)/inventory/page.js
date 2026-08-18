@@ -1,7 +1,31 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { opsApi } from "../../../lib/ops-api";
+
+function ItemDetailModal({ item, onClose }) {
+  return createPortal(
+    <div className="modalOverlay" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <div className="modalDialog" role="dialog" aria-modal="true" aria-labelledby="inventory-detail-title">
+        <button type="button" className="modalClose" aria-label="Close" onClick={onClose}>×</button>
+        <h2 id="inventory-detail-title">Inventory item</h2>
+        <p>Server-owned status and identity. Cost and serial value stay private to licensed reviewers.</p>
+        <dl className="detailList">
+          <div><dt>PCX ID</dt><dd>{item.pcxItemId ?? "—"}</dd></div>
+          <div><dt>Item ID</dt><dd>{item.id}</dd></div>
+          <div><dt>Product model</dt><dd>{item.productModelId}</dd></div>
+          <div><dt>Status</dt><dd><span className="pill">{item.status}</span></dd></div>
+          <div><dt>Received</dt><dd>{new Date(item.receivedAt).toLocaleString()}</dd></div>
+        </dl>
+        <div className="modalActions">
+          <button type="button" className="primary" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
 
 export default function InventoryPage() {
   const [items, setItems] = useState([]);
@@ -9,6 +33,7 @@ export default function InventoryPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
+  const [detail, setDetail] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -24,6 +49,19 @@ export default function InventoryPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  async function viewItem(item) {
+    setBusy(true);
+    setNotice(null);
+    try {
+      const payload = await opsApi.inventoryItem(item.id);
+      setDetail(payload.data);
+    } catch (err) {
+      setNotice({ kind: "error", message: err.message });
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function intake(event) {
     event.preventDefault();
@@ -61,7 +99,7 @@ export default function InventoryPage() {
         {loading ? <p className="state" role="status">Loading inventory…</p> : items.length === 0 ? <p className="state">No inventory items found.</p> : (
           <div className="tableWrap">
             <table>
-              <thead><tr><th>PCX ID</th><th>Model</th><th>Status</th><th>Received</th></tr></thead>
+              <thead><tr><th>PCX ID</th><th>Model</th><th>Status</th><th>Received</th><th><span className="sr">Actions</span></th></tr></thead>
               <tbody>
                 {items.map((item) => (
                   <tr key={item.id}>
@@ -69,6 +107,11 @@ export default function InventoryPage() {
                     <td>{item.productModelId.slice(0, 8)}…</td>
                     <td><span className="pill">{item.status}</span></td>
                     <td>{new Date(item.receivedAt).toLocaleString()}</td>
+                    <td>
+                      <div className="actions">
+                        <button type="button" disabled={busy} onClick={() => viewItem(item)}>View</button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -86,6 +129,7 @@ export default function InventoryPage() {
           <button className="primary" disabled={busy || loading}>{busy ? "Registering…" : "Register item"}</button>
         </form>
       </section>
+      {detail && <ItemDetailModal item={detail} onClose={() => setDetail(null)} />}
     </>
   );
 }
