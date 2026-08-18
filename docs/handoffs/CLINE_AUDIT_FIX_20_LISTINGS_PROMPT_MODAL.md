@@ -2,7 +2,7 @@
 
 - Status: Complete
 - Branch: `agent/fix-admin-listings-prompt-modal`
-- Latest commit: `2deacca`
+- Latest commit: `adc372e`
 - Date: 2026-08-18
 
 ## Outcome
@@ -20,6 +20,13 @@ The server contract is unchanged: publish still posts `{ publicSlug }` to
 price are validated client-side (canonical slug regex, positive number) before submission, and
 the server remains authoritative for all validation.
 
+Fix two: publishing a DRAFT whose `inventory_item_id` already has a PUBLISHED/RESERVED listing
+(or whose public slug already exists) tripped the `listings_one_active_per_item` / `public_slug`
+unique constraints. The publish path did not map Postgres code `23505`, so it surfaced as a
+generic `500 INTERNAL_ERROR / "Unexpected server error"`. The publish service now maps `23505`
+to `ListingError("conflict")`, which the HTTP layer already maps to a clean
+`409 LISTING_CONFLICT / "Listing conflicts with existing data"`.
+
 ## Changed areas
 
 - `apps/admin/app/(workspace)/listings/page.js`
@@ -34,6 +41,12 @@ the server remains authoritative for all validation.
 - `apps/admin/app/globals.css`
   - Added modal styles (`.modalOverlay`, `.modalDialog`, `.modalClose`, `.modalActions`,
     `.dialogError`) consistent with the existing admin design tokens and the web app's modal.
+- `apps/api/src/modules/listing/listing-service.mjs`
+  - `publish` now wraps the repository call and maps Postgres `23505` (duplicate active
+    listing per inventory item, or duplicate public slug) to `ListingError("conflict")`.
+- `apps/api/test/listing-service.test.mjs`
+  - Added a regression test asserting `23505` maps to `conflict` and an unrelated error stays
+    unmapped.
 
 ## Acceptance criteria
 
@@ -42,6 +55,7 @@ the server remains authoritative for all validation.
 - [x] Invalid slug/price shows an inline error and does not call the API.
 - [x] Valid submissions preserve the exact server API contract (`publish` and `setPrice` bodies unchanged).
 - [x] Admin production build compiles successfully (Next 16.3.1 / Turbopack).
+- [x] Publishing a conflicting listing returns a clean 409 `LISTING_CONFLICT` (not a 500).
 
 ## Verification
 
@@ -52,13 +66,16 @@ the server remains authoritative for all validation.
 | `npm run typecheck` | Pass |
 | `npm run verify:e0` | Pass — 36 required artifacts |
 | `node --test apps/admin/test/listing-api.test.mjs` | Pass — 2/2 |
-| `npm test` | Pass — 404 total, 382 pass, 0 fail, 22 skipped (integration) |
+| `node --test apps/api/test/listing-service.test.mjs apps/api/test/listing-http.test.mjs` | Pass — 12/12 |
+| `npm run verify` (full) | Pass — E0, lint, typecheck, tests (405 total, 383 pass, 0 fail, 22 skipped), build, security |
 | `npm run security` | Pass |
 
 ## Architecture/security review
 
-- No domain invariants, source-of-truth specs, or ADRs affected. This is a UI-only change
-  confined to the admin client boundary.
+- No domain invariants, source-of-truth specs, or ADRs affected. The client change is UI-only;
+  the server change only reclassifies an existing database constraint violation into a clean,
+  client-visible conflict without weakening any invariant (the one-active-listing-per-item and
+  unique-slug constraints remain enforced at the database level).
 - Server stays authoritative for slug canonicalization, pricing validity, status transitions,
   and authorization (`PRICING_MANAGE`/`PRICING_READ` via the listing service). Client-side
   validation is guidance only and cannot weaken server enforcement.
