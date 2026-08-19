@@ -1062,9 +1062,24 @@ a {
   display: flex;
   align-items: center;
   gap: .5rem;
+  min-height: var(--touch-target);
+  cursor: pointer;
 }
 
-.sellForm input,
+/* Checkboxes are declarations, not text fields — keep them at a natural
+   control size and rely on `label.check` for the 44px touch target. */
+.sellForm label.check input[type="checkbox"] {
+  width: 1.25rem;
+  height: 1.25rem;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--green);
+  cursor: pointer;
+}
+
+.sellForm input:not([type="checkbox"]),
 .sellForm select {
   border: 1px solid #cdd8d1;
   border-radius: var(--radius-sm);
@@ -1087,7 +1102,7 @@ a {
   padding-right: 2.75rem;
 }
 
-.sellForm input:focus,
+.sellForm input:not([type="checkbox"]):focus,
 .sellForm select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
