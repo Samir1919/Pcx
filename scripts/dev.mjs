@@ -11,6 +11,7 @@
  */
 import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { networkInterfaces } from "node:os";
 import { resolve } from "node:path";
 
 const ROOT = process.cwd();
@@ -51,6 +52,21 @@ const loadEnvFile = (path) => {
 
 loadEnvFile(resolve(ROOT, ".env"));
 
+const BASE_API_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001";
+
+// Detect this machine's LAN IPv4 addresses so the Next.js dev servers (which
+// already bind to all interfaces) and the API's CORS allow-list both accept the
+// same hosts. Next.js "allowedDevOrigins" wants bare hostnames, while the API
+// "allowedOrigins" wants exact HTTP(S) origins.
+const lanAddresses = [];
+for (const entries of Object.values(networkInterfaces())) {
+  for (const entry of entries ?? []) {
+    if (entry.family === "IPv4" && !entry.internal) lanAddresses.push(entry.address);
+  }
+}
+const devAllowedOrigins = lanAddresses.join(",");
+const apiAllowedOrigins = [BASE_API_ORIGINS, ...lanAddresses.flatMap((ip) => [`http://${ip}:3000`, `http://${ip}:3001`])].join(",");
+
 const PROCESSES = [
   {
     label: "api",
@@ -58,22 +74,22 @@ const PROCESSES = [
     args: ["--watch", "apps/api/src/index.mjs"],
     env: {
       // Keep the API's own origin valid for browser rewrite targets, and ensure
-      // both storefront/admin browsers are allowed to call it.
+      // storefront/admin browsers on localhost and on the LAN can call it.
       PCX_API_ORIGIN: "http://127.0.0.1:4000",
-      API_ALLOWED_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001"
+      API_ALLOWED_ORIGINS: apiAllowedOrigins
     }
   },
   {
     label: "web",
     command: npmBin,
     args: ["run", "dev", "-w", "@pcx/web", "--", "-p", "3000"],
-    env: { PCX_API_ORIGIN: "http://127.0.0.1:4000" }
+    env: { PCX_API_ORIGIN: "http://127.0.0.1:4000", PCX_DEV_ALLOWED_ORIGINS: devAllowedOrigins }
   },
   {
     label: "admin",
     command: npmBin,
     args: ["run", "dev", "-w", "@pcx/admin", "--", "-p", "3001"],
-    env: { PCX_API_ORIGIN: "http://127.0.0.1:4000" }
+    env: { PCX_API_ORIGIN: "http://127.0.0.1:4000", PCX_DEV_ALLOWED_ORIGINS: devAllowedOrigins }
   },
   { label: "worker", command: npmBin, args: ["run", "dev:worker"], env: {} }
 ];
