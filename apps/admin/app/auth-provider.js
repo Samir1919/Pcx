@@ -32,8 +32,8 @@ export function AuthProvider({ children }) {
         const challenge = result.data.challenge;
         return {
           mfaRequired: true,
-          verify: async (credential) => {
-            await authApi.verifyMfa({ challengeId: challenge.id, credential });
+          verify: async (credential, rememberDevice = false) => {
+            await authApi.verifyMfa({ challengeId: challenge.id, credential, rememberDevice });
             await refresh();
           }
         };

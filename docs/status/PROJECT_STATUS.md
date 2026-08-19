@@ -16,7 +16,7 @@ This file is the central progress index. Approved specifications define what PCX
 | Epic | Status | Verified scope | Remaining critical scope |
 |---|---|---|---|
 | E0 — Repository & engineering foundation | Complete | Monorepo boundaries, Project Brain, portable agent rules, CI skeleton, local service definitions, verification commands | Controls continue evolving under Stage 2 |
-| E1 — Identity, authentication & RBAC | In progress | Identity/RBAC contracts; auth/session and secure browser flows; audit/runtime/local limiter; contact/reset flows; privileged MFA gate and provider-neutral challenge verification; authenticated `/me`; ownership-safe authenticated address CRUD with origin/CSRF | Concrete MFA provider/enrollment; production delivery/distributed limits/atomic audit; admin user/role screens |
+| E1 — Identity, authentication & RBAC | In progress | Identity/RBAC contracts; auth/session and secure browser flows; audit/runtime/local limiter; contact/reset flows; privileged MFA gate and provider-neutral challenge verification; trusted-device remember window (ADR 0010); authenticated `/me`; ownership-safe authenticated address CRUD with origin/CSRF | Concrete MFA provider/enrollment; device revocation UI; production delivery/distributed limits/atomic audit; admin user/role screens |
 | E2 — Catalog & Product Model | In progress | Category/Brand/ProductModel contracts; typed specs; PostgreSQL persistence/runtime; audited admin catalog and typed specification-definition/value commands; responsive admin catalog and model-value UI with cursor-paginated product-model list; full-field edit modal (createPortal) for categories/brands/models/definitions; launch seeds and volume validation; safe typed specifications in public ProductModel detail | Sandbox search/listing and E8 storefront integration |
 | E3 — Sell-to-PCX | In progress | Owner-scoped authenticated sell-request create/list/get/submit with server-owned DRAFT, ownership declaration, DRAFT→SUBMITTED transition, and sell-entry/build-component model (Desktop PC, PC Parts, Laptop, Laptop Parts); catalog taxonomy (`PC Parts`/`Laptop Parts` parent groups); public 4-entry sell flow with component build wizard and live indicative quote range (`GET /api/v1/quote-ranges`); admin-set server-owned indicative prices (`POST /api/v1/admin/indicative-prices`); read-only admin sell-request queue surfaced in acquisition workspace | Admin indicative-price UI, info/inspection/valuation/offer flows, media, notifications |
 | E4 — Physical intake & inventory identity | In progress | Permission-gated physical intake as server-owned RECEIVED InventoryItem with normalized serial identifiers and database-enforced duplicate-identity rejection; admin inventory intake form + item detail view | Inspection/lifecycle transitions, PCX ID generation, cost allocation, listing |
@@ -62,7 +62,7 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Current verification baseline
 
-- Root `npm test`: 417 total, 395 pass, 0 fail, 22 skipped (DB integration) after the admin CRUD/list improvements slice.
+- Root `npm test`: 461 total, 437 pass, 0 fail, 24 skipped (DB integration) after the trusted-device MFA slice.
 - Root `npm run verify`: pass for this slice: E0, lint, typecheck, tests, build, and security scan (secrets + dependencies + container).
 - CI-equivalent `npm run verify:ci`: application/unit + PostgreSQL integration + E2E smoke, all passing (0 failures).
 - E0 artifact verification: 36 required artifacts; latest GitHub merge evidence is PR #1 (`1692049`).
@@ -94,6 +94,7 @@ This file is the central progress index. Approved specifications define what PCX
 - ADR 0007 vendor-neutral external-agent executor contract: Accepted (default-deny, secret-rejection validation).
 - ADR 0008 Stage 3 entry evidence and control-plane completion: Accepted (records trigger evidence, capabilities, cost/owner, rollout/rollback, success metrics, and manual controls).
 - ADR 0009 AI-backed executor and reviewer adapters: Accepted (opt-in DeepSeek executor and OpenAI reviewer wired via `--deepseek-executor`/`--openai-review`; secrets never in source/logs/artifacts; review gate cannot be weakened).
+- ADR 0010 trusted-device window for privileged MFA: Accepted (30-day opt-in device trust issued only after a verified MFA event; SHA-256 hashes only; server-owned, bounded, revocable).
 - No current implementation blocker.
 
 

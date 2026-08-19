@@ -142,6 +142,28 @@ export function createPostgresIdentityRepository({ pool }) {
         await revokeFamily(client, selected.rows[0].family_id, reason, now);
         return true;
       });
+    },
+
+    // Trusted-device window (ADR 0010). Returns the owning user id only when the
+    // credential hash matches an active, unexpired, non-revoked device record.
+    async findActiveTrustedDeviceUserId(credentialHash, now) {
+      assertHash(credentialHash, "credentialHash");
+      const result = await pool.query(
+        "SELECT user_id FROM trusted_devices WHERE credential_hash = $1 AND revoked_at IS NULL AND expires_at > $2",
+        [credentialHash, now]
+      );
+      return result.rows[0]?.user_id ?? null;
+    },
+
+    async issueTrustedDevice({ id, userId, credentialHash, expiresAt, createdAt }) {
+      assertHash(credentialHash, "credentialHash");
+      if (typeof id !== "string" || id.length === 0) throw new TypeError("id is required");
+      if (typeof userId !== "string" || userId.length === 0) throw new TypeError("userId is required");
+      await pool.query(
+        "INSERT INTO trusted_devices(id, user_id, credential_hash, expires_at, created_at) VALUES ($1, $2, $3, $4, $5)",
+        [id, userId, credentialHash, expiresAt, createdAt]
+      );
+      return { id, userId };
     }
   });
 }

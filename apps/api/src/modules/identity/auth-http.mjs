@@ -15,7 +15,7 @@ const fields = Object.freeze({
   login: new Set(["contact", "password"]),
   refresh: new Set(),
   logout: new Set(),
-  "verify-mfa": new Set(["challengeId", "credential"]),
+  "verify-mfa": new Set(["challengeId", "credential", "rememberDevice"]),
   "verify-contact": new Set(["token"]),
   "verify-contact-code": new Set(["contact", "code"]),
   "forgot-password": new Set(["contact"]),
@@ -98,6 +98,9 @@ function validateFields(action, body) {
   if (action === "verify-mfa" && (typeof body.challengeId !== "string" || !body.challengeId || typeof body.credential !== "string" || !body.credential)) {
     throw new HttpAuthError("INVALID_REQUEST", 400, "Challenge ID and credential are required");
   }
+  if (action === "verify-mfa" && body.rememberDevice !== undefined && typeof body.rememberDevice !== "boolean") {
+    throw new HttpAuthError("INVALID_REQUEST", 400, "rememberDevice must be a boolean");
+  }
   if ((action === "refresh" || action === "logout") && Object.keys(body).length > 0) throw new HttpAuthError("INVALID_REQUEST", 400, "Request body must be empty");
   if (action === "verify-contact" && (typeof body.token !== "string" || !body.token)) throw new HttpAuthError("INVALID_REQUEST", 400, "Token is required");
   if (action === "verify-contact-code" && (typeof body.contact !== "string" || !body.contact.trim() || typeof body.code !== "string" || !body.code)) throw new HttpAuthError("INVALID_REQUEST", 400, "Contact and code are required");
@@ -132,10 +135,18 @@ function csrfOnlyCookie(token) {
   return `pcx_csrf=${encodeURIComponent(token)}; Path=/; Expires=${expiry}; ${secureCookie}SameSite=Strict`;
 }
 
+// Trusted-device credential (ADR 0010) issued after a verified MFA event. It is
+// scoped to the auth boundary and never readable from JavaScript.
+function deviceCookie(device) {
+  const expiry = new Date(device.expiresAt).toUTCString();
+  return `pcx_device=${encodeURIComponent(device.credential)}; Path=/api/v1/auth; Expires=${expiry}; ${secureCookie}HttpOnly; SameSite=Strict`;
+}
+
 function clearCookies() {
   return [
     `pcx_access=; Path=/; Max-Age=0; ${secureCookie}HttpOnly; SameSite=Strict`,
     `pcx_refresh=; Path=/api/v1/auth; Max-Age=0; ${secureCookie}HttpOnly; SameSite=Strict`,
+    `pcx_device=; Path=/api/v1/auth; Max-Age=0; ${secureCookie}HttpOnly; SameSite=Strict`,
     `pcx_csrf=; Path=/; Max-Age=0; ${secureCookie}SameSite=Strict`
   ];
 }
@@ -182,7 +193,7 @@ export async function handleAuthRequest(request, response, { authService, identi
       const result = await authService.register(body, authContext);
       send(response, 201, { data: result.customer });
     } else if (action === "login") {
-      const result = await authService.login(body, authContext);
+      const result = await authService.login(body, authContext, { trustedDeviceCredential: parsedCookies.pcx_device ?? null });
       if (result.status === "mfa_required") {
         response.setHeader("set-cookie", [csrfOnlyCookie(csrfToken())]);
         send(response, 202, { data: { status: result.status, challenge: result.challenge } });
@@ -191,8 +202,10 @@ export async function handleAuthRequest(request, response, { authService, identi
         send(response, 200, { data: { identity: result.identity } });
       }
     } else if (action === "verify-mfa") {
-      const result = await authService.verifyMfa({ challengeId: body.challengeId, credential: body.credential }, authContext);
-      response.setHeader("set-cookie", sessionCookies(result.session, csrfToken()));
+      const result = await authService.verifyMfa({ challengeId: body.challengeId, credential: body.credential, rememberDevice: body.rememberDevice === true }, authContext);
+      const cookiesToSet = sessionCookies(result.session, csrfToken());
+      if (result.device) cookiesToSet.push(deviceCookie(result.device));
+      response.setHeader("set-cookie", cookiesToSet);
       send(response, 200, { data: { status: result.status, identity: result.identity } });
     } else if (action === "refresh") {
       const result = await authService.refresh({ refreshCredential: parsedCookies.pcx_refresh }, authContext);

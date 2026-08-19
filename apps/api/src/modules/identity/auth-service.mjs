@@ -6,6 +6,9 @@ import { requiresPrivilegedMfa, safeMfaChallenge, safeMfaUserId } from "./privil
 
 const dummyPasswordHash = "$argon2id$v=19$m=19456,p=1,t=2$O2/E313oRvHGzD2bSIIZVw$bR3lzbWFjtRahsze5LJ/mLBbUrEPNerDV6PiojyYe6A";
 
+// Trusted-device window size (ADR 0010). Mirrors the 30-day refresh lifetime.
+const trustedDeviceLifetimeMs = 30 * 24 * 60 * 60 * 1000;
+
 export class AuthenticationError extends Error {
   constructor(code) {
     super(code);
@@ -37,6 +40,9 @@ export function createAuthService({
   }
   requiredDependency(abuseControl, "check", "abuseControl");
   requiredDependency(audit, "record", "audit");
+  // Alias the credential generator so `verifyMfa` can issue device credentials
+  // without colliding with its `credential` parameter (the MFA one-time code).
+  const generateDeviceCredential = credential;
 
   async function control(action, context) {
     const outcome = await abuseControl.check({ action, ...safeContext(context) });
@@ -104,7 +110,7 @@ export function createAuthService({
       }
     },
 
-    async login({ contact, password }, context = {}) {
+    async login({ contact, password }, context = {}, { trustedDeviceCredential = null } = {}) {
       await control("login", context);
       if (typeof contact !== "string" || contact.trim().length === 0 || typeof password !== "string") {
         await record("login", "denied", context);
@@ -117,6 +123,14 @@ export function createAuthService({
         throw new AuthenticationError("invalid_credentials");
       }
       if (requiresPrivilegedMfa(identity.roles)) {
+        const trustedUserId = typeof trustedDeviceCredential === "string" && typeof repository.findActiveTrustedDeviceUserId === "function"
+          ? await repository.findActiveTrustedDeviceUserId(hashOpaqueCredential(trustedDeviceCredential), clock().toISOString())
+          : null;
+        if (trustedUserId === identity.id) {
+          const session = await issueSession(identity.id, context);
+          await record("login", "succeeded", context, identity.id);
+          return Object.freeze({ status: "authenticated", identity: Object.freeze({ userId: identity.id, email: identity.email ?? null, phone: identity.phone ?? null, fullName: identity.fullName ?? null, roles: Object.freeze([...(identity.roles ?? [])]) }), session });
+        }
         if (!mfa || typeof mfa.beginChallenge !== "function") {
           await record("login", "mfa_unavailable", context, identity.id);
           throw new AuthenticationError("mfa_unavailable");
@@ -130,7 +144,7 @@ export function createAuthService({
       return Object.freeze({ status: "authenticated", identity: Object.freeze({ userId: identity.id, email: identity.email ?? null, phone: identity.phone ?? null, fullName: identity.fullName ?? null, roles: Object.freeze([...(identity.roles ?? [])]) }), session });
     },
 
-    async verifyMfa({ challengeId, credential }, context = {}) {
+    async verifyMfa({ challengeId, credential, rememberDevice = false }, context = {}) {
       await control("mfa_verify", context);
       if (typeof challengeId !== "string" || challengeId.length === 0 || typeof credential !== "string" || credential.length === 0) {
         await record("mfa_verify", "denied", context);
@@ -152,8 +166,16 @@ export function createAuthService({
       }
       const userId = safeMfaUserId(verification.userId);
       const session = await issueSession(userId, context);
+      let device = null;
+      if (rememberDevice === true && typeof repository.issueTrustedDevice === "function") {
+        const raw = generateDeviceCredential();
+        const now = clock();
+        const expiresAt = new Date(now.getTime() + trustedDeviceLifetimeMs).toISOString();
+        await repository.issueTrustedDevice({ id: id(), userId, credentialHash: hashOpaqueCredential(raw), expiresAt, createdAt: now.toISOString() });
+        device = Object.freeze({ credential: raw, expiresAt });
+      }
       await record("mfa_verify", "succeeded", context, userId);
-      return Object.freeze({ status: "authenticated", identity: Object.freeze({ userId }), session });
+      return Object.freeze({ status: "authenticated", identity: Object.freeze({ userId }), session, device });
     },
 
     async refresh({ refreshCredential }, context = {}) {

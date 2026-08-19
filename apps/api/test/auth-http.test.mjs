@@ -97,6 +97,45 @@ test("refresh requires double-submit CSRF and rotates all cookies", async () => 
   assert.equal(response.headers["set-cookie"].length, 3);
 });
 
+test("login forwards a trusted-device cookie to the auth service", async () => {
+  let received;
+  const response = await invoke("/api/v1/auth/login", {
+    body: { contact: "admin@example.com", password: "password" },
+    headers: { cookie: "pcx_device=raw-device" },
+    authService: service({ async login(body, context, options) { received = options; return { status: "mfa_required", challenge: { id: "c1", expiresAt: "2027-01-01T00:15:00.000Z" } }; } })
+  });
+  assert.equal(response.status, 202);
+  assert.deepEqual(received, { trustedDeviceCredential: "raw-device" });
+});
+
+test("verify-mfa with rememberDevice issues a device cookie, otherwise it does not", async () => {
+  const device = { credential: "device-raw", expiresAt: "2027-02-01T00:00:00.000Z" };
+  const response = await invoke("/api/v1/auth/verify-mfa", {
+    body: { challengeId: "c1", credential: "123456", rememberDevice: true },
+    headers: { cookie: "pcx_csrf=token", "x-csrf-token": "token" },
+    authService: service({ async verifyMfa(input) { return { status: "authenticated", identity: { userId: "admin-1" }, session, device }; } })
+  });
+  assert.equal(response.status, 200);
+  const cookies = response.headers["set-cookie"];
+  assert.equal(cookies.length, 4);
+  assert.match(cookies[3], /^pcx_device=device-raw; Path=\/api\/v1\/auth; .*HttpOnly; SameSite=Strict$/);
+
+  const without = await invoke("/api/v1/auth/verify-mfa", {
+    body: { challengeId: "c1", credential: "123456", rememberDevice: false },
+    headers: { cookie: "pcx_csrf=token", "x-csrf-token": "token" },
+    authService: service({ async verifyMfa() { return { status: "authenticated", identity: { userId: "admin-1" }, session, device: null }; } })
+  });
+  assert.equal(without.headers["set-cookie"].length, 3);
+});
+
+test("verify-mfa rejects a non-boolean rememberDevice", async () => {
+  const response = await invoke("/api/v1/auth/verify-mfa", {
+    body: { challengeId: "c1", credential: "123456", rememberDevice: "yes" },
+    headers: { cookie: "pcx_csrf=token", "x-csrf-token": "token" }
+  });
+  assert.equal(response.status, 400);
+});
+
 test("mfa verification validates CSRF and issues session cookies", async () => {
   const missingCsrf = await invoke("/api/v1/auth/verify-mfa", { body: { challengeId: "c1", credential: "123456" } });
   assert.equal(missingCsrf.status, 403);
@@ -107,7 +146,7 @@ test("mfa verification validates CSRF and issues session cookies", async () => {
     authService: service({ async verifyMfa(input) { presented = input; return { status: "authenticated", identity: { userId: "admin-1" }, session }; } })
   });
   assert.equal(response.status, 200);
-  assert.deepEqual(presented, { challengeId: "c1", credential: "123456" });
+  assert.deepEqual(presented, { challengeId: "c1", credential: "123456", rememberDevice: false });
   assert.deepEqual(response.body.data, { status: "authenticated", identity: { userId: "admin-1" } });
   assert.equal(response.headers["set-cookie"].length, 3);
   assert.equal(JSON.stringify(response.body).includes("123456"), false);

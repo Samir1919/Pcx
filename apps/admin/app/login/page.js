@@ -11,6 +11,7 @@ export default function LoginPage() {
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [challenge, setChallenge] = useState(null);
+  const [rememberDevice, setRememberDevice] = useState(false);
 
   // Demo credentials are a development convenience only. Never surface them in
   // staging or production builds.
@@ -38,7 +39,7 @@ export default function LoginPage() {
     setError(null);
     const form = new FormData(event.currentTarget);
     try {
-      await challenge.verify(form.get("credential"));
+      await challenge.verify(form.get("credential"), rememberDevice);
       router.replace("/");
     } catch (err) {
       setError(err.message);
@@ -66,6 +67,7 @@ export default function LoginPage() {
         {challenge ? (
           <form onSubmit={verify}>
             <label><span>One-time code</span><input name="credential" required autoComplete="one-time-code" /></label>
+            <label className="check"><input type="checkbox" checked={rememberDevice} onChange={(e) => setRememberDevice(e.target.checked)} /><span>Remember this device for 30 days</span></label>
             <button className="primary" disabled={busy}>{busy ? "Verifying…" : "Verify"}</button>
           </form>
         ) : (

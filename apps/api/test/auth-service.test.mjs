@@ -127,6 +127,39 @@ test("mfa verification completes with a session and fails closed without provide
   assert.equal(JSON.stringify(ready.calls.audits).includes("123456"), false);
 });
 
+test("privileged login honors a valid trusted-device credential and skips the challenge", async () => {
+  const repository = { async findPasswordIdentityByContact() { return { id: "admin-1", password_hash: "hash", status: "ACTIVE", roles: ["ADMIN"] }; }, async findActiveTrustedDeviceUserId() { return "admin-1"; } };
+  const { service, calls } = fixture({ repository, mfa: { async beginChallenge() { throw new Error("should not challenge"); } } });
+  const result = await service.login({ contact: "admin@example.com", password: "password" }, {}, { trustedDeviceCredential: "raw-device" });
+  assert.equal(result.status, "authenticated");
+  assert.equal(calls.sessions.length, 1);
+  assert.equal(calls.sessions[0].userId, "admin-1");
+});
+
+test("privileged login still requires MFA without a matching trusted-device credential", async () => {
+  const repository = { async findPasswordIdentityByContact() { return { id: "admin-1", password_hash: "hash", status: "ACTIVE", roles: ["ADMIN"] }; }, async findActiveTrustedDeviceUserId() { return "someone-else"; } };
+  const { service } = fixture({ repository, mfa: { async beginChallenge() { return { id: "mfa-1", expiresAt: "2026-08-16T12:05:00.000Z" }; } } });
+  const result = await service.login({ contact: "admin@example.com", password: "password" }, {}, { trustedDeviceCredential: "raw-device" });
+  assert.equal(result.status, "mfa_required");
+});
+
+test("verifyMfa issues a trusted-device credential only when rememberDevice is true", async () => {
+  const issued = [];
+  const repository = { async findPasswordIdentityByContact() { return { id: "admin-1", password_hash: "hash", status: "ACTIVE", roles: ["ADMIN"] }; }, async issueTrustedDevice(input) { issued.push(input); } };
+  const mfa = { async verifyChallenge() { return { status: "verified", userId: "admin-1" }; } };
+
+  const remember = fixture({ repository, mfa });
+  const on = await remember.service.verifyMfa({ challengeId: "c1", credential: "123456", rememberDevice: true });
+  assert.equal(issued.length, 1);
+  assert.equal(typeof on.device.credential, "string");
+  assert.ok(Date.parse(on.device.expiresAt) > Date.parse("2026-08-16T12:00:00.000Z"));
+  assert.equal(JSON.stringify(issued[0]).includes(on.device.credential), false);
+
+  const forget = fixture({ repository, mfa });
+  const off = await forget.service.verifyMfa({ challengeId: "c1", credential: "123456", rememberDevice: false });
+  assert.equal(off.device, null);
+});
+
 test("access authentication hashes credentials and returns a safe immutable identity", async () => {
   let received;
   const { service } = fixture({ repository: { async findActiveIdentityByAccessHash(hash) { received = hash; return { userId: "u1", email: "buyer@example.com", phone: "01700000000", fullName: "PCX Buyer", status: "ACTIVE", contactVerified: true, roles: ["CUSTOMER"] }; } } });
