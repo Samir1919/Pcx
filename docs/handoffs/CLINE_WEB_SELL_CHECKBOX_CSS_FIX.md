@@ -7,10 +7,14 @@
 
 ## Outcome
 
-The sell form (`/sell`) checkboxes were being styled as full-width text fields,
-which broke the layout on mobile and tablet. Checkboxes now render at a natural
-20px control size with the brand accent color, and the `label.check` row keeps a
-44px touch target.
+1. The sell form (`/sell`) checkboxes were being styled as full-width text
+   fields, which broke the layout on mobile and tablet. Checkboxes now render at
+   a natural 20px control size with the brand accent color, and the
+   `label.check` row keeps a 44px touch target.
+2. On desktop the "Sell to PCX" page title sat centered in a 47.5rem column,
+   so it started to the right of the full-width hero and entry grid below it.
+   The title container is now left-aligned so it shares the same left edge as
+   the hero, entry grid, and form.
 
 ## Changed areas
 
@@ -22,6 +26,8 @@ which broke the layout on mobile and tablet. Checkboxes now render at a natural
   - `label.check` now has `min-height: var(--touch-target)` and `cursor:pointer`.
   - Added a dedicated rule for `label.check input[type="checkbox"]`
     (20px box, `accent-color: var(--green)`, `flex-shrink:0`).
+  - Changed `.sell` from `margin: 0 auto` to `margin: 0` so the title aligns
+    left with the full-width hero and entry grid (max-width kept at 47.5rem).
 
 ## Acceptance criteria
 
