@@ -21,6 +21,7 @@ test("customer registration normalizes contact and owns privileged defaults", ()
     id: "user-1",
     email: "buyer@example.com",
     phone: null,
+    fullName: null,
     status: UserStatus.PENDING_VERIFICATION,
     roles: [Role.CUSTOMER],
     contactVerified: false,

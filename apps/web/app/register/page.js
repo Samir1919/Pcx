@@ -6,6 +6,7 @@ import StorefrontNav from "../StorefrontNav";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -23,7 +24,7 @@ export default function RegisterPage() {
       return;
     }
     try {
-      await storefrontApi.register(email || null, phone || null, password);
+      await storefrontApi.register(email || null, phone || null, fullName || null, password);
       setDone(true);
       // New accounts start PENDING_VERIFICATION; go verify the contact.
       const contact = email || phone;
@@ -46,6 +47,7 @@ export default function RegisterPage() {
           {error ? <div className="banner error" role="alert"><span>{error}</span></div> : null}
           {done ? <div className="banner" role="status"><span>Registration submitted. You can now sign in.</span></div> : (
             <form className="buyBox" onSubmit={submit}>
+              <label><span>Full name (optional)</span><input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="name" /></label>
               <label><span>Email (optional)</span><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></label>
               <label><span>Phone (optional)</span><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" /></label>
               <label><span>Password</span><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={12} required autoComplete="new-password" /></label>

@@ -17,16 +17,18 @@ function isoTimestamp(value, name) {
   return date.toISOString();
 }
 
-export function createCustomerRegistrationCandidate({ id, email, phone, createdAt = new Date() }) {
+export function createCustomerRegistrationCandidate({ id, email, phone, fullName = null, createdAt = new Date() }) {
   const normalizedEmail = optionalContact(email, "email");
   const normalizedPhone = optionalContact(phone, "phone");
   if (!normalizedEmail && !normalizedPhone) throw new TypeError("email or phone is required");
+  const normalizedFullName = optionalContact(fullName, "fullName");
 
   const timestamp = isoTimestamp(createdAt, "createdAt");
   return Object.freeze({
     id: requiredString(id, "id"),
     email: normalizedEmail,
     phone: normalizedPhone,
+    fullName: normalizedFullName,
     status: UserStatus.PENDING_VERIFICATION,
     roles: Object.freeze([Role.CUSTOMER]),
     contactVerified: false,

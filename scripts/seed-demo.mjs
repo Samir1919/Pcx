@@ -233,6 +233,44 @@ const seed = async () => {
       [DEMO.priceMacbook, DEMO.listingMacbook, 65000, DEMO.admin]
     );
 
+    // --- indicative prices (model-level, so public quote ranges resolve) ---
+    // These are estimated market ranges, never final offers and never
+    // acquisition cost. They power the anonymous Sell-to-PCX quote preview.
+    const indicativeRanges = [
+      ["82000000-0000-0000-0000-000000000001", 40000, 120000],
+      ["82000000-0000-0000-0000-000000000002", 25000, 70000],
+      ["82000000-0000-0000-0000-000000000003", 35000, 95000],
+      ["82000000-0000-0000-0000-000000000004", 28000, 80000],
+      ["82000000-0000-0000-0000-000000000005", 55000, 140000],
+      ["82000000-0000-0000-0000-000000000006", 18000, 32000],
+      ["82000000-0000-0000-0000-000000000007", 22000, 40000],
+      ["82000000-0000-0000-0000-000000000008", 15000, 28000],
+      ["82000000-0000-0000-0000-000000000009", 10000, 18000],
+      ["82000000-0000-0000-0000-000000000010", 9000, 17000],
+      ["82000000-0000-0000-0000-000000000011", 12000, 24000],
+      ["82000000-0000-0000-0000-000000000012", 10000, 20000],
+      ["82000000-0000-0000-0000-000000000013", 2500, 6000],
+      ["82000000-0000-0000-0000-000000000014", 2500, 6000],
+      ["82000000-0000-0000-0000-000000000015", 5000, 12000],
+      ["82000000-0000-0000-0000-000000000016", 2000, 5000],
+      ["82000000-0000-0000-0000-000000000017", 3000, 7000],
+      ["82000000-0000-0000-0000-000000000018", 8000, 18000],
+      ["82000000-0000-0000-0000-000000000019", 5000, 12000],
+      ["82000000-0000-0000-0000-000000000020", 3000, 8000]
+    ];
+    for (let index = 0; index < indicativeRanges.length; index += 1) {
+      const [productModelId, low, high] = indicativeRanges[index];
+      const priceId = `a2000000-0000-0000-0000-${String(index + 1).padStart(12, "0")}`;
+      await client.query(
+        `INSERT INTO indicative_prices(id, product_model_id, low_value, high_value, status, set_by, created_at)
+         SELECT $1, $2, $3, $4, 'ACTIVE', $5, now()
+         WHERE NOT EXISTS (
+           SELECT 1 FROM indicative_prices WHERE product_model_id = $2 AND status = 'ACTIVE'
+         )`,
+        [priceId, productModelId, low, high, DEMO.admin]
+      );
+    }
+
     // --- reservation (one ACTIVE per item) ---
     await client.query(
       `INSERT INTO reservations(id, inventory_item_id, reserved_by_user_id, status, reserved_until, created_at)

@@ -71,9 +71,11 @@ export default function SellPage() {
   const [partCategoryId, setPartCategoryId] = useState("");
   const [partModels, setPartModels] = useState([]);
   const [partModelId, setPartModelId] = useState("");
-  const [contactName, setContactName] = useState("");
-  const [contactPhone, setContactPhone] = useState("");
-  const [contactEmail, setContactEmail] = useState("");
+  // Contact fallbacks are only shown when the authenticated identity lacks that
+  // field; when present, the server always reuses the identity value.
+  const [fallbackName, setFallbackName] = useState("");
+  const [fallbackPhone, setFallbackPhone] = useState("");
+  const [fallbackEmail, setFallbackEmail] = useState("");
   const [fulfilmentPreference, setFulfilmentPreference] = useState("DROP_OFF");
   const [ageEstimate, setAgeEstimate] = useState("");
   const [warrantyRemaining, setWarrantyRemaining] = useState("");
@@ -180,16 +182,26 @@ export default function SellPage() {
     setBuildRoles((prev) => ({ ...prev, selections: { ...prev.selections, [role]: modelId || undefined } }));
   }
 
+  function contactReused() {
+    return {
+      name: identity?.fullName ?? fallbackName,
+      phone: identity?.phone ?? fallbackPhone,
+      email: identity?.email ?? fallbackEmail
+    };
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
+    if (!identity) { window.location.href = "/login"; return; }
     setBusy(true);
     setError(null);
     setResult(null);
     try {
+      const contact = contactReused();
       const common = {
-        contactName,
-        contactPhone,
-        contactEmail: contactEmail || undefined,
+        contactName: contact.name || undefined,
+        contactPhone: contact.phone || undefined,
+        contactEmail: contact.email || undefined,
         fulfilmentPreference,
         ageEstimate: ageEstimate || undefined,
         warrantyRemaining: warrantyRemaining || undefined,
@@ -239,12 +251,7 @@ export default function SellPage() {
         <a className="back" href="/storefront">← Back to storefront</a>
         <div className="sell">
           <h1>Sell to PCX</h1>
-          {!identity ? (
-            <div className="buyBox">
-              <p className="meta">Please browse an item on the storefront and sign in from its page before submitting a sell request.</p>
-              <a className="primary" href="/storefront">Go to storefront</a>
-            </div>
-          ) : result ? (
+          {result ? (
             <div className="card">
               <h2>Request submitted</h2>
               <p className="meta">Sell request <b>#{result.publicRequestNo ?? result.id}</b> is now a draft and ready to submit after your review.</p>
@@ -261,11 +268,11 @@ export default function SellPage() {
           )}
         </div>
 
-        {identity && !result && !entry && (
+        {!result && !entry && (
           <>
-            <div className="hero" style={{ paddingTop: 18 }}>
+            <div className="hero sellHero">
               <p className="eyebrow">SELL-TO-PCX</p>
-              <h1 style={{ fontSize: 30 }}>What are you selling?</h1>
+              <h1>What are you selling?</h1>
               <p>Choose an entry to continue. Your quote is an estimated range — the final offer is made only after physical inspection.</p>
             </div>
             <div className="sellEntries">
@@ -280,9 +287,9 @@ export default function SellPage() {
           </>
         )}
 
-        {identity && !result && entry && (
+        {!result && entry && (
           <form className="sellForm" onSubmit={handleSubmit}>
-            <button type="button" className="learn-more" onClick={() => chooseEntry(null)} style={{ justifySelf: "start" }}>← Choose a different entry</button>
+            <button type="button" className="learn-more" onClick={() => chooseEntry(null)}>← Choose a different entry</button>
             <div className="entryHeading"><h2>{build ? build.title : partEntry.title}</h2><p className="meta">{disclaimer()}</p></div>
 
             {build && build.roles.map((role) => (
@@ -321,10 +328,27 @@ export default function SellPage() {
               </div>
             )}
 
-            <div className="entryHeading" style={{ marginTop: 12 }}><h2>Your contact & the item</h2></div>
-            <label><span>Your name</span><input type="text" value={contactName} onChange={(e) => setContactName(e.target.value)} required /></label>
-            <label><span>Phone</span><input type="tel" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} required /></label>
-            <label><span>Email (optional)</span><input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} /></label>
+            <div className="entryHeading"><h2>Contact & fulfilment</h2></div>
+            {identity ? (
+              <>
+                {identity.fullName
+                  ? <p className="meta">Name: {identity.fullName}</p>
+                  : <label><span>Your name *</span><input type="text" value={fallbackName} onChange={(e) => setFallbackName(e.target.value)} required /></label>}
+                {identity.phone
+                  ? <p className="meta">Phone: {identity.phone}</p>
+                  : <label><span>Phone *</span><input type="tel" value={fallbackPhone} onChange={(e) => setFallbackPhone(e.target.value)} required /></label>}
+                {identity.email
+                  ? <p className="meta">Email: {identity.email}</p>
+                  : <label><span>Email (optional)</span><input type="email" value={fallbackEmail} onChange={(e) => setFallbackEmail(e.target.value)} /></label>}
+              </>
+            ) : (
+              <div className="card">
+                <p className="meta">You can view your estimated quote without an account, but signing in is required to submit.</p>
+                <a className="primary" href="/login">Sign in to continue</a>
+                <a className="learn-more" href="/register">Create an account</a>
+              </div>
+            )}
+
             <label><span>Fulfilment preference</span>
               <select value={fulfilmentPreference} onChange={(e) => setFulfilmentPreference(e.target.value)}>
                 <option value="DROP_OFF">Drop off</option>
@@ -339,7 +363,11 @@ export default function SellPage() {
             <label className="check"><input type="checkbox" checked={boxAvailable} onChange={(e) => setBoxAvailable(e.target.checked)} /><span>Original box available</span></label>
             <label className="check"><input type="checkbox" checked={invoiceAvailable} onChange={(e) => setInvoiceAvailable(e.target.checked)} /><span>Invoice available</span></label>
             <label className="check"><input type="checkbox" checked readOnly /><span>I confirm I own this item</span></label>
-            <button className="primary" type="submit" disabled={busy}>{busy ? "Submitting…" : "Submit sell request"}</button>
+            {identity ? (
+              <button className="primary" type="submit" disabled={busy}>{busy ? "Submitting…" : "Submit sell request"}</button>
+            ) : (
+              <a className="primary" href="/login">Sign in to submit</a>
+            )}
           </form>
         )}
       </div>
