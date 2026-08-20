@@ -94,6 +94,25 @@ export function createPostgresSellRequestRepository({ pool }) {
       return result.rows[0] ? row(result.rows[0]) : null;
     },
 
+    async findById(requestId) {
+      const result = await pool.query(`${selectClause} WHERE sr.id = $1`, [requestId]);
+      return result.rows[0] ? row(result.rows[0]) : null;
+    },
+
+    async transition(requestId, fromStatus, toStatus, submittedAt, now) {
+      return transaction(pool, async (client) => {
+        const updated = await client.query(
+          `UPDATE sell_requests SET status = $3, submitted_at = $4, updated_at = $5
+           WHERE id = $1 AND status = $2
+           RETURNING id`,
+          [requestId, fromStatus, toStatus, submittedAt, now]
+        );
+        if (updated.rowCount !== 1) return { status: "not_found" };
+        const result = await client.query(`${selectClause} WHERE sr.id = $1`, [requestId]);
+        return { status: "ok", record: row(result.rows[0]) };
+      });
+    },
+
     async listByOwner(userId) {
       const result = await pool.query(`${selectClause} WHERE sr.user_id = $1 ORDER BY sr.created_at DESC`, [userId]);
       return result.rows.map(row);

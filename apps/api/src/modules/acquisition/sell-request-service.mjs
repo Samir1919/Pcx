@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createSellRequest, createSellerDeclaration, submitSellRequest } from "../../../../../packages/domain/src/acquisition/sell-request.mjs";
+import { advanceSellRequest, createSellRequest, createSellerDeclaration, submitSellRequest } from "../../../../../packages/domain/src/acquisition/sell-request.mjs";
 import { UserStatus } from "../../../../../packages/domain/src/identity/constants.mjs";
 import { hasPermission, Permission } from "../../../../../packages/domain/src/index.mjs";
 
@@ -11,7 +11,7 @@ const createFields = new Set(["categoryId", "productModelId", "contactName", "co
 
 export function createSellRequestService({ authService, repository, indicativePriceService, id = randomUUID, clock = () => new Date() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  for (const method of ["create", "submit", "findByOwner", "listByOwner", "listAll"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  for (const method of ["create", "submit", "findByOwner", "findById", "transition", "listByOwner", "listAll"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
 
   async function actor(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -116,6 +116,25 @@ export function createSellRequestService({ authService, repository, indicativePr
       }
       const result = await repository.submit(identity.userId, requestId, clock().toISOString());
       if (result.status !== "submitted") throw new SellRequestError("not_found");
+      return result.record;
+    },
+
+    // Admin-only, server-owned lifecycle transition along the canonical graph.
+    // The target status is never client-authoritative: it is validated against
+    // SellRequestTransitions, then applied atomically in the repository.
+    async transition(accessCredential, requestId, toStatus) {
+      const identity = await authService.authenticateAccess({ accessCredential });
+      if (!hasPermission(identity, Permission.PRICING_MANAGE) && !hasPermission(identity, Permission.ACQUISITION_PAYMENT_MANAGE)) throw new SellRequestError("forbidden");
+      const existing = await repository.findById(requestId);
+      if (!existing) throw new SellRequestError("not_found");
+      let next;
+      try {
+        next = advanceSellRequest(existing, toStatus, { at: clock() });
+      } catch {
+        throw new SellRequestError("invalid_state");
+      }
+      const result = await repository.transition(requestId, existing.status, next.status, next.submittedAt, next.updatedAt);
+      if (result.status !== "ok") throw new SellRequestError("not_found");
       return result.record;
     }
   });

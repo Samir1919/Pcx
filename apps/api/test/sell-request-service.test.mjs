@@ -4,7 +4,7 @@ import { createSellRequestService, SellRequestError } from "../src/modules/acqui
 import { FulfilmentPreference, SellRequestStatus } from "../../../packages/domain/src/index.mjs";
 
 function fixture(overrides = {}) {
-  const calls = { created: [], submitted: [], listed: [], found: [] };
+  const calls = { created: [], submitted: [], listed: [], found: [], transitioned: [] };
   const repository = {
     async create(request, declaration, now) {
       calls.created.push({ request, declaration, now });
@@ -17,6 +17,14 @@ function fixture(overrides = {}) {
     async findByOwner(userId, requestId) {
       calls.found.push({ userId, requestId });
       return requestId === "existing" ? { id: requestId, userId, status: SellRequestStatus.DRAFT } : null;
+    },
+    async findById(requestId) {
+      calls.foundById = requestId;
+      return requestId === "existing" ? { id: requestId, userId: "user-1", status: SellRequestStatus.REVIEWING, submittedAt: "2026-08-16T00:00:00.000Z" } : null;
+    },
+    async transition(requestId, from, to, submittedAt, now) {
+      calls.transitioned.push({ requestId, from, to, submittedAt, now });
+      return { status: "ok", record: { id: requestId, status: to } };
     },
     async listByOwner(userId) {
       calls.listed.push(userId);
@@ -184,6 +192,18 @@ test("create rejects non-scalar selected spec values", async () => {
     }),
     (error) => error instanceof SellRequestError && error.code === "invalid_input"
   );
+});
+
+test("admin transition follows the canonical graph", async () => {
+  const adminService = fixture({
+    authService: { async authenticateAccess() { return { userId: "admin-1", status: "ACTIVE", roles: ["ADMIN"] }; } }
+  }).service;
+  // REVIEWING -> INSPECTION_REQUIRED is valid.
+  const result = await adminService.transition("access", "existing", "INSPECTION_REQUIRED");
+  assert.equal(result.status, "INSPECTION_REQUIRED");
+
+  // DRAFT -> ACCEPTED is invalid.
+  await assert.rejects(adminService.transition("access", "missing", "ACCEPTED"), (error) => error.code === "not_found");
 });
 
 test("get and submit enforce ownership and DRAFT-only transition", async () => {

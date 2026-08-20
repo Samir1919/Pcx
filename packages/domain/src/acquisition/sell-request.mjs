@@ -1,15 +1,51 @@
 import { parseSellEntry, validateBuildComponents } from "./sell-entry.mjs";
 
+// Canonical Sell-to-PCX request lifecycle (reconciled from BUSINESS_PRODUCT_REQUIREMENTS
+// §12 and API_SPECIFICATION_STATE_MACHINES §16; see ADR 0011 and the §12 note).
 export const SellRequestStatus = Object.freeze({
   DRAFT: "DRAFT",
   SUBMITTED: "SUBMITTED",
-  REVIEWING: "REVIEWING"
+  REVIEWING: "REVIEWING",
+  INFO_REQUIRED: "INFO_REQUIRED",
+  INSPECTION_REQUIRED: "INSPECTION_REQUIRED",
+  INSPECTING: "INSPECTING",
+  OFFERED: "OFFERED",
+  ACCEPTED: "ACCEPTED",
+  REJECTED: "REJECTED",
+  REJECTED_BY_SELLER: "REJECTED_BY_SELLER",
+  EXPIRED: "EXPIRED",
+  ACQUISITION_PENDING: "ACQUISITION_PENDING",
+  PAID: "PAID",
+  CLOSED: "CLOSED",
+  CANCELLED: "CANCELLED"
 });
 
 export const FulfilmentPreference = Object.freeze({
   PICKUP: "PICKUP",
   DROP_OFF: "DROP_OFF",
   COURIER: "COURIER"
+});
+
+// Server-owned transition graph. A request is advanced only along these edges;
+// any other move is rejected as an invalid state transition. Cancellation is
+// allowed only from pre-ACCEPTED review states; accept/pay/close are terminal
+// progress edges driven by acquisition/payment events.
+export const SellRequestTransitions = Object.freeze({
+  DRAFT: Object.freeze(["SUBMITTED", "CANCELLED"]),
+  SUBMITTED: Object.freeze(["REVIEWING", "CANCELLED"]),
+  REVIEWING: Object.freeze(["INFO_REQUIRED", "INSPECTION_REQUIRED", "REJECTED", "CANCELLED"]),
+  INFO_REQUIRED: Object.freeze(["REVIEWING"]),
+  INSPECTION_REQUIRED: Object.freeze(["INSPECTING"]),
+  INSPECTING: Object.freeze(["OFFERED", "REJECTED"]),
+  OFFERED: Object.freeze(["ACCEPTED", "REJECTED_BY_SELLER", "EXPIRED"]),
+  ACCEPTED: Object.freeze(["ACQUISITION_PENDING"]),
+  ACQUISITION_PENDING: Object.freeze(["PAID"]),
+  PAID: Object.freeze(["CLOSED"]),
+  REJECTED: Object.freeze([]),
+  REJECTED_BY_SELLER: Object.freeze([]),
+  EXPIRED: Object.freeze([]),
+  CLOSED: Object.freeze([]),
+  CANCELLED: Object.freeze([])
 });
 
 const fulfilments = new Set(Object.values(FulfilmentPreference));
@@ -41,6 +77,11 @@ function timestamp(value, name) {
 function optionalBoolean(value, name) {
   if (value == null) return false;
   if (typeof value !== "boolean") throw new TypeError(`${name} must be a boolean`);
+  return value;
+}
+
+function parseStatus(value, name = "status") {
+  if (!statuses.has(value)) throw new TypeError(`${name} is invalid`);
   return value;
 }
 
@@ -99,15 +140,31 @@ export function createSellRequest({
   });
 }
 
-export function submitSellRequest(record, { submittedAt = new Date() } = {}) {
+export function assertSellRequestTransition(from, to) {
+  const current = parseStatus(from, "from");
+  const target = parseStatus(to, "to");
+  const allowed = SellRequestTransitions[current];
+  if (!allowed || !allowed.includes(target)) throw new TypeError("sell request state transition is not allowed");
+  return { from: current, to: target };
+}
+
+// Advance a sell request along the server-owned transition graph. submittedAt is
+// stamped on the first departure from DRAFT into a non-CANCELLED state.
+export function advanceSellRequest(record, to, { at, submittedAt } = {}) {
   if (!record || typeof record !== "object") throw new TypeError("sell request is required");
-  if (record.status !== SellRequestStatus.DRAFT) throw new TypeError("only a DRAFT sell request can be submitted");
+  const { from, to: target } = assertSellRequestTransition(record.status, to);
+  const now = timestamp(at ?? submittedAt ?? new Date(), "at");
+  const leavesDraft = from === SellRequestStatus.DRAFT && target !== SellRequestStatus.CANCELLED;
   return Object.freeze({
     ...record,
-    status: SellRequestStatus.SUBMITTED,
-    submittedAt: timestamp(submittedAt, "submittedAt"),
-    updatedAt: timestamp(submittedAt, "submittedAt")
+    status: target,
+    submittedAt: leavesDraft ? now : record.submittedAt ?? null,
+    updatedAt: now
   });
+}
+
+export function submitSellRequest(record, options = {}) {
+  return advanceSellRequest(record, SellRequestStatus.SUBMITTED, options);
 }
 
 export function createSellerDeclaration({
@@ -138,6 +195,5 @@ export function createSellerDeclaration({
 }
 
 export function parseSellRequestStatus(value) {
-  if (!statuses.has(value)) throw new TypeError("sell request status is invalid");
-  return value;
+  return parseStatus(value);
 }

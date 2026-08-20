@@ -82,6 +82,27 @@ export async function handleSellRequestRequest(request, response, { sellRequestS
     return true;
   }
 
+  // Admin lifecycle transition: POST /api/v1/admin/sell-requests/:id/transition
+  const transitionPrefix = "/api/v1/admin/sell-requests/";
+  if (url.pathname.startsWith(transitionPrefix) && url.pathname.endsWith("/transition")) {
+    if (!sellRequestService) { send(response, 503, failure("SELL_REQUEST_UNAVAILABLE", "Sell requests are temporarily unavailable", requestId)); return true; }
+    if (url.searchParams.size > 0) { send(response, 400, failure("INVALID_REQUEST", "Query parameters are not supported", requestId)); return true; }
+    if (request.method !== "POST") { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
+    const rawId = url.pathname.slice(transitionPrefix.length, -"/transition".length);
+    const requestIdValue = id(rawId);
+    if (!requestIdValue) { send(response, 404, failure("SELL_REQUEST_NOT_FOUND", "Sell request not found", requestId)); return true; }
+    const cookies = parsedCookies(request);
+    try {
+      requireWriteSecurity(request, allowedOrigins, cookies);
+      const body = await jsonBody(request);
+      send(response, 200, { data: await sellRequestService.transition(cookies.pcx_access, requestIdValue, body.toStatus ?? body.status) });
+    } catch (error) {
+      const [status, code, message] = map(error);
+      send(response, status, failure(code, message, requestId));
+    }
+    return true;
+  }
+
   const prefix = "/api/v1/sell-requests";
   if (url.pathname !== prefix && !url.pathname.startsWith(`${prefix}/`)) return false;
   if (!sellRequestService) { send(response, 503, failure("SELL_REQUEST_UNAVAILABLE", "Sell requests are temporarily unavailable", requestId)); return true; }
