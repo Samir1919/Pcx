@@ -6,6 +6,20 @@ import { acquisitionApi } from "../../../lib/acquisition-api.js";
 function Banner({ notice, onClose }) { if (!notice) return null; return <div className={`banner ${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}><span>{notice.message}</span><button type="button" onClick={onClose} aria-label="Dismiss message">×</button></div>; }
 function Field({ label, name, ...props }) { return <label><span>{label}</span><input name={name} {...props} /></label>; }
 
+// Server-owned transition graph (mirrors SellRequestTransitions for UI actions).
+const TRANSITIONS = {
+  DRAFT: ["SUBMITTED", "CANCELLED"],
+  SUBMITTED: ["REVIEWING", "CANCELLED"],
+  REVIEWING: ["INFO_REQUIRED", "INSPECTION_REQUIRED", "REJECTED", "CANCELLED"],
+  INFO_REQUIRED: ["REVIEWING"],
+  INSPECTION_REQUIRED: ["INSPECTING"],
+  INSPECTING: ["OFFERED", "REJECTED"],
+  OFFERED: ["ACCEPTED", "REJECTED_BY_SELLER", "EXPIRED"],
+  ACCEPTED: ["ACQUISITION_PENDING"],
+  ACQUISITION_PENDING: ["PAID"],
+  PAID: ["CLOSED"]
+};
+
 async function run(action, setBusy, setNotice) {
   setBusy(true);
   setNotice(null);
@@ -93,6 +107,20 @@ export default function AcquisitionPage() {
     event.currentTarget.reset();
   }
 
+  async function transition(r, toStatus) {
+    setBusy(true);
+    setNotice(null);
+    try {
+      await acquisitionApi.transitionSellRequest(r.id, toStatus);
+      setNotice({ kind: "success", message: `Request ${r.publicRequestNo ?? r.id.slice(0, 8)} → ${toStatus}.` });
+      await load();
+    } catch (error) {
+      setNotice({ kind: "error", message: error.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <>
       <header>
@@ -115,11 +143,11 @@ export default function AcquisitionPage() {
         {loading ? <p className="state" role="status">Loading sell requests…</p> : sellRequests.length === 0 ? <p className="state">No sell requests yet.</p> : (
           <div className="tableWrap">
             <table>
-              <thead><tr><th>Request</th><th>Entry</th><th>Build</th><th>Model</th><th>Status</th><th>Submitted</th></tr></thead>
+              <thead><tr><th>Request</th><th>Entry</th><th>Build</th><th>Model</th><th>Status</th><th>Submitted</th><th><span className="sr">Actions</span></th></tr></thead>
               <tbody>
                 {sellRequests.map((r) => (
                   <tr key={r.id}>
-                    <td><strong>{r.id.slice(0, 8)}…</strong></td>
+                    <td><strong>{r.publicRequestNo ?? r.id.slice(0, 8)}</strong></td>
                     <td>{r.sellEntry ?? "—"}</td>
                     <td>
                       {r.buildComponents && r.buildComponents.length > 0
@@ -129,6 +157,13 @@ export default function AcquisitionPage() {
                     <td>{r.productModelId ? `${r.productModelId.slice(0, 8)}…` : "—"}</td>
                     <td><span className="pill">{r.status}</span></td>
                     <td>{r.submittedAt ? new Date(r.submittedAt).toLocaleString() : "—"}</td>
+                    <td>
+                      <div className="actions">
+                        {(TRANSITIONS[r.status] ?? []).map((target) => (
+                          <button key={target} type="button" disabled={busy} onClick={() => transition(r, target)}>→ {target}</button>
+                        ))}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

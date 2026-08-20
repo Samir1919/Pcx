@@ -6,6 +6,7 @@ export { ApiError as AcquisitionApiError, csrfToken } from "./api-client.js";
 
 export const acquisitionApi = Object.freeze({
   sellRequests: () => apiRequest("/api/v1/admin/sell-requests"),
+  transitionSellRequest: (id, toStatus) => apiRequest(`/api/v1/admin/sell-requests/${encodeURIComponent(id)}/transition`, { method: "POST", body: { toStatus } }),
   createValuation: (body) => apiRequest("/api/v1/admin/valuations", { method: "POST", body }),
   createOffer: (body) => apiRequest("/api/v1/admin/offers", { method: "POST", body }),
   acceptOffer: (offerId) => apiRequest(`/api/v1/admin/offers/${encodeURIComponent(offerId)}/accept`, { method: "POST", body: {} }),

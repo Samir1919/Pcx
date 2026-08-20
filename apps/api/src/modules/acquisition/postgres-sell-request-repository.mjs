@@ -61,9 +61,9 @@ export function createPostgresSellRequestRepository({ pool }) {
       return transaction(pool, async (client) => {
         const inserted = await client.query(
           `INSERT INTO sell_requests(id, public_request_no, user_id, contact_name, contact_phone, contact_email, category_id, product_model_id, status, fulfilment_preference, selected_specs, sell_entry, build_components, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12, $13::jsonb, $14, $14)
+            VALUES ($1, 'SR-' || lpad(nextval('sell_request_public_no_seq')::text, 6, '0'), $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12::jsonb, $13, $13)
            RETURNING id, public_request_no, user_id, category_id, product_model_id, contact_name, contact_phone, contact_email, fulfilment_preference, status, selected_specs, sell_entry, build_components, submitted_at, created_at, updated_at`,
-          [request.id, request.publicRequestNo, request.userId, request.contactName, request.contactPhone, request.contactEmail, request.categoryId, request.productModelId, request.status, request.fulfilmentPreference, JSON.stringify(request.selectedSpecs ?? []), request.sellEntry ?? null, JSON.stringify(request.buildComponents ?? []), now]
+          [request.id, request.userId, request.contactName, request.contactPhone, request.contactEmail, request.categoryId, request.productModelId, request.status, request.fulfilmentPreference, JSON.stringify(request.selectedSpecs ?? []), request.sellEntry ?? null, JSON.stringify(request.buildComponents ?? []), now]
         );
         await client.query(
           `INSERT INTO seller_declarations(id, sell_request_id, age_estimate, warranty_remaining, repair_declared, repair_notes, box_available, invoice_available, ownership_declared, created_at)
@@ -71,7 +71,19 @@ export function createPostgresSellRequestRepository({ pool }) {
           [declaration.id, declaration.sellRequestId, declaration.ageEstimate, declaration.warrantyRemaining, declaration.repairDeclared, declaration.repairNotes, declaration.boxAvailable, declaration.invoiceAvailable, declaration.ownershipDeclared, now]
         );
         const record = inserted.rows[0];
-        return row({ ...record, sell_entry: request.sellEntry, build_components: request.buildComponents, declaration_id: declaration.id, age_estimate: declaration.ageEstimate, warranty_remaining: declaration.warrantyRemaining, repair_declared: declaration.repairDeclared, repair_notes: declaration.repairNotes, box_available: declaration.boxAvailable, invoice_available: declaration.invoiceAvailable, ownership_declared: declaration.ownershipDeclared });
+        return row({
+          ...record,
+          sell_entry: request.sellEntry,
+          build_components: request.buildComponents,
+          declaration_id: declaration.id,
+          age_estimate: declaration.ageEstimate,
+          warranty_remaining: declaration.warrantyRemaining,
+          repair_declared: declaration.repairDeclared,
+          repair_notes: declaration.repairNotes,
+          box_available: declaration.boxAvailable,
+          invoice_available: declaration.invoiceAvailable,
+          ownership_declared: declaration.ownershipDeclared
+        });
       });
     },
 
