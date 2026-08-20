@@ -5,7 +5,7 @@ export const metadata = { title: "PCX Admin", description: "PCX privileged opera
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body>
         <AuthProvider>{children}</AuthProvider>
       </body>
