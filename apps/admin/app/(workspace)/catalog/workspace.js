@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { catalogApi } from "../../../lib/catalog-api";
+import SellFlowPanel from "./sell-flow-panel";
 
 const resources = [{ key: "categories", label: "Categories" }, { key: "brands", label: "Brands" }, { key: "models", label: "Product models" }, { key: "definitions", label: "Attributes" }];
 const plural = { categories: "categories", brands: "brands", models: "product-models", definitions: "attribute-definitions" };
@@ -256,104 +257,111 @@ export default function CatalogWorkspace() {
             {r.label}<span>{data[r.key].length}</span>
           </button>
         ))}
+        <button role="tab" aria-selected={active === "sellflow"} onClick={() => setActive("sellflow")}>
+          Sell flow
+        </button>
       </div>
-      <div className="grid">
-        <section className="panel">
-          <div className="panelTitle">
-            <div>
-              <p className="eyebrow">ACTIVE RECORDS</p>
-              <h2>{resources.find((r) => r.key === active).label}</h2>
-            </div>
-            {active === "definitions" && (
-              <label className="filter">
-                <span>Category</span>
-                <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
-                  <option value="">All categories</option>
-                  {data.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </label>
-            )}
-          </div>
-          {loading ? (
-            <p className="state" role="status">Loading catalog…</p>
-          ) : rows.length === 0 ? (
-            <p className="state">No active records found.</p>
-          ) : (
-            <>
-              <div className="tableWrap">
-                <table>
-                  <thead><tr><th>Name</th><th>Context</th><th>Status</th><th><span className="sr">Actions</span></th></tr></thead>
-                  <tbody>
-                    {rows.map((r) => (
-                      <tr key={r.id}>
-                        <td>
-                          <strong>
-                            {active === "models"
-                              ? <a className="modelLink" href={`/catalog/models/${encodeURIComponent(r.id)}/specifications`}>{r.name}</a>
-                              : r.name ?? r.label}
-                          </strong>
-                          <small>{r.slug ?? r.key}</small>
-                        </td>
-                        <td>
-                          {active === "models"
-                            ? `${names.brand[r.brandId] ?? "Unknown brand"} · ${names.category[r.categoryId] ?? "Unknown category"}`
-                            : active === "definitions"
-                              ? `${names.category[r.categoryId] ?? "Unknown category"} · ${r.dataType}${r.unit ? ` · ${r.unit}` : ""}`
-                              : r.parentId ? "Nested category" : "Catalog root"}
-                        </td>
-                        <td><span className="pill">Active</span></td>
-                        <td>
-                          <div className="actions">
-                            <button type="button" disabled={busy} onClick={() => setEditRecord(r)}>Edit</button>
-                            <button className="danger" type="button" disabled={busy} onClick={() => archive(r)}>Archive</button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+      {active === "sellflow" ? (
+        <SellFlowPanel categories={data.categories} />
+      ) : (
+        <div className="grid">
+          <section className="panel">
+            <div className="panelTitle">
+              <div>
+                <p className="eyebrow">ACTIVE RECORDS</p>
+                <h2>{resources.find((r) => r.key === active).label}</h2>
               </div>
-              {active === "models" && (
-                <div className="pager">
-                  <button type="button" disabled={!modelsCursor || loading} onClick={() => loadModelsPage(null)}>← First</button>
-                  <button type="button" disabled={!modelsNextCursor || loading} onClick={() => loadModelsPage(modelsNextCursor)}>Next →</button>
-                </div>
+              {active === "definitions" && (
+                <label className="filter">
+                  <span>Category</span>
+                  <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+                    <option value="">All categories</option>
+                    {data.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </label>
               )}
-            </>
-          )}
-        </section>
-        <section className="panel formPanel">
-          <p className="eyebrow">CREATE RECORD</p>
-          <h2>New {singular[active]}</h2>
-          <p>IDs, lifecycle status and audit actor are assigned by the server.</p>
-          <form onSubmit={create}>
-            {active === "categories" && (<><Field label="Category name" name="name" required maxLength="120" /><Field label="Sort order" name="sortOrder" type="number" min="0" defaultValue="0" /></>)}
-            {active === "brands" && <Field label="Brand name" name="name" required maxLength="120" />}
-            {active === "models" && (
+            </div>
+            {loading ? (
+              <p className="state" role="status">Loading catalog…</p>
+            ) : rows.length === 0 ? (
+              <p className="state">No active records found.</p>
+            ) : (
               <>
-                <Field label="Model name" name="name" required maxLength="160" />
-                <label><span>Category</span><select name="categoryId" required><option value="">Select category</option>{data.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
-                <label><span>Brand</span><select name="brandId" required><option value="">Select brand</option>{data.brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
-                <Field label="Model code (optional)" name="modelCode" />
-                <Field label="Search aliases (comma separated)" name="aliases" />
+                <div className="tableWrap">
+                  <table>
+                    <thead><tr><th>Name</th><th>Context</th><th>Status</th><th><span className="sr">Actions</span></th></tr></thead>
+                    <tbody>
+                      {rows.map((r) => (
+                        <tr key={r.id}>
+                          <td>
+                            <strong>
+                              {active === "models"
+                                ? <a className="modelLink" href={`/catalog/models/${encodeURIComponent(r.id)}/specifications`}>{r.name}</a>
+                                : r.name ?? r.label}
+                            </strong>
+                            <small>{r.slug ?? r.key}</small>
+                          </td>
+                          <td>
+                            {active === "models"
+                              ? `${names.brand[r.brandId] ?? "Unknown brand"} · ${names.category[r.categoryId] ?? "Unknown category"}`
+                              : active === "definitions"
+                                ? `${names.category[r.categoryId] ?? "Unknown category"} · ${r.dataType}${r.unit ? ` · ${r.unit}` : ""}`
+                                : r.parentId ? "Nested category" : "Catalog root"}
+                          </td>
+                          <td><span className="pill">Active</span></td>
+                          <td>
+                            <div className="actions">
+                              <button type="button" disabled={busy} onClick={() => setEditRecord(r)}>Edit</button>
+                              <button className="danger" type="button" disabled={busy} onClick={() => archive(r)}>Archive</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {active === "models" && (
+                  <div className="pager">
+                    <button type="button" disabled={!modelsCursor || loading} onClick={() => loadModelsPage(null)}>← First</button>
+                    <button type="button" disabled={!modelsNextCursor || loading} onClick={() => loadModelsPage(modelsNextCursor)}>Next →</button>
+                  </div>
+                )}
               </>
             )}
-            {active === "definitions" && (
-              <>
-                <label><span>Category</span><select name="categoryId" required><option value="">Select category</option>{data.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
-                <Field label="Canonical key" name="key" pattern="[a-z][a-z0-9_]*" placeholder="memory_gb" required />
-                <Field label="Display label" name="label" required />
-                <label><span>Data type</span><select name="dataType" required><option>TEXT</option><option>NUMBER</option><option>BOOLEAN</option><option>JSON</option></select></label>
-                <Field label="Unit (optional)" name="unit" />
-                <Field label="Sort order" name="sortOrder" type="number" min="0" defaultValue="0" />
-                <label className="check"><input type="checkbox" name="filterable" /><span>Available as a catalog filter</span></label>
-                <label className="check"><input type="checkbox" name="required" /><span>Required for models in this category</span></label>
-              </>
-            )}
-            <button className="primary" disabled={busy || loading}>{busy ? "Saving…" : "Save record"}</button>
-          </form>
-        </section>
-      </div>
+          </section>
+          <section className="panel formPanel">
+            <p className="eyebrow">CREATE RECORD</p>
+            <h2>New {singular[active]}</h2>
+            <p>IDs, lifecycle status and audit actor are assigned by the server.</p>
+            <form onSubmit={create}>
+              {active === "categories" && (<><Field label="Category name" name="name" required maxLength="120" /><Field label="Sort order" name="sortOrder" type="number" min="0" defaultValue="0" /></>)}
+              {active === "brands" && <Field label="Brand name" name="name" required maxLength="120" />}
+              {active === "models" && (
+                <>
+                  <Field label="Model name" name="name" required maxLength="160" />
+                  <label><span>Category</span><select name="categoryId" required><option value="">Select category</option>{data.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+                  <label><span>Brand</span><select name="brandId" required><option value="">Select brand</option>{data.brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+                  <Field label="Model code (optional)" name="modelCode" />
+                  <Field label="Search aliases (comma separated)" name="aliases" />
+                </>
+              )}
+              {active === "definitions" && (
+                <>
+                  <label><span>Category</span><select name="categoryId" required><option value="">Select category</option>{data.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+                  <Field label="Canonical key" name="key" pattern="[a-z][a-z0-9_]*" placeholder="memory_gb" required />
+                  <Field label="Display label" name="label" required />
+                  <label><span>Data type</span><select name="dataType" required><option>TEXT</option><option>NUMBER</option><option>BOOLEAN</option><option>JSON</option></select></label>
+                  <Field label="Unit (optional)" name="unit" />
+                  <Field label="Sort order" name="sortOrder" type="number" min="0" defaultValue="0" />
+                  <label className="check"><input type="checkbox" name="filterable" /><span>Available as a catalog filter</span></label>
+                  <label className="check"><input type="checkbox" name="required" /><span>Required for models in this category</span></label>
+                </>
+              )}
+              <button className="primary" disabled={busy || loading}>{busy ? "Saving…" : "Save record"}</button>
+            </form>
+          </section>
+        </div>
+      )}
       {editRecord && (
         <CatalogEditModal
           active={active}

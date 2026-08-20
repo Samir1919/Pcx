@@ -3,52 +3,14 @@ import { useEffect, useMemo, useState } from "react";
 import { storefrontApi } from "../../lib/storefront-api";
 import StorefrontNav from "../StorefrontNav";
 
-const ENTRIES = [
-  { key: "DESKTOP_PC", label: "Desktop PC", icon: "🖥️", hint: "Sell a complete desktop build" },
-  { key: "PC_PARTS", label: "PC Parts", icon: "🔧", hint: "Sell a single desktop part" },
-  { key: "LAPTOP", label: "Laptop", icon: "💻", hint: "Sell a complete laptop" },
-  { key: "LAPTOP_PARTS", label: "Laptop Parts", icon: "🔩", hint: "Sell a single laptop part" }
-];
-
-const BUILDS = {
-  DESKTOP_PC: {
-    title: "Desktop PC",
-    systemCategorySlug: "desktop-pc",
-    roles: [
-      { role: "cpu", categorySlug: "cpu", label: "CPU", required: true },
-      { role: "motherboard", categorySlug: "motherboard", label: "Motherboard", required: true },
-      { role: "ram", categorySlug: "ram", label: "RAM", required: true },
-      { role: "storage", categorySlug: "storage", label: "Storage", required: true },
-      { role: "psu", categorySlug: "psu", label: "PSU", required: false },
-      { role: "gpu", categorySlug: "gpu", label: "GPU", required: false }
-    ]
-  },
-  LAPTOP: {
-    title: "Laptop",
-    systemCategorySlug: "laptop",
-    roles: [
-      { role: "ram", categorySlug: "laptop-ram", label: "RAM", required: true },
-      { role: "storage", categorySlug: "laptop-storage", label: "Storage", required: true },
-      { role: "battery", categorySlug: "battery", label: "Battery", required: false },
-      { role: "keyboard", categorySlug: "keyboard", label: "Keyboard", required: false },
-      { role: "charger", categorySlug: "charger", label: "Charger", required: false },
-      { role: "screen", categorySlug: "screen", label: "Screen", required: false }
-    ]
-  }
-};
-
-const PART_ENTRIES = {
-  PC_PARTS: {
-    title: "PC Parts",
-    parentSlug: "pc-parts",
-    children: ["gpu", "cpu", "motherboard", "ram", "storage", "psu"]
-  },
-  LAPTOP_PARTS: {
-    title: "Laptop Parts",
-    parentSlug: "laptop-parts",
-    children: ["laptop-ram", "laptop-storage", "battery", "keyboard", "charger", "screen"]
-  }
-};
+// Curated icon key -> emoji map for sell entries. The DB stores only the icon
+// key; the web app maps it to a safe emoji. Admin never injects raw markup.
+const ICON_EMOJI = Object.freeze({
+  desktop: "🖥️",
+  parts: "🔧",
+  laptop: "💻",
+  "laptop-parts": "🔩"
+});
 
 function moneyRange(range) {
   if (!range || range.lowValue == null || range.highValue == null) return null;
@@ -65,7 +27,7 @@ function Banner({ notice, onClose }) { if (!notice) return null; return <div cla
 export default function SellPage() {
   const [identity, setIdentity] = useState(null);
   const [checking, setChecking] = useState(true);
-  const [categories, setCategories] = useState([]);
+  const [taxonomy, setTaxonomy] = useState([]);
   const [entry, setEntry] = useState(null);
   const [buildRoles, setBuildRoles] = useState({ models: {}, selections: {} });
   const [partCategoryId, setPartCategoryId] = useState("");
@@ -97,18 +59,19 @@ export default function SellPage() {
     return () => { active = false; };
   }, []);
 
+  // Sell entries + build-component role mapping are server-owned catalog config.
   useEffect(() => {
     let active = true;
-    storefrontApi.categories()
-      .then((r) => { if (active) setCategories(r.data); })
-      .catch(() => { });
+    storefrontApi.sellTaxonomy()
+      .then((r) => { if (active) setTaxonomy(r.data ?? []); })
+      .catch(() => { if (active) setTaxonomy([]); });
     return () => { active = false; };
   }, []);
 
-  const categoryBySlug = useMemo(() => Object.fromEntries(categories.map((c) => [c.slug, c])), [categories]);
+  const taxonomyByKey = useMemo(() => Object.fromEntries(taxonomy.map((e) => [e.entryKey, e])), [taxonomy]);
 
-  const build = entry && BUILDS[entry] ? BUILDS[entry] : null;
-  const partEntry = entry && PART_ENTRIES[entry] ? PART_ENTRIES[entry] : null;
+  const build = entry && taxonomyByKey[entry]?.kind === "BUILD" ? taxonomyByKey[entry] : null;
+  const partEntry = entry && taxonomyByKey[entry]?.kind === "PARTS" ? taxonomyByKey[entry] : null;
 
   // Load models for full-system build roles.
   useEffect(() => {
@@ -116,18 +79,16 @@ export default function SellPage() {
     let active = true;
     (async () => {
       const models = {};
-      await Promise.all(build.roles.map(async (role) => {
-        const category = categoryBySlug[role.categorySlug];
-        if (!category) return;
+      await Promise.all(build.components.map(async (component) => {
         try {
-          const r = await storefrontApi.productModels({ categoryId: category.id, limit: 50, sort: "name_asc" });
-          models[role.role] = r.data ?? [];
-        } catch { models[role.role] = []; }
+          const r = await storefrontApi.productModels({ categoryId: component.category.id, limit: 50, sort: "name_asc" });
+          models[component.role] = r.data ?? [];
+        } catch { models[component.role] = []; }
       }));
       if (active) setBuildRoles((prev) => ({ ...prev, models }));
     })();
     return () => { active = false; };
-  }, [entry, categories, build]);
+  }, [entry, build]);
 
   // Load part models when a part category is selected.
   useEffect(() => {
@@ -151,8 +112,8 @@ export default function SellPage() {
           const r = await storefrontApi.quoteRanges({ productModelId: partModelId, categoryId: partCategoryId });
           if (active) setQuote({ range: r.data?.range ?? null, loading: false });
         } else if (build) {
-          const selectedIds = build.roles
-            .map((r) => buildRoles.selections[r.role])
+          const selectedIds = build.components
+            .map((c) => buildRoles.selections[c.role])
             .filter(Boolean);
           if (selectedIds.length === 0) { if (active) setQuote({ range: null, loading: false }); return; }
           const responses = await Promise.all(selectedIds.map((id) => storefrontApi.quoteRanges({ productModelId: id })));
@@ -213,16 +174,16 @@ export default function SellPage() {
       };
       let payload;
       if (build) {
-        const systemCategory = categoryBySlug[build.systemCategorySlug];
+        const systemCategory = build.category;
         if (!systemCategory) throw new Error("Catalog is not ready. Please try again later.");
         payload = {
           ...common,
           categoryId: systemCategory.id,
           productModelId: undefined,
           sellEntry: entry,
-          buildComponents: build.roles
-            .filter((r) => buildRoles.selections[r.role])
-            .map((r) => ({ role: r.role, productModelId: buildRoles.selections[r.role] }))
+          buildComponents: build.components
+            .filter((c) => buildRoles.selections[c.role])
+            .map((c) => ({ role: c.role, productModelId: buildRoles.selections[c.role] }))
         };
       } else if (partEntry) {
         payload = {
@@ -276,10 +237,10 @@ export default function SellPage() {
               <p>Choose an entry to continue. Your quote is an estimated range — the final offer is made only after physical inspection.</p>
             </div>
             <div className="sellEntries">
-              {ENTRIES.map((e) => (
-                <button key={e.key} type="button" className="sellEntryCard" onClick={() => chooseEntry(e.key)}>
-                  <span className="sellEntryIcon">{e.icon}</span>
-                  <strong>{e.label}</strong>
+              {taxonomy.map((e) => (
+                <button key={e.entryKey} type="button" className="sellEntryCard" onClick={() => chooseEntry(e.entryKey)}>
+                  <span className="sellEntryIcon">{ICON_EMOJI[e.iconKey] ?? e.iconKey}</span>
+                  <strong>{e.category?.name ?? e.entryKey}</strong>
                   <small>{e.hint}</small>
                 </button>
               ))}
@@ -287,16 +248,16 @@ export default function SellPage() {
           </>
         )}
 
-        {!result && entry && (
+        {!result && entry && (build || partEntry) && (
           <form className="sellForm" onSubmit={handleSubmit}>
             <button type="button" className="learn-more" onClick={() => chooseEntry(null)}>← Choose a different entry</button>
-            <div className="entryHeading"><h2>{build ? build.title : partEntry.title}</h2><p className="meta">{disclaimer()}</p></div>
+            <div className="entryHeading"><h2>{build ? build.category.name : partEntry.category.name}</h2><p className="meta">{disclaimer()}</p></div>
 
-            {build && build.roles.map((role) => (
-              <label key={role.role}><span>{role.label}{role.required ? " *" : ""}</span>
-                <select value={buildRoles.selections[role.role] ?? ""} onChange={(e) => setBuildSelection(role.role, e.target.value)} required={role.required}>
-                  <option value="">Select {role.label}</option>
-                  {(buildRoles.models[role.role] ?? []).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            {build && build.components.map((component) => (
+              <label key={component.role}><span>{component.category.name}{component.required ? " *" : ""}</span>
+                <select value={buildRoles.selections[component.role] ?? ""} onChange={(e) => setBuildSelection(component.role, e.target.value)} required={component.required}>
+                  <option value="">Select {component.category.name}</option>
+                  {(buildRoles.models[component.role] ?? []).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
               </label>
             ))}
@@ -306,10 +267,7 @@ export default function SellPage() {
                 <label><span>Part category *</span>
                   <select value={partCategoryId} onChange={(e) => { setPartCategoryId(e.target.value); setPartModelId(""); }} required>
                     <option value="">Select part category</option>
-                    {partEntry.children.map((slug) => {
-                      const c = categoryBySlug[slug];
-                      return c ? <option key={c.id} value={c.id}>{c.name}</option> : null;
-                    })}
+                    {partEntry.children.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </label>
                 <label><span>Part model *</span>
