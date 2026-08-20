@@ -833,7 +833,7 @@ textarea:focus {
   margin-top: 22px
 }
 
-.authCard label>span {
+.authCard label:not(.check)>span {
   display: block;
   font-size: 11px;
   font-weight: 700;
@@ -841,7 +841,7 @@ textarea:focus {
   margin-bottom: 7px;
 }
 
-.authCard input {
+.authCard label:not(.check) input {
   width: 100%;
   border: 1px solid #ced8d2;
   border-radius: 8px;
@@ -851,9 +851,13 @@ textarea:focus {
   outline: none;
 }
 
-.authCard input:focus {
+.authCard label:not(.check) input:focus {
   border-color: #34856c;
   box-shadow: 0 0 0 3px rgba(52, 133, 108, .12);
+}
+
+.authCard .check {
+  accent-color: var(--green);
 }
 
 .authAlt {
