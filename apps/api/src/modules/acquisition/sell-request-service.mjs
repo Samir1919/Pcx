@@ -9,37 +9,7 @@ export class SellRequestError extends Error {
 
 const createFields = new Set(["categoryId", "productModelId", "contactName", "contactPhone", "contactEmail", "fulfilmentPreference", "selectedSpecs", "sellEntry", "buildComponents", "ageEstimate", "warrantyRemaining", "repairDeclared", "repairNotes", "boxAvailable", "invoiceAvailable", "ownershipDeclared"]);
 
-// PLACEHOLDER preliminary estimated ranges per launch category. This is the
-// documented rule-engine interface required by the approved backlog (E3):
-// "estimated-range placeholder/rule engine interface". It is intentionally a
-// flat placeholder, NOT a pricing policy. Estimated ranges are never a final
-// offer; the final offer is always produced only from physical inspection by an
-// authorized user via the acquisition (valuation/offer) module.
-const PLACEHOLDER_RANGES = Object.freeze({
-  ["80000000-0000-0000-0000-000000000001"]: Object.freeze({ low: 12000, high: 180000 }), // Desktop PC
-  ["80000000-0000-0000-0000-000000000002"]: Object.freeze({ low: 10000, high: 160000 }), // Laptop
-  ["80000000-0000-0000-0000-000000000003"]: Object.freeze({ low: 6000, high: 60000 }),   // GPU
-  ["80000000-0000-0000-0000-000000000004"]: Object.freeze({ low: 4000, high: 40000 }),   // CPU
-  ["80000000-0000-0000-0000-000000000005"]: Object.freeze({ low: 2500, high: 25000 }),   // Motherboard
-  ["80000000-0000-0000-0000-000000000006"]: Object.freeze({ low: 1500, high: 15000 }),   // RAM
-  ["80000000-0000-0000-0000-000000000007"]: Object.freeze({ low: 1000, high: 20000 }),   // Storage
-  ["80000000-0000-0000-0000-000000000008"]: Object.freeze({ low: 800, high: 12000 }),    // PSU
-  ["80000000-0000-0000-0000-000000000009"]: Object.freeze({ low: 2500, high: 25000 }),   // Monitor
-  ["80000000-0000-0000-0000-000000000010"]: Object.freeze({ low: 300, high: 8000 })      // Accessory
-});
-
-function estimatedRangeFor(categoryId) {
-  const range = PLACEHOLDER_RANGES[categoryId];
-  if (!range) return null;
-  return Object.freeze({
-    low: range.low,
-    high: range.high,
-    basis: "placeholder-rule-engine",
-    disclaimer: "Estimated market range, not a final offer. The final offer is determined only after physical inspection."
-  });
-}
-
-export function createSellRequestService({ authService, repository, id = randomUUID, clock = () => new Date() }) {
+export function createSellRequestService({ authService, repository, indicativePriceService, id = randomUUID, clock = () => new Date() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
   for (const method of ["create", "submit", "findByOwner", "listByOwner", "listAll"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
 
@@ -102,7 +72,19 @@ export function createSellRequestService({ authService, repository, id = randomU
         throw new SellRequestError("invalid_input");
       }
       const record = await repository.create(request, declaration, now);
-      return Object.freeze({ ...record, estimatedRange: estimatedRangeFor(fields.categoryId) });
+      // The estimated range is resolved from the server-owned indicative price
+      // service (admin-set, append-only, model > category precedence). It is a
+      // read-only projection, never a final offer, and never a client value.
+      let estimatedRange = null;
+      if (indicativePriceService) {
+        try {
+          const quote = await indicativePriceService.quote({ productModelId: fields.productModelId ?? null, categoryId: fields.categoryId ?? null });
+          estimatedRange = quote?.data?.range ?? null;
+        } catch {
+          estimatedRange = null;
+        }
+      }
+      return Object.freeze({ ...record, estimatedRange });
     },
 
     async list(accessCredential) {

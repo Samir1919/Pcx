@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { catalogApi } from "../../../lib/catalog-api";
 import SellFlowPanel from "./sell-flow-panel";
+import QuoteConfigPanel from "./quote-config-panel";
 
 const resources = [{ key: "categories", label: "Categories" }, { key: "brands", label: "Brands" }, { key: "models", label: "Product models" }, { key: "definitions", label: "Attributes" }];
 const plural = { categories: "categories", brands: "brands", models: "product-models", definitions: "attribute-definitions" };
@@ -260,8 +261,13 @@ export default function CatalogWorkspace() {
         <button role="tab" aria-selected={active === "sellflow"} onClick={() => setActive("sellflow")}>
           Sell flow
         </button>
+        <button role="tab" aria-selected={active === "quotes"} onClick={() => setActive("quotes")}>
+          Quotes
+        </button>
       </div>
-      {active === "sellflow" ? (
+      {active === "quotes" ? (
+        <QuoteConfigPanel />
+      ) : active === "sellflow" ? (
         <SellFlowPanel categories={data.categories} />
       ) : (
         <div className="grid">

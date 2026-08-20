@@ -28,6 +28,7 @@ function fixture(overrides = {}) {
   const service = createSellRequestService({
     authService: { async authenticateAccess() { return { userId: "owner-1", status: "ACTIVE", roles: ["CUSTOMER"] }; }, ...overrides.authService },
     repository,
+    indicativePriceService: overrides.indicativePriceService ?? { async quote() { return { data: { range: null } }; } },
     id: (() => { let n = 0; return () => `id-${++n}`; })(),
     clock: () => new Date("2026-08-16T00:00:00.000Z")
   });
@@ -146,18 +147,27 @@ test("create captures seller-declared selected specs", async () => {
   assert.deepEqual(calls.created[0].request.selectedSpecs, [{ key: "vram_gb", value: 12 }, { key: "condition", value: "good" }]);
 });
 
-test("create returns a placeholder estimated range with a final-offer disclaimer", async () => {
-  const { service } = fixture();
+test("create resolves the estimated range from the server-owned quote service", async () => {
+  let called = null;
+  const { service } = fixture({
+    indicativePriceService: {
+      async quote(args) {
+        called = args;
+        return { data: { range: { lowValue: 100, highValue: 200, basis: "indicative-range", disclaimer: "Estimated market range, not a final offer." } } };
+      }
+    }
+  });
   const result = await service.create("access", {
     categoryId: "80000000-0000-0000-0000-000000000003",
+    productModelId: "model-1",
     contactName: "Seller",
     contactPhone: "01700000000",
     fulfilmentPreference: FulfilmentPreference.COURIER,
     ownershipDeclared: true
   });
-  assert.equal(result.estimatedRange.basis, "placeholder-rule-engine");
-  assert.equal(typeof result.estimatedRange.low, "number");
-  assert.equal(typeof result.estimatedRange.high, "number");
+  assert.deepEqual(called, { productModelId: "model-1", categoryId: "80000000-0000-0000-0000-000000000003" });
+  assert.equal(result.estimatedRange.lowValue, 100);
+  assert.equal(result.estimatedRange.highValue, 200);
   assert.match(result.estimatedRange.disclaimer, /not a final offer/i);
 });
 

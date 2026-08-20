@@ -97,7 +97,8 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   const catalogService = createCatalogService({ repository: createPostgresCatalogRepository({ pool }) });
   const catalogCommandService = createCatalogCommandService({ authService, repository: createPostgresCatalogCommandRepository({ pool }) });
   const catalogSpecCommandService = createCatalogSpecCommandService({ authService, repository: createPostgresCatalogSpecCommandRepository({ pool }) });
-  const sellRequestService = createSellRequestService({ authService, repository: createPostgresSellRequestRepository({ pool }) });
+  const indicativePriceService = createIndicativePriceService({ authService, repository: createPostgresIndicativePriceRepository({ pool }) });
+  const sellRequestService = createSellRequestService({ authService, repository: createPostgresSellRequestRepository({ pool }), indicativePriceService });
   const acquisitionService = createAcquisitionService({ authService, repository: createPostgresAcquisitionRepository({ pool }) });
   const inventoryService = createInventoryService({ authService, repository: createPostgresInventoryRepository({ pool }) });
   const inspectionTemplateService = createInspectionTemplateService({ authService, repository: createPostgresInspectionTemplateRepository({ pool }) });
@@ -107,7 +108,6 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   const reservationService = createReservationService({ authService, listingRepository, reservationRepository: createPostgresReservationRepository({ pool }) });
   const paymentProviderConfigRepository = createPostgresPaymentProviderConfigRepository({ pool });
   const paymentProviderConfigService = createPaymentProviderConfigService({ authService, repository: paymentProviderConfigRepository });
-  const indicativePriceService = createIndicativePriceService({ authService, repository: createPostgresIndicativePriceRepository({ pool }) });
   const sellTaxonomyService = createSellTaxonomyService({ authService, readRepository: createPostgresSellTaxonomyRepository({ pool }), commandRepository: createPostgresSellTaxonomyCommandRepository({ pool }) });
   const orderPaymentService = createOrderPaymentService({ authService, repository: createPostgresOrderPaymentRepository({ pool }), paymentProviderConfigService });
 
