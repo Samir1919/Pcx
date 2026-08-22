@@ -8,6 +8,7 @@ import { handleSellRequestRequest } from "./modules/acquisition/sell-request-htt
 import { handleAcquisitionRequest } from "./modules/acquisition/acquisition-http.mjs";
 import { handleInventoryRequest } from "./modules/inventory/inventory-http.mjs";
 import { handleInspectionTemplateRequest } from "./modules/inspection/inspection-template-http.mjs";
+import { handleInspectionExecutionRequest } from "./modules/inspection/inspection-execution-http.mjs";
 import { handleListingRequest } from "./modules/listing/listing-http.mjs";
 import { handleReservationRequest } from "./modules/commerce/reservation-http.mjs";
 import { handleOrderPaymentRequest } from "./modules/commerce/order-payment-http.mjs";
@@ -66,7 +67,7 @@ function catalogFilters(url) {
   });
 }
 
-export function createRequestHandler({ readiness = () => ({ ok: true }), catalogService, catalogCommandService, catalogSpecCommandService, authService, identityActionService, userAdminService, addressService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, listingService, merchantListingService, reservationService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, operationsReportService, notificationService, auditLogService, paymentProviderConfigService, indicativePriceService, allowedOrigins } = {}) {
+export function createRequestHandler({ readiness = () => ({ ok: true }), catalogService, catalogCommandService, catalogSpecCommandService, authService, identityActionService, userAdminService, addressService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, inspectionExecutionService, listingService, merchantListingService, reservationService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, operationsReportService, notificationService, auditLogService, paymentProviderConfigService, indicativePriceService, allowedOrigins } = {}) {
 
   return async (request, response) => {
     response.setHeader("content-type", "application/json; charset=utf-8");
@@ -96,6 +97,7 @@ export function createRequestHandler({ readiness = () => ({ ok: true }), catalog
     if (await handleAcquisitionRequest(request, response, { acquisitionService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleInventoryRequest(request, response, { inventoryService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleInspectionTemplateRequest(request, response, { inspectionTemplateService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleInspectionExecutionRequest(request, response, { inspectionExecutionService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleListingRequest(request, response, { listingService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleReservationRequest(request, response, { reservationService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleOrderPaymentRequest(request, response, { orderPaymentService, allowedOrigins, requestId: requestId(request) })) return;

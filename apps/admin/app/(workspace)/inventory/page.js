@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { opsApi } from "../../../lib/ops-api";
+import InspectionModal from "./inspection-modal";
 
 function ItemDetailModal({ item, onClose }) {
   return createPortal(
@@ -34,6 +35,7 @@ export default function InventoryPage() {
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
   const [detail, setDetail] = useState(null);
+  const [inspectItem, setInspectItem] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -110,6 +112,7 @@ export default function InventoryPage() {
                     <td>
                       <div className="actions">
                         <button type="button" disabled={busy} onClick={() => viewItem(item)}>View</button>
+                        <button type="button" disabled={busy} onClick={() => setInspectItem(item)}>Inspect</button>
                       </div>
                     </td>
                   </tr>
@@ -130,6 +133,7 @@ export default function InventoryPage() {
         </form>
       </section>
       {detail && <ItemDetailModal item={detail} onClose={() => setDetail(null)} />}
+      {inspectItem && <InspectionModal item={inspectItem} onClose={() => setInspectItem(null)} />}
     </>
   );
 }

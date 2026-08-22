@@ -23,6 +23,8 @@ import { createPostgresInventoryRepository } from "../inventory/postgres-invento
 import { createInventoryService } from "../inventory/inventory-service.mjs";
 import { createPostgresInspectionTemplateRepository } from "../inspection/postgres-inspection-template-repository.mjs";
 import { createInspectionTemplateService } from "../inspection/inspection-template-service.mjs";
+import { createPostgresInspectionExecutionRepository } from "../inspection/postgres-inspection-execution-repository.mjs";
+import { createInspectionExecutionService } from "../inspection/inspection-execution-service.mjs";
 import { createPostgresListingRepository } from "../listing/postgres-listing-repository.mjs";
 import { createListingService } from "../listing/listing-service.mjs";
 import { createMerchantListingRepository } from "../listing/merchant-listing-repository.mjs";
@@ -96,8 +98,11 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   const catalogSpecCommandService = createCatalogSpecCommandService({ authService, repository: createPostgresCatalogSpecCommandRepository({ pool }) });
   const sellRequestService = createSellRequestService({ authService, repository: createPostgresSellRequestRepository({ pool }) });
   const acquisitionService = createAcquisitionService({ authService, repository: createPostgresAcquisitionRepository({ pool }) });
-  const inventoryService = createInventoryService({ authService, repository: createPostgresInventoryRepository({ pool }) });
-  const inspectionTemplateService = createInspectionTemplateService({ authService, repository: createPostgresInspectionTemplateRepository({ pool }) });
+  const inventoryRepository = createPostgresInventoryRepository({ pool });
+  const inventoryService = createInventoryService({ authService, repository: inventoryRepository });
+  const inspectionTemplateRepository = createPostgresInspectionTemplateRepository({ pool });
+  const inspectionTemplateService = createInspectionTemplateService({ authService, repository: inspectionTemplateRepository });
+  const inspectionExecutionService = createInspectionExecutionService({ authService, inventoryRepository, inspectionTemplateRepository, repository: createPostgresInspectionExecutionRepository({ pool }) });
   const listingRepository = createPostgresListingRepository({ pool });
   const listingService = createListingService({ authService, repository: listingRepository });
   const merchantListingService = createMerchantListingService({ authService, repository: createMerchantListingRepository({ pool }) });
@@ -114,6 +119,6 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   const operationsReportService = createOperationsReportService({ authService, repository: createPostgresOperationsReportRepository({ pool }) });
   const notificationService = createNotificationService({ authService, repository: createPostgresNotificationRepository({ pool }) });
   const auditLogService = createAuditLogService({ authService, repository: createPostgresAuditLogRepository({ pool }) });
-  return Object.freeze({ authService, identityActionService, userAdminService, addressService, catalogService, catalogCommandService, catalogSpecCommandService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, listingService, merchantListingService, reservationService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, operationsReportService, notificationService, auditLogService, paymentProviderConfigService, indicativePriceService, allowedOrigins: origins });
+  return Object.freeze({ authService, identityActionService, userAdminService, addressService, catalogService, catalogCommandService, catalogSpecCommandService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, inspectionExecutionService, listingService, merchantListingService, reservationService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, operationsReportService, notificationService, auditLogService, paymentProviderConfigService, indicativePriceService, allowedOrigins: origins });
 
 }
