@@ -272,10 +272,15 @@ const seed = async () => {
     }
 
     // --- reservation (one ACTIVE per item) ---
+    // Idempotent by fixed id (not by "has an ACTIVE row for the item"), because a
+    // previous seed run's reservation can later expire; re-inserting the same id
+    // then violates reservations_pkey. The one-active-per-item invariant is still
+    // preserved by rejecting any other ACTIVE row for the same item below.
     await client.query(
       `INSERT INTO reservations(id, inventory_item_id, reserved_by_user_id, status, reserved_until, created_at)
        SELECT $1, $2, $3, 'ACTIVE', now() + interval '1 day', now()
-       WHERE NOT EXISTS (SELECT 1 FROM reservations WHERE inventory_item_id = $2 AND status = 'ACTIVE')`,
+       WHERE NOT EXISTS (SELECT 1 FROM reservations WHERE id = $1)
+         AND NOT EXISTS (SELECT 1 FROM reservations WHERE inventory_item_id = $2 AND status = 'ACTIVE')`,
       [DEMO.reservation, DEMO.invTower, DEMO.customer]
     );
 
