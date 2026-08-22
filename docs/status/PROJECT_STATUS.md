@@ -1,7 +1,7 @@
 # PCX Project Status
 
 - Updated: 2026-08-23
-- Current main evidence commit: `1abc07c` on branch `agent/project-lightening` (project lightening: historical docs archived to `docs/archive/`, unused package stubs deleted, domain imports normalized to `@pcx/domain`)
+- Current main evidence commit: `8e72d12` on branch `main` (full-stack A→Z verification harness: Playwright click-through checks for customer storefront and admin control room, seed-demo idempotency fix)
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: Stage 3 control-plane completion and next dependency-ready work
 - Current autonomy maturity: Stage 2 in progress; Stage 3 control plane complete for bounded local/CI parallel orchestration (ADR 0008)
@@ -70,7 +70,7 @@ This file is the central progress index. Approved specifications define what PCX
 - Dependency audit (`npm audit --omit=dev --audit-level=high`): 0 known vulnerabilities.
 - Backup/restore drill: seed rows recovered to a throwaway database.
 - Autonomous loop dry-run: `node scripts/autonomous-loop.mjs --dry-run --real-executor --no-persist-graph` completes spec/api/web with a surfaced cost/runtime report (Tasks 3, Passed 3, Cost 3); `--approval-required` blocks commit-creating tasks with `approval_required`; `--deepseek-executor` and `--openai-review` opt into AI-backed adapters.
-- Latest detailed evidence: `docs/archive/handoffs/ADMIN_WORKSPACE_AUTH_AND_NAV.md` (commit `51e7a26`), plus `STAGE3_AI_EXECUTOR_REVIEWER_ADAPTERS.md`, `AUTONOMOUS_TASK5_BKASH_CREDENTIALS_ADMIN.md`, `STAGE3_INTEGRATION_TARGET_FIX.md`, `FULLSTACK_DOCKER_DEV_PROD_RUNNERS.md`, `CLINE_DEEPSEEK_UNBLOCK_CATALOG_PAGINATION.md` (commits `eef8f82`, `da18256`, `494f311`; DeepSeek endpoint env-driven + leaked-tool-call fail-fast + admin product-model cursor pagination), `CLINE_AUDIT_FIX_18_PASSPORT_SNAKE_MAPPING.md` (public passport snake→camel mapping so a published item no longer 404s), and `CLINE_AUDIT_FIX_19_PAYMENT_SAVE_ACTIVE.md` (commit `559bfda`; credential save preserves server-owned active state).
+- Latest detailed evidence: `docs/handoffs/FULLSTACK_A_TO_Z_VERIFY.md` (commit `6a5d7e5` / merge `8e72d12`): built `scripts/storefront-e2e-check.mjs` (12/12) and `scripts/admin-e2e-check.mjs` (18/18, login+MFA + all 14 workspaces + catalog/inventory/listings modals), fixed `scripts/seed-demo.mjs` reservation idempotency, and wired `npm run web:e2e` / `npm run admin:e2e`. Prior evidence includes `ADMIN_WORKSPACE_AUTH_AND_NAV.md`, `STAGE3_AI_EXECUTOR_REVIEWER_ADAPTERS.md`, `AUTONOMOUS_TASK5_BKASH_CREDENTIALS_ADMIN.md`, `STAGE3_INTEGRATION_TARGET_FIX.md`, `FULLSTACK_DOCKER_DEV_PROD_RUNNERS.md`, `CLINE_DEEPSEEK_UNBLOCK_CATALOG_PAGINATION.md`, `CLINE_AUDIT_FIX_18_PASSPORT_SNAKE_MAPPING.md`, `CLINE_AUDIT_FIX_19_PAYMENT_SAVE_ACTIVE.md`.
 
 
 
