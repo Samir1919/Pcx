@@ -20,9 +20,17 @@ export const PaymentStatus = Object.freeze({
   FAILED: "FAILED"
 });
 
+// Cash on Delivery has no external provider charge; its provider transaction id
+// is still server-derived (deterministic per order+amount) for idempotency.
+export const PaymentMethod = Object.freeze({
+  BKASH: "BKASH",
+  COD: "COD"
+});
+
 const orderStatuses = new Set(Object.values(OrderStatus));
 const directions = new Set(Object.values(PaymentDirection));
 const paymentStatuses = new Set(Object.values(PaymentStatus));
+const paymentMethods = new Set(Object.values(PaymentMethod));
 
 function requiredString(value, name) {
   if (typeof value !== "string" || value.trim().length === 0) throw new TypeError(`${name} is required`);
@@ -121,6 +129,7 @@ export function createPayment({
   initiatedAt = new Date()
 }) {
   if (!directions.has(direction)) throw new TypeError("payment direction is invalid");
+  if (!paymentMethods.has(method)) throw new TypeError("payment method is invalid");
   return Object.freeze({
     id: requiredString(id, "id"),
     orderId: optionalString(orderId, "orderId"),
@@ -145,4 +154,4 @@ export function confirmPayment(payment, { confirmedAt = new Date() } = {}) {
   });
 }
 
-export { orderStatuses, paymentStatuses };
+export { orderStatuses, paymentStatuses, paymentMethods };

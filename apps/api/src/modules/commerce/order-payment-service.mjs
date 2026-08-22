@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createOrder, createOrderItemSnapshot, createPayment } from "../../../../../packages/domain/src/commerce/order-payment.mjs";
-import { createBkashGateway, createSandboxPaymentGateway, PaymentProvider, Role } from "../../../../../packages/domain/src/index.mjs";
+import { createBkashGateway, createSandboxPaymentGateway, PaymentMethod, PaymentProvider, Role } from "../../../../../packages/domain/src/index.mjs";
 
 export class OrderPaymentError extends Error {
   constructor(code) { super(code); this.name = "OrderPaymentError"; this.code = code; }
@@ -8,9 +8,9 @@ export class OrderPaymentError extends Error {
 
 const orderFields = new Set(["items"]);
 const itemFields = new Set(["inventoryItemId", "listingId", "productModelId", "pcxItemId", "productName", "grade", "healthScore", "unitPrice", "specs"]);
-// providerTransactionId is intentionally NOT client-authoritative: it is derived
-// from the injected gateway so the server owns the financial fact.
-const paymentFields = new Set(["orderId", "direction", "provider", "method", "amount"]);
+// providerTransactionId AND provider are intentionally NOT client-authoritative:
+// both are derived server-side so the server owns the financial fact.
+const paymentFields = new Set(["orderId", "direction", "method", "amount"]);
 
 export function createOrderPaymentService({ authService, repository, id = randomUUID, clock = () => new Date(), gateway = createSandboxPaymentGateway(), paymentProviderConfigService, provider = PaymentProvider.BKASH }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
@@ -116,15 +116,26 @@ export function createOrderPaymentService({ authService, repository, id = random
       const paymentId = id();
       let charge;
       let resolvedProvider = "SANDBOX";
-      try {
-        // The provider transaction id is server-authoritative: it is derived
-        // from the resolved gateway (active provider credentials or sandbox),
-        // never accepted from client input.
-        const resolved = await resolveGateway();
-        resolvedProvider = resolved.provider;
-        charge = await resolved.gateway.charge({ amount: fields.amount, currency: "BDT", reference: chargeReference(fields) });
-      } catch {
-        throw new OrderPaymentError("invalid_input");
+      if (fields.method === PaymentMethod.COD) {
+        // Cash on delivery has no external provider charge. The provider
+        // transaction id is still server-derived and deterministic per order +
+        // amount so a client retry is idempotent and dupes are deduped by the
+        // unique provider transaction id constraint. The amount is recorded as
+        // the collection target; actual cash collection becomes CONFIRMED via
+        // confirmPayment at delivery.
+        resolvedProvider = PaymentMethod.COD;
+        charge = { providerTransactionId: `cod-${fields.orderId}-${fields.amount}` };
+      } else {
+        try {
+          // The provider transaction id is server-authoritative: it is derived
+          // from the resolved gateway (active provider credentials or sandbox),
+          // never accepted from client input.
+          const resolved = await resolveGateway();
+          resolvedProvider = resolved.provider;
+          charge = await resolved.gateway.charge({ amount: fields.amount, currency: "BDT", reference: chargeReference(fields) });
+        } catch {
+          throw new OrderPaymentError("invalid_input");
+        }
       }
       let record;
       try {
@@ -132,7 +143,7 @@ export function createOrderPaymentService({ authService, repository, id = random
           id: paymentId,
           orderId: fields.orderId,
           direction: fields.direction,
-          provider: fields.provider ?? resolvedProvider,
+          provider: resolvedProvider,
           providerTransactionId: charge.providerTransactionId,
           method: fields.method,
           amount: fields.amount,

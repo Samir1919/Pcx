@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createOrderPaymentService } from "../src/modules/commerce/order-payment-service.mjs";
-import { PaymentDirection, PaymentStatus } from "../../../packages/domain/src/index.mjs";
+import { PaymentDirection, PaymentMethod, PaymentStatus } from "../../../packages/domain/src/index.mjs";
 
 function fixture(overrides = {}) {
   const calls = { orders: [], items: [], payments: [], confirms: [] };
@@ -48,15 +48,15 @@ test("order creation is customer-gated and derives totals from server-owned unit
 
 test("payment create derives provider txn id from the gateway and confirm enforces state", async () => {
   const { service, calls } = fixture();
-  const payment = await service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, provider: "bkash", method: "mobile", amount: 1500 });
+  const payment = await service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, method: PaymentMethod.BKASH, amount: 1500 });
   assert.equal(payment.status, PaymentStatus.INITIATED);
   // The provider transaction id is server-authoritative: derived from the
   // sandbox gateway from the deterministic order+amount reference.
   assert.equal(calls.payments[0].providerTransactionId, "sandbox-pay-payment-o1-1500");
-  assert.equal(calls.payments[0].provider, "bkash");
+  assert.equal(calls.payments[0].provider, "SANDBOX");
 
   const conflict = fixture({ repository: { async createPayment() { const e = new Error("dup"); e.code = "23505"; throw e; } } });
-  await assert.rejects(conflict.service.createPayment("access", { orderId: "o", direction: "INBOUND", provider: "p", method: "m", amount: 1 }), (error) => error.code === "conflict");
+  await assert.rejects(conflict.service.createPayment("access", { orderId: "o", direction: "INBOUND", method: PaymentMethod.BKASH, amount: 1 }), (error) => error.code === "conflict");
 
   const { service: confirmSvc } = fixture();
   const confirmed = await confirmSvc.confirmPayment("access", "sandbox-pay-id-1");
@@ -66,10 +66,10 @@ test("payment create derives provider txn id from the gateway and confirm enforc
   await assert.rejects(invalidState.service.confirmPayment("access", "sandbox-pay-id-1"), (error) => error.code === "invalid_state");
 });
 
-test("payment create rejects client-supplied providerTransactionId (server-authoritative)", async () => {
+test("payment create rejects client-supplied provider and providerTransactionId (server-authoritative)", async () => {
   const { service } = fixture();
   await assert.rejects(
-    service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, provider: "bkash", providerTransactionId: "client-forged", method: "mobile", amount: 1500 }),
+    service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, providerTransactionId: "client-forged", method: PaymentMethod.BKASH, amount: 1500 }),
     (error) => error.code === "invalid_input"
   );
 });
@@ -78,7 +78,7 @@ test("payment create uses an injected gateway and defaults provider to SANDBOX",
   const charges = [];
   const gateway = { async charge({ amount, currency, reference }) { charges.push({ amount, currency, reference }); return { providerTransactionId: `gw-${reference}`, status: "CONFIRMED" }; } };
   const { service, calls } = fixture({ gateway });
-  const payment = await service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, method: "mobile", amount: 500 });
+  const payment = await service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, method: PaymentMethod.BKASH, amount: 500 });
   assert.equal(payment.status, PaymentStatus.INITIATED);
   assert.equal(calls.payments[0].providerTransactionId, "gw-payment-o1-500");
   assert.equal(calls.payments[0].provider, "SANDBOX");
@@ -96,7 +96,7 @@ test("payment create records the provider identity, not the credential mode, for
       }
     };
     const { service, calls } = fixture({ paymentProviderConfigService });
-    await service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, method: "mobile", amount: 500 });
+    await service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, method: PaymentMethod.BKASH, amount: 500 });
     assert.equal(calls.payments[0].provider, "bkash");
     assert.equal(calls.payments[0].providerTransactionId, `bkash-${mode.toLowerCase()}-payment-o1-500`);
   }
@@ -105,7 +105,7 @@ test("payment create records the provider identity, not the credential mode, for
 test("payment create falls back to the sandbox provider when no credentials are active", async () => {
   const paymentProviderConfigService = { async getActiveCredentials() { return null; } };
   const { service, calls } = fixture({ paymentProviderConfigService });
-  await service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, method: "mobile", amount: 500 });
+  await service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, method: PaymentMethod.BKASH, amount: 500 });
   assert.equal(calls.payments[0].provider, "SANDBOX");
 });
 
@@ -115,9 +115,27 @@ test("payment create derives a deterministic idempotency reference from order an
     async charge({ amount, currency, reference }) { references.push(reference); return { providerTransactionId: `gw-${reference}`, status: "CONFIRMED" }; }
   };
   const { service, calls } = fixture({ gateway });
-  await service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, method: "mobile", amount: 500 });
-  await service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, method: "mobile", amount: 500 });
+  await service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, method: PaymentMethod.BKASH, amount: 500 });
+  await service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, method: PaymentMethod.BKASH, amount: 500 });
   assert.deepEqual(references, ["payment-o1-500", "payment-o1-500"], "a retry must reuse the same charge reference, not a fresh random id");
   assert.equal(calls.payments[0].providerTransactionId, calls.payments[1].providerTransactionId);
 });
 
+test("COD payment records a deterministic server-derived provider id without any gateway charge", async () => {
+  let chargeCalled = false;
+  const gateway = { async charge() { chargeCalled = true; return { providerTransactionId: "should-not-happen" }; } };
+  const { service, calls } = fixture({ gateway });
+  const payment = await service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, method: PaymentMethod.COD, amount: 1500 });
+  assert.equal(payment.status, PaymentStatus.INITIATED);
+  assert.equal(calls.payments[0].provider, "COD");
+  assert.equal(calls.payments[0].providerTransactionId, "cod-o1-1500");
+  assert.equal(chargeCalled, false, "COD must never call the external gateway");
+});
+
+test("payment create rejects an unknown method (only BKASH and COD are supported)", async () => {
+  const { service } = fixture();
+  await assert.rejects(
+    service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, method: "CARD", amount: 1500 }),
+    (error) => error.code === "invalid_input"
+  );
+});

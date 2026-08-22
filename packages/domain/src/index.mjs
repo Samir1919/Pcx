@@ -20,7 +20,7 @@ export { assertUniqueInspectionTemplateItems, createInspectionTemplate, createIn
 export { approveInspection, computeHealthScore, ConditionGrade, createInspection, createTestResult, InspectionStatus, rejectInspection, submitInspection, suggestGrade, TestResultStatus } from "./inspection/inspection-execution.mjs";
 export { createListing, createListingPrice, createPublicListing, createPublicPassport, ListingStatus, publishListing } from "./listing/listing.mjs";
 export { convertReservation, createReservation, isExpiredReservation, ReservationStatus } from "./commerce/reservation.mjs";
-export { confirmPayment, createOrder, createOrderItemSnapshot, createPayment, OrderStatus, PaymentDirection, PaymentStatus } from "./commerce/order-payment.mjs";
+export { confirmPayment, createOrder, createOrderItemSnapshot, createPayment, OrderStatus, PaymentDirection, PaymentMethod, PaymentStatus } from "./commerce/order-payment.mjs";
 export { createNotification, markNotificationFailed, markNotificationSent, NotificationChannel, NotificationStatus } from "./notification/notification.mjs";
 export { createShipment, createShipmentEvent, markDelivered, markReturned, markShipped, ShipmentStatus } from "./logistics/shipment.mjs";
 export { createPaymentProviderConfig, maskCredentials, normalizeCredentials, PaymentProvider, PaymentProviderMode } from "./payment/payment-provider-config.mjs";

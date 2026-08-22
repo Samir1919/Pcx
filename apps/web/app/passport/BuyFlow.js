@@ -66,18 +66,15 @@ export default function BuyFlow({ listing, onDone }) {
         specs: listing.specifications ?? []
       }]);
 
-      // 3. Initiate payment through the server-authoritative gateway.
-      const payment = await storefrontApi.createPayment({
+      // 3. Initiate payment. COD has no external provider charge and stays
+      //    INITIATED (pay on delivery); the server records it idempotently.
+      await storefrontApi.createPayment({
         orderId: order.data.id,
         direction: "INBOUND",
-        provider: "bkash",
-        method: "mobile",
+        method: "COD",
         amount: order.data.totalAmount
       });
-
-      // 4. Confirm the payment once (sandbox gateway confirms immediately).
-      const confirmed = await storefrontApi.confirmPayment(payment.data.providerTransactionId);
-      setSuccess(`Order placed: ${order.data.orderNo ?? order.data.id}. Payment ${confirmed.data.status.toLowerCase()}.`);
+      setSuccess(`Order placed: ${order.data.orderNo ?? order.data.id}. Pay cash on delivery.`);
       if (onDone) onDone(order.data);
     } catch (err) {
       setError(err.message);
