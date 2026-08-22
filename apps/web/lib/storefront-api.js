@@ -69,6 +69,8 @@ export const storefrontApi = Object.freeze({
 
   reserve: (inventoryItemId) => request("/api/v1/reservations", { method: "POST", body: { inventoryItemId }, headers: csrfHeaders() }),
   createSellRequest: (body) => request("/api/v1/sell-requests", { method: "POST", body, headers: csrfHeaders() }),
+  acceptOffer: (offerId) => request(`/api/v1/offers/${encodeURIComponent(offerId)}/accept`, { method: "POST", body: {}, headers: csrfHeaders() }),
+  rejectOffer: (offerId) => request(`/api/v1/offers/${encodeURIComponent(offerId)}/reject`, { method: "POST", body: {}, headers: csrfHeaders() }),
   merchantListings: () => request("/api/v1/merchant/listings"),
   merchantCreateListing: (body) => request("/api/v1/merchant/listings", { method: "POST", body, headers: csrfHeaders() }),
   merchantUpdateListing: (id, body) => request(`/api/v1/merchant/listings/${encodeURIComponent(id)}`, { method: "PATCH", body, headers: csrfHeaders() }),

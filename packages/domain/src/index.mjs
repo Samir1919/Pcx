@@ -14,7 +14,7 @@ export { archiveCatalogRecord, CatalogStatus, createBrand, createCategory, creat
 export { assertUniqueModelSpecificationValues, createModelSpecificationValue, createSpecificationDefinition, SpecificationDataType } from "./catalog/specifications.mjs";
 export { createSellRequest, createSellerDeclaration, FulfilmentPreference, parseSellRequestStatus, SellRequestStatus, submitSellRequest } from "./acquisition/sell-request.mjs";
 export { BuildComponentRole, createBuildComponent, parseSellEntry, SellEntry, validateBuildComponents } from "./acquisition/sell-entry.mjs";
-export { acceptOffer, AcquisitionPaymentStatus, AcquisitionSourceType, createAcquisition, createOffer, createValuation, markAcquisitionPaid, OfferStatus, ValuationType } from "./acquisition/valuation-offer.mjs";
+export { acceptOffer, AcquisitionPaymentStatus, AcquisitionSourceType, createAcquisition, createOffer, createValuation, markAcquisitionPaid, OfferStatus, rejectOffer, ValuationType } from "./acquisition/valuation-offer.mjs";
 export { assertPrimarySerialIdentifier, createInventoryItem, createSerialIdentifier, generatePcxItemId, InventoryItemStatus, normalizeSerialIdentifier, SerialIdentifierType } from "./inventory/inventory-item.mjs";
 export { assertUniqueInspectionTemplateItems, createInspectionTemplate, createInspectionTemplateItem, InspectionResultType, InspectionTemplateStatus } from "./inspection/inspection-template.mjs";
 export { approveInspection, computeHealthScore, ConditionGrade, createInspection, createTestResult, InspectionStatus, rejectInspection, submitInspection, suggestGrade, TestResultStatus } from "./inspection/inspection-execution.mjs";

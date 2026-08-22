@@ -4,12 +4,14 @@ import { createAcquisitionService, AcquisitionError } from "../src/modules/acqui
 import { OfferStatus, ValuationType } from "../../../packages/domain/src/index.mjs";
 
 function fixture(overrides = {}) {
-  const calls = { valuations: [], offers: [], accepts: [], acquisitions: [], foundOffers: [], foundAcq: [], paid: [] };
+  const calls = { valuations: [], offers: [], accepts: [], rejections: [], owners: [], acquisitions: [], foundOffers: [], foundAcq: [], paid: [] };
   const offer = { id: "o1", sellRequestId: "sr1", valuationId: "v1", amount: 7000, status: OfferStatus.ACCEPTED, expiresAt: "2026-08-17T00:00:00.000Z" };
   const repository = {
     async createValuation(record) { calls.valuations.push(record); return record; },
     async createOffer(record) { calls.offers.push(record); return record; },
     async acceptOffer(offerId, now) { calls.accepts.push({ offerId, now }); return { status: "accepted", record: { ...offer, id: offerId, status: OfferStatus.ACCEPTED } }; },
+    async rejectOffer(offerId) { calls.rejections.push(offerId); return { ...offer, id: offerId, status: OfferStatus.REJECTED }; },
+    async findOwnerUserIdByOffer(offerId) { calls.owners.push(offerId); return offerId === "o1" ? "customer-1" : null; },
     async findOfferById(id) { calls.foundOffers.push(id); return id === "o1" ? offer : null; },
     async createAcquisition(record, acceptedOffer) { calls.acquisitions.push({ record, acceptedOffer }); return record; },
     async findByOffer() { calls.foundAcq.push(); return null; },
@@ -25,6 +27,13 @@ function fixture(overrides = {}) {
   return { service, calls };
 }
 
+function customerFixture(overrides = {}) {
+  return fixture({
+    authService: { async authenticateAccess() { return { userId: "customer-1", status: "ACTIVE", roles: ["CUSTOMER"] }; } },
+    ...overrides
+  });
+}
+
 test("valuation and offer are server-owned with actor identity", async () => {
   const { service, calls } = fixture();
   const valuation = await service.createValuation("access", { sellRequestId: "sr1", valuationType: ValuationType.PRELIMINARY, lowValue: 1000, highValue: 2000 });
@@ -34,6 +43,29 @@ test("valuation and offer are server-owned with actor identity", async () => {
   assert.equal(offer.status, OfferStatus.ACTIVE);
   assert.equal(calls.valuations.length, 1);
   assert.equal(calls.offers.length, 1);
+});
+
+test("seller can accept or reject their own offer with ownership enforcement", async () => {
+  const { service, calls } = customerFixture();
+  const accepted = await service.acceptOfferForCustomer("access", "o1");
+  assert.equal(accepted.status, OfferStatus.ACCEPTED);
+  assert.equal(calls.owners.length, 1);
+
+  const rejected = await service.rejectOfferForCustomer("access", "o1");
+  assert.equal(rejected.status, OfferStatus.REJECTED);
+
+  // A different customer (not the owner) cannot act on the offer.
+  const foreign = customerFixture({ authService: { async authenticateAccess() { return { userId: "other", status: "ACTIVE", roles: ["CUSTOMER"] }; } } });
+  await assert.rejects(foreign.service.acceptOfferForCustomer("access", "o1"), (error) => error.code === "forbidden");
+
+  // A non-customer (admin only) is blocked from the public path too.
+  await assert.rejects((await fixture()).service.acceptOfferForCustomer("access", "o1"), (error) => error.code === "forbidden");
+});
+
+test("seller accept/reject fails for a missing offer", async () => {
+  const { service } = customerFixture();
+  await assert.rejects(service.acceptOfferForCustomer("access", "missing"), (error) => error.code === "not_found");
+  await assert.rejects(service.rejectOfferForCustomer("access", "missing"), (error) => error.code === "not_found");
 });
 
 test("acquisition derives immutable agreed price from accepted offer and is idempotent", async () => {

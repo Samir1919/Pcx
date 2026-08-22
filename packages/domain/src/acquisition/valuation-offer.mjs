@@ -127,6 +127,15 @@ export function acceptOffer(offer, { acceptedAt = new Date() } = {}) {
   });
 }
 
+// A seller may decline an ACTIVE final offer. Rejection is terminal: the offer
+// cannot later be accepted. Unlike acceptance, expiry time does not block a
+// rejection (the seller may decline at any time while the offer is ACTIVE).
+export function rejectOffer(offer) {
+  if (!offer || typeof offer !== "object") throw new TypeError("offer is required");
+  if (offer.status !== OfferStatus.ACTIVE) throw new TypeError("only an ACTIVE offer can be rejected");
+  return Object.freeze({ ...offer, status: OfferStatus.REJECTED });
+}
+
 // The acquisition immutable financial basis: agreedPrice is captured from the
 // accepted offer and never editable. Payment state is server-owned.
 export function createAcquisition({
