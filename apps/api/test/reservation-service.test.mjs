@@ -3,7 +3,7 @@ import test from "node:test";
 import { createReservationService, ReservationError } from "../src/modules/commerce/reservation-service.mjs";
 
 function fixture(overrides = {}) {
-  const calls = { creates: [], converts: [], actives: [] };
+  const calls = { creates: [], converts: [], actives: [], expirations: [] };
   const listingRepository = {
     async findPublishedByInventoryItem(id) { return id === "inv-1" ? { id: "l1", inventoryItemId: "inv-1" } : null; },
     ...overrides.listingRepository
@@ -13,6 +13,7 @@ function fixture(overrides = {}) {
     async convert(id, now) { calls.converts.push({ id, now }); return { status: "converted", record: { id, status: "CONVERTED" } }; },
     async findById() { return { id: "r1", status: "ACTIVE", reservedUntil: "2026-08-16T12:15:00.000Z" }; },
     async findActiveByItem() { return null; },
+    async expireDue(now) { calls.expirations.push(now); return [{ id: "r1", status: "EXPIRED", inventoryItemId: "inv-1" }]; },
     ...overrides.reservationRepository
   };
   const service = createReservationService({
@@ -64,6 +65,14 @@ test("reservation create requires customer and published listing, mapping 23505 
   // non-active customer is not allowed here since we only stub ACTIVE; use inactive
   const inactive = fixture({ authService: { async authenticateAccess() { return { userId: "u", status: "SUSPENDED", roles: ["CUSTOMER"] }; } } });
   await assert.rejects(inactive.service.create("access", { inventoryItemId: "inv-1" }), (error) => error.code === "forbidden");
+});
+
+test("reservation expireDue releases expired ACTIVE holds without authentication", async () => {
+  const { service, calls } = fixture();
+  const expired = await service.expireDue();
+  assert.equal(expired.length, 1);
+  assert.equal(expired[0].status, "EXPIRED");
+  assert.equal(calls.expirations.length, 1);
 });
 
 test("reservation convert enforces ACTIVE state and expiry", async () => {

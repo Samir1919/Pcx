@@ -12,4 +12,5 @@ tmp/
 work/
 .worktrees/
 .continue/
+.playwright-mcp/
 

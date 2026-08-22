@@ -1,16 +1,60 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { storefrontApi } from "../../lib/storefront-api";
 import StorefrontNav from "../StorefrontNav";
 
-// Curated icon key -> emoji map for sell entries. The DB stores only the icon
-// key; the web app maps it to a safe emoji. Admin never injects raw markup.
-const ICON_EMOJI = Object.freeze({
-  desktop: "🖥️",
-  parts: "🔧",
-  laptop: "💻",
-  "laptop-parts": "🔩"
-});
+const ENTRIES = [
+  { key: "DESKTOP_PC", label: "Desktop PC", icon: "🖥️", hint: "Sell a complete desktop build" },
+  { key: "PC_PARTS", label: "PC Parts", icon: "🔧", hint: "Sell a single desktop part" },
+  { key: "LAPTOP", label: "Laptop", icon: "💻", hint: "Sell a complete laptop" },
+  { key: "LAPTOP_PARTS", label: "Laptop Parts", icon: "🔩", hint: "Sell a single laptop part" }
+];
+
+const BUILDS = {
+  DESKTOP_PC: {
+    title: "Desktop PC",
+    systemCategorySlug: "desktop-pc",
+    roles: [
+      { role: "cpu", categorySlug: "cpu", label: "CPU", required: true },
+      { role: "motherboard", categorySlug: "motherboard", label: "Motherboard", required: true },
+      { role: "ram", categorySlug: "ram", label: "RAM", required: true },
+      { role: "storage", categorySlug: "storage", label: "Storage", required: true },
+      { role: "psu", categorySlug: "psu", label: "PSU", required: false },
+      { role: "gpu", categorySlug: "gpu", label: "GPU", required: false }
+    ]
+  },
+  LAPTOP: {
+    title: "Laptop",
+    systemCategorySlug: "laptop",
+    roles: [
+      { role: "ram", categorySlug: "laptop-ram", label: "RAM", required: true },
+      { role: "storage", categorySlug: "laptop-storage", label: "Storage", required: true },
+      { role: "battery", categorySlug: "battery", label: "Battery", required: false },
+      { role: "keyboard", categorySlug: "keyboard", label: "Keyboard", required: false },
+      { role: "charger", categorySlug: "charger", label: "Charger", required: false },
+      { role: "screen", categorySlug: "screen", label: "Screen", required: false }
+    ]
+  }
+};
+
+const PART_ENTRIES = {
+  PC_PARTS: {
+    title: "PC Parts",
+    parentSlug: "pc-parts",
+    children: ["gpu", "cpu", "motherboard", "ram", "storage", "psu"]
+  },
+  LAPTOP_PARTS: {
+    title: "Laptop Parts",
+    parentSlug: "laptop-parts",
+    children: ["laptop-ram", "laptop-storage", "battery", "keyboard", "charger", "screen"]
+  }
+};
+
+const STEP_SPEC = "spec";
+const STEP_DECISION = "decision";
+const STEP_REQUEST = "request";
+const VALID_STEPS = new Set([STEP_SPEC, STEP_DECISION, STEP_REQUEST]);
 
 function moneyRange(range) {
   if (!range || range.lowValue == null || range.highValue == null) return null;
@@ -24,15 +68,52 @@ function disclaimer() {
 
 function Banner({ notice, onClose }) { if (!notice) return null; return <div className={`banner ${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}><span>{notice.message}</span><button type="button" onClick={onClose} aria-label="Dismiss message">×</button></div>; }
 
+// Build selections are persisted in a single `components` query param as
+// `role=modelId` pairs so the exact in-progress flow survives a page reload or a
+// sign-in redirect back to this page.
+function encodeComponents(selections) {
+  return Object.entries(selections)
+    .filter(([, value]) => value)
+    .map(([role, value]) => `${role}=${value}`)
+    .join(",");
+}
+
+function decodeComponents(value) {
+  const out = {};
+  if (!value) return out;
+  for (const part of value.split(",")) {
+    const index = part.indexOf("=");
+    if (index < 1) continue;
+    const role = part.slice(0, index);
+    const modelId = part.slice(index + 1);
+    if (role && modelId) out[role] = modelId;
+  }
+  return out;
+}
+
 export default function SellPage() {
+  return (
+    <Suspense fallback={<main><div className="wrap"><p className="state" role="status">Loading…</p></div></main>}>
+      <SellFlow />
+    </Suspense>
+  );
+}
+
+function SellFlow() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const rawStep = searchParams.get("step");
+  const step = VALID_STEPS.has(rawStep) ? rawStep : STEP_SPEC;
+  const entry = ENTRIES.some((e) => e.key === searchParams.get("entry")) ? searchParams.get("entry") : null;
+  const partCategoryId = searchParams.get("cat") ?? "";
+  const partModelId = searchParams.get("model") ?? "";
+
   const [identity, setIdentity] = useState(null);
   const [checking, setChecking] = useState(true);
-  const [taxonomy, setTaxonomy] = useState([]);
-  const [entry, setEntry] = useState(null);
-  const [buildRoles, setBuildRoles] = useState({ models: {}, selections: {} });
-  const [partCategoryId, setPartCategoryId] = useState("");
+  const [categories, setCategories] = useState([]);
   const [partModels, setPartModels] = useState([]);
-  const [partModelId, setPartModelId] = useState("");
+  const [buildModels, setBuildModels] = useState({});
   // Contact fallbacks are only shown when the authenticated identity lacks that
   // field; when present, the server always reuses the identity value.
   const [fallbackName, setFallbackName] = useState("");
@@ -49,6 +130,9 @@ export default function SellPage() {
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
   const [quote, setQuote] = useState({ range: null, loading: false });
+  const [showMarketplace, setShowMarketplace] = useState(false);
+  const [photos, setPhotos] = useState([]);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -59,36 +143,64 @@ export default function SellPage() {
     return () => { active = false; };
   }, []);
 
-  // Sell entries + build-component role mapping are server-owned catalog config.
   useEffect(() => {
     let active = true;
-    storefrontApi.sellTaxonomy()
-      .then((r) => { if (active) setTaxonomy(r.data ?? []); })
-      .catch(() => { if (active) setTaxonomy([]); });
+    storefrontApi.categories()
+      .then((r) => { if (active) setCategories(r.data); })
+      .catch(() => { });
     return () => { active = false; };
   }, []);
 
-  const taxonomyByKey = useMemo(() => Object.fromEntries(taxonomy.map((e) => [e.entryKey, e])), [taxonomy]);
+  const categoryBySlug = useMemo(() => Object.fromEntries(categories.map((c) => [c.slug, c])), [categories]);
 
-  const build = entry && taxonomyByKey[entry]?.kind === "BUILD" ? taxonomyByKey[entry] : null;
-  const partEntry = entry && taxonomyByKey[entry]?.kind === "PARTS" ? taxonomyByKey[entry] : null;
+  const build = entry && BUILDS[entry] ? BUILDS[entry] : null;
+  const partEntry = entry && PART_ENTRIES[entry] ? PART_ENTRIES[entry] : null;
+
+  // Selections are derived from the URL so the flow is deep-linkable and a
+  // post-login redirect returns the user to the exact same state.
+  const rawComponents = useMemo(() => decodeComponents(searchParams.get("components") ?? ""), [searchParams]);
+  const selections = useMemo(() => {
+    const out = {};
+    if (build) for (const role of build.roles) if (rawComponents[role.role]) out[role.role] = rawComponents[role.role];
+    return out;
+  }, [build, rawComponents]);
+
+  // The addressable current path, used as the `redirect` target when a guest
+  // must sign in before submitting.
+  const currentPath = useMemo(() => {
+    const qs = searchParams.toString();
+    return `/sell${qs ? `?${qs}` : ""}`;
+  }, [searchParams]);
+  const loginHref = `/login?redirect=${encodeURIComponent(currentPath)}`;
+
+  function go(patch) {
+    const next = new URLSearchParams(searchParams.toString());
+    for (const [key, value] of Object.entries(patch)) {
+      if (value == null || value === "") next.delete(key);
+      else next.set(key, value);
+    }
+    const qs = next.toString();
+    router.replace(`/sell${qs ? `?${qs}` : ""}`, { scroll: false });
+  }
 
   // Load models for full-system build roles.
   useEffect(() => {
-    if (!build) { setBuildRoles({ models: {}, selections: {} }); return; }
+    if (!build) { setBuildModels({}); return; }
     let active = true;
     (async () => {
       const models = {};
-      await Promise.all(build.components.map(async (component) => {
+      await Promise.all(build.roles.map(async (role) => {
+        const category = categoryBySlug[role.categorySlug];
+        if (!category) return;
         try {
-          const r = await storefrontApi.productModels({ categoryId: component.category.id, limit: 50, sort: "name_asc" });
-          models[component.role] = r.data ?? [];
-        } catch { models[component.role] = []; }
+          const r = await storefrontApi.productModels({ categoryId: category.id, limit: 50, sort: "name_asc" });
+          models[role.role] = r.data ?? [];
+        } catch { models[role.role] = []; }
       }));
-      if (active) setBuildRoles((prev) => ({ ...prev, models }));
+      if (active) setBuildModels(models);
     })();
     return () => { active = false; };
-  }, [entry, build]);
+  }, [entry, categories, build]);
 
   // Load part models when a part category is selected.
   useEffect(() => {
@@ -112,8 +224,8 @@ export default function SellPage() {
           const r = await storefrontApi.quoteRanges({ productModelId: partModelId, categoryId: partCategoryId });
           if (active) setQuote({ range: r.data?.range ?? null, loading: false });
         } else if (build) {
-          const selectedIds = build.components
-            .map((c) => buildRoles.selections[c.role])
+          const selectedIds = build.roles
+            .map((r) => selections[r.role])
             .filter(Boolean);
           if (selectedIds.length === 0) { if (active) setQuote({ range: null, loading: false }); return; }
           const responses = await Promise.all(selectedIds.map((id) => storefrontApi.quoteRanges({ productModelId: id })));
@@ -128,20 +240,25 @@ export default function SellPage() {
       }
     })();
     return () => { active = false; };
-  }, [entry, partEntry, build, partModelId, partCategoryId, buildRoles.selections]);
+  }, [entry, partEntry, build, partModelId, partCategoryId, selections]);
 
   function chooseEntry(key) {
-    setEntry(key);
+    go({ entry: key, step: STEP_SPEC, components: null, cat: null, model: null });
     setError(null);
-    setBuildRoles({ models: {}, selections: {} });
-    setPartCategoryId("");
-    setPartModels([]);
-    setPartModelId("");
   }
 
   function setBuildSelection(role, modelId) {
-    setBuildRoles((prev) => ({ ...prev, selections: { ...prev.selections, [role]: modelId || undefined } }));
+    const next = { ...selections };
+    if (modelId) next[role] = modelId; else delete next[role];
+    go({ components: Object.keys(next).length ? encodeComponents(next) : null });
   }
+
+  const specComplete = useMemo(() => {
+    if (!entry) return false;
+    if (build) return build.roles.filter((r) => r.required).every((r) => selections[r.role]);
+    if (partEntry) return !!(partCategoryId && partModelId);
+    return false;
+  }, [entry, build, partEntry, selections, partCategoryId, partModelId]);
 
   function contactReused() {
     return {
@@ -153,7 +270,7 @@ export default function SellPage() {
 
   async function handleSubmit(event) {
     event.preventDefault();
-    if (!identity) { window.location.href = "/login"; return; }
+    if (!identity) { window.location.href = loginHref; return; }
     setBusy(true);
     setError(null);
     setResult(null);
@@ -174,16 +291,16 @@ export default function SellPage() {
       };
       let payload;
       if (build) {
-        const systemCategory = build.category;
+        const systemCategory = categoryBySlug[build.systemCategorySlug];
         if (!systemCategory) throw new Error("Catalog is not ready. Please try again later.");
         payload = {
           ...common,
           categoryId: systemCategory.id,
           productModelId: undefined,
           sellEntry: entry,
-          buildComponents: build.components
-            .filter((c) => buildRoles.selections[c.role])
-            .map((c) => ({ role: c.role, productModelId: buildRoles.selections[c.role] }))
+          buildComponents: build.roles
+            .filter((r) => selections[r.role])
+            .map((r) => ({ role: r.role, productModelId: selections[r.role] }))
         };
       } else if (partEntry) {
         payload = {
@@ -195,6 +312,16 @@ export default function SellPage() {
         };
       }
       const created = await storefrontApi.createSellRequest(payload);
+      if (created.data?.id && photos.length > 0) {
+        setUploading(true);
+        try {
+          for (const file of photos) {
+            await storefrontApi.uploadSellRequestMedia(created.data.id, file);
+          }
+        } finally {
+          setUploading(false);
+        }
+      }
       setResult(created.data);
     } catch (err) {
       setError(err.message);
@@ -204,6 +331,9 @@ export default function SellPage() {
   }
 
   if (checking) return <main><div className="wrap"><p className="state" role="status">Checking your session…</p></div></main>;
+
+  const title = build ? build.title : partEntry ? partEntry.title : "";
+  const rangeLabel = moneyRange(quote.range);
 
   return (
     <main>
@@ -237,10 +367,10 @@ export default function SellPage() {
               <p>Choose an entry to continue. Your quote is an estimated range — the final offer is made only after physical inspection.</p>
             </div>
             <div className="sellEntries">
-              {taxonomy.map((e) => (
-                <button key={e.entryKey} type="button" className="sellEntryCard" onClick={() => chooseEntry(e.entryKey)}>
-                  <span className="sellEntryIcon">{ICON_EMOJI[e.iconKey] ?? e.iconKey}</span>
-                  <strong>{e.category?.name ?? e.entryKey}</strong>
+              {ENTRIES.map((e) => (
+                <button key={e.key} type="button" className="sellEntryCard" onClick={() => chooseEntry(e.key)}>
+                  <span className="sellEntryIcon">{e.icon}</span>
+                  <strong>{e.label}</strong>
                   <small>{e.hint}</small>
                 </button>
               ))}
@@ -248,16 +378,16 @@ export default function SellPage() {
           </>
         )}
 
-        {!result && entry && (build || partEntry) && (
-          <form className="sellForm" onSubmit={handleSubmit}>
+        {!result && entry && step === STEP_SPEC && (
+          <div className="sellForm">
             <button type="button" className="learn-more" onClick={() => chooseEntry(null)}>← Choose a different entry</button>
-            <div className="entryHeading"><h2>{build ? build.category.name : partEntry.category.name}</h2><p className="meta">{disclaimer()}</p></div>
+            <div className="entryHeading"><h2>{title}</h2><p className="meta">{disclaimer()}</p></div>
 
-            {build && build.components.map((component) => (
-              <label key={component.role}><span>{component.category.name}{component.required ? " *" : ""}</span>
-                <select value={buildRoles.selections[component.role] ?? ""} onChange={(e) => setBuildSelection(component.role, e.target.value)} required={component.required}>
-                  <option value="">Select {component.category.name}</option>
-                  {(buildRoles.models[component.role] ?? []).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            {build && build.roles.map((role) => (
+              <label key={role.role}><span>{role.label}{role.required ? " *" : ""}</span>
+                <select value={selections[role.role] ?? ""} onChange={(e) => setBuildSelection(role.role, e.target.value)} required={role.required}>
+                  <option value="">Select {role.label}</option>
+                  {(buildModels[role.role] ?? []).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
               </label>
             ))}
@@ -265,13 +395,16 @@ export default function SellPage() {
             {partEntry && (
               <>
                 <label><span>Part category *</span>
-                  <select value={partCategoryId} onChange={(e) => { setPartCategoryId(e.target.value); setPartModelId(""); }} required>
+                  <select value={partCategoryId} onChange={(e) => go({ cat: e.target.value, model: null })} required>
                     <option value="">Select part category</option>
-                    {partEntry.children.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    {partEntry.children.map((slug) => {
+                      const c = categoryBySlug[slug];
+                      return c ? <option key={c.id} value={c.id}>{c.name}</option> : null;
+                    })}
                   </select>
                 </label>
                 <label><span>Part model *</span>
-                  <select value={partModelId} onChange={(e) => setPartModelId(e.target.value)} required>
+                  <select value={partModelId} onChange={(e) => go({ model: e.target.value })} required>
                     <option value="">Select part model</option>
                     {partModels.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                   </select>
@@ -285,6 +418,52 @@ export default function SellPage() {
                 <p className="disclaimer">{disclaimer()}</p>
               </div>
             )}
+
+            <button className="primary" type="button" disabled={!specComplete} onClick={() => go({ step: STEP_DECISION })}>
+              Review selling options →
+            </button>
+            {!specComplete && <p className="meta">Complete the required selections above to see your selling options.</p>}
+          </div>
+        )}
+
+        {!result && entry && step === STEP_DECISION && (
+          <div className="sell">
+            <div className="entryHeading"><h2>How would you like to sell?</h2><p className="meta">{disclaimer()}</p></div>
+            {quote.range && (
+              <div className="estimate">
+                <div className="eprice">{rangeLabel}</div>
+                <p className="disclaimer">{disclaimer()}</p>
+              </div>
+            )}
+            <div className="sellEntries">
+              <button type="button" className="sellEntryCard" onClick={() => go({ step: STEP_REQUEST })}>
+                <span className="sellEntryIcon">🤝</span>
+                <strong>Sell to PCX</strong>
+                <small>Get a final offer after physical inspection, then PCX pays you.</small>
+              </button>
+              <button type="button" className="sellEntryCard" onClick={() => setShowMarketplace(true)}>
+                <span className="sellEntryIcon">🛍️</span>
+                <strong>Advertise on marketplace</strong>
+                <small>List your item for buyers to purchase directly.</small>
+              </button>
+            </div>
+            {showMarketplace && (
+              <div className="card">
+                <h2>Marketplace is coming soon</h2>
+                <p className="meta">Verified third-party marketplace listings — with seller KYC, commissions, and payouts — are planned for a future phase. For now, you can sell directly to PCX.</p>
+                <button type="button" className="learn-more" onClick={() => setShowMarketplace(false)}>← Back to options</button>
+              </div>
+            )}
+            <button type="button" className="learn-more" onClick={() => go({ step: STEP_SPEC })}>← Back to details</button>
+          </div>
+        )}
+
+        {!result && entry && step === STEP_REQUEST && (
+          <form className="sellForm" onSubmit={handleSubmit}>
+            <button type="button" className="learn-more" onClick={() => go({ step: STEP_DECISION })}>← Back to options</button>
+            <div className="entryHeading"><h2>{title}</h2>
+              {quote.range && <p className="meta">Estimated range: {rangeLabel} — {disclaimer()}</p>}
+            </div>
 
             <div className="entryHeading"><h2>Contact & fulfilment</h2></div>
             {identity ? (
@@ -302,7 +481,7 @@ export default function SellPage() {
             ) : (
               <div className="card">
                 <p className="meta">You can view your estimated quote without an account, but signing in is required to submit.</p>
-                <a className="primary" href="/login">Sign in to continue</a>
+                <a className="primary" href={loginHref}>Sign in to continue</a>
                 <a className="learn-more" href="/register">Create an account</a>
               </div>
             )}
@@ -321,10 +500,23 @@ export default function SellPage() {
             <label className="check"><input type="checkbox" checked={boxAvailable} onChange={(e) => setBoxAvailable(e.target.checked)} /><span>Original box available</span></label>
             <label className="check"><input type="checkbox" checked={invoiceAvailable} onChange={(e) => setInvoiceAvailable(e.target.checked)} /><span>Invoice available</span></label>
             <label className="check"><input type="checkbox" checked readOnly /><span>I confirm I own this item</span></label>
+
+            <div className="entryHeading"><h2>Item photos</h2></div>
+            <label className="check"><span>Add photos (JPEG, PNG, WebP)</span>
+              <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(e) => setPhotos(Array.from(e.target.files ?? []))} />
+            </label>
+            {photos.length > 0 && (
+              <div className="mediaGrid">
+                {photos.map((file, i) => (
+                  <img key={i} src={URL.createObjectURL(file)} alt={`Selected ${i + 1}`} />
+                ))}
+              </div>
+            )}
+
             {identity ? (
-              <button className="primary" type="submit" disabled={busy}>{busy ? "Submitting…" : "Submit sell request"}</button>
+              <button className="primary" type="submit" disabled={busy || uploading}>{busy || uploading ? "Submitting…" : "Submit sell request"}</button>
             ) : (
-              <a className="primary" href="/login">Sign in to submit</a>
+              <a className="primary" href={loginHref}>Sign in to submit</a>
             )}
           </form>
         )}

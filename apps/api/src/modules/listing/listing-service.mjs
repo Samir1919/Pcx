@@ -9,7 +9,7 @@ export class ListingError extends Error {
 const draftFields = new Set(["inventoryItemId", "publicSlug", "warrantyPolicyId"]);
 const priceFields = new Set(["listingId", "price", "reason"]);
 
-export function createListingService({ authService, repository, id = randomUUID, clock = () => new Date() }) {
+export function createListingService({ authService, repository, auditLogService, id = randomUUID, clock = () => new Date() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
   for (const method of ["createDraft", "publish", "createPrice", "findById", "listAdmin"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
 
@@ -28,6 +28,13 @@ export function createListingService({ authService, repository, id = randomUUID,
   function exact(input, allowed) {
     for (const key of Object.keys(input ?? {})) if (!allowed.has(key)) throw new ListingError("invalid_input");
     return input ?? {};
+  }
+
+  async function auditWrite(action, entityId, actorUserId, afterSnapshot, reason = null) {
+    if (!auditLogService) return;
+    try {
+      await auditLogService.record({ actorUserId, action, entityType: "listing", entityId, afterSnapshot, reason });
+    } catch { /* audit must never fail the business operation */ }
   }
 
   return Object.freeze({
@@ -50,7 +57,7 @@ export function createListingService({ authService, repository, id = randomUUID,
     },
 
     async publish(accessCredential, listingId, input) {
-      await actor(accessCredential);
+      const identity = await actor(accessCredential);
       const existing = await repository.findById(listingId);
       if (!existing) throw new ListingError("not_found");
       let published;
@@ -71,6 +78,7 @@ export function createListingService({ authService, repository, id = randomUUID,
         throw error;
       }
       if (result.status !== "published") throw new ListingError("invalid_state");
+      await auditWrite("LISTING_PUBLISHED", listingId, identity.userId, { status: "PUBLISHED" });
       return result.record;
     },
 
@@ -105,7 +113,9 @@ export function createListingService({ authService, repository, id = randomUUID,
       } catch {
         throw new ListingError("invalid_input");
       }
-      return Object.freeze(await repository.createPrice(record, record.validFrom));
+      const saved = await repository.createPrice(record, record.validFrom);
+      await auditWrite("PRICE_CHANGED", fields.listingId, identity.userId, { price: fields.price }, fields.reason);
+      return Object.freeze(saved);
     },
 
     // Public passport is backed by a dedicated repository method returning only
@@ -122,6 +132,8 @@ export function createListingService({ authService, repository, id = randomUUID,
           name: row.name,
           categoryId: row.category_id,
           brandId: row.brand_id,
+          grade: row.condition_grade,
+          healthScore: row.current_health_score == null ? null : Number(row.current_health_score),
           price: row.price == null ? null : Number(row.price),
           status: row.status,
           publishedAt: row.published_at,
@@ -145,8 +157,8 @@ export function createListingService({ authService, repository, id = randomUUID,
           name: row.name,
           categoryId: row.category_id,
           brandId: row.brand_id,
-          grade: null,
-          healthScore: null,
+          grade: row.condition_grade,
+          healthScore: row.current_health_score == null ? null : Number(row.current_health_score),
           price: row.price == null ? null : Number(row.price),
           publishedAt: row.published_at ? new Date(row.published_at).toISOString() : null
         }))),

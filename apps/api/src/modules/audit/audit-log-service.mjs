@@ -6,7 +6,7 @@ export class AuditLogError extends Error {
 
 export function createAuditLogService({ authService, repository }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  if (!repository || typeof repository.list !== "function") throw new TypeError("repository.list is required");
+  if (!repository || typeof repository.list !== "function" || typeof repository.create !== "function") throw new TypeError("repository.list and repository.create are required");
 
   async function actor(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -18,6 +18,13 @@ export function createAuditLogService({ authService, repository }) {
     async list(accessCredential, filters) {
       await actor(accessCredential);
       return Object.freeze(await repository.list(filters ?? {}));
+    },
+
+    // Append-only audit write. No authorization is required here: the caller is
+    // already inside a privileged service path and this never mutates business
+    // state. Not exposed as a public endpoint.
+    async record({ actorUserId, action, entityType, entityId, beforeSnapshot = null, afterSnapshot = null, reason = null }) {
+      return repository.create({ actorUserId, action, entityType, entityId, beforeSnapshot, afterSnapshot, reason });
     }
   });
 }

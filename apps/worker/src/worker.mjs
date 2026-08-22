@@ -5,13 +5,15 @@
 // Current jobs:
 //   - dispatchDueWebhookEvents: retries PENDING courier webhook outbox events.
 //   - dispatchDue (notifications): sends due notifications.
+//   - expireDueReservations: expires ACTIVE reservations past reserved_until.
 //
 // The worker never owns business truth; it only advances durable state that the
 // services already own. Jobs are idempotent and safe to run repeatedly.
 
-export function startWorker({ shipmentService, notificationService, intervalMs = 5_000, onError = console.error, unref = true } = {}) {
+export function startWorker({ shipmentService, notificationService, reservationService, intervalMs = 5_000, onError = console.error, unref = true } = {}) {
   if (shipmentService && typeof shipmentService.dispatchDueWebhookEvents !== "function") throw new TypeError("shipmentService.dispatchDueWebhookEvents is required");
   if (notificationService && typeof notificationService.dispatchDue !== "function") throw new TypeError("notificationService.dispatchDue is required");
+  if (reservationService && typeof reservationService.expireDue !== "function") throw new TypeError("reservationService.expireDue is required");
 
   let timer = null;
   let running = false;
@@ -22,6 +24,7 @@ export function startWorker({ shipmentService, notificationService, intervalMs =
     try {
       if (shipmentService) await shipmentService.dispatchDueWebhookEvents();
       if (notificationService) await notificationService.dispatchDue();
+      if (reservationService) await reservationService.expireDue();
     } catch (error) {
       onError(error);
     } finally {

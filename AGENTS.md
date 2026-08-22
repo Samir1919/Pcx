@@ -43,6 +43,7 @@ Agentic infrastructure must evolve according to `docs/agentic/AUTONOMY_EVOLUTION
 - Work in bounded epics and branches. Prefer the smallest coherent change.
 - Preserve modular-monolith boundaries; modules do not manipulate another module's tables directly.
 - Write or update tests for changed business behavior.
+- Any change to a browser-facing page or flow (`apps/web`, `apps/admin`) must be verified with a real browser check (`npm run web:check`, or the Playwright MCP tool) before it is reported as done; code review and `curl` are not acceptable substitutes. If the tooling is missing, ask the human before installing/configuring it. When using the MCP browser tool interactively, it must run headed (a real, visible window), never headless — see `docs/agentic/PORTABLE_AGENT_WORKFLOW.md`.
 - Run `npm run verify:e0`, `npm test`, and relevant checks before commit.
 - Never commit credentials, production data, or private evidence.
 - Never put a multi-line string inside a shell command. Write commit bodies to a file and use `git commit -F <file>`. See "Shell command safety" in `docs/agentic/PORTABLE_AGENT_WORKFLOW.md`.

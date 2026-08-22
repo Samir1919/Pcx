@@ -58,6 +58,7 @@ function map(error) {
     if (error.code === "csrf_invalid") return [403, "CSRF_INVALID", "CSRF validation failed"];
     if (error.code === "forbidden") return [403, "RETURN_FORBIDDEN", "Return operation is not allowed"];
     if (error.code === "conflict") return [409, "RETURN_CONFLICT", "Return already exists for this item"];
+    if (error.code === "serial_mismatch") return [422, "SERIAL_MISMATCH", "Received serial does not match the sold unit"];
     if (error.code === "invalid_state") return [409, "INVALID_RETURN_STATE", "Return is not in an acceptable state"];
     if (error.code === "invalid_reference") return [422, "INVALID_REFERENCE", "Return reference is invalid"];
     if (error.code === "not_found") return [404, "RETURN_NOT_FOUND", "Return request not found"];
@@ -103,7 +104,10 @@ export async function handleReturnRequest(request, response, { returnRequestServ
     requireWriteSecurity(request, allowedOrigins, cookies);
     if (!suffix) send(response, 201, { data: await returnRequestService.create(cookies.pcx_access, await jsonBody(request)) });
     else if (op === "approve") send(response, 200, { data: await returnRequestService.approve(cookies.pcx_access, id(returnId)) });
-    else if (op === "receive") send(response, 200, { data: await returnRequestService.receive(cookies.pcx_access, id(returnId)) });
+    else if (op === "receive") {
+      const body = await jsonBody(request);
+      send(response, 200, { data: await returnRequestService.receive(cookies.pcx_access, id(returnId), body.serial) });
+    }
     else {
       const body = await jsonBody(request);
       if (typeof body.amount !== "number" || !Number.isFinite(body.amount) || body.amount < 0) throw new ReturnRequestError("invalid_input");

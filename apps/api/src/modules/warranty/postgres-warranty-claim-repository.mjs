@@ -106,6 +106,22 @@ export function createPostgresWarrantyClaimRepository({ pool }) {
       return result.rows[0] ? warranty(result.rows[0]) : null;
     },
 
+    // Resolve the owning customer of a warranty by walking warranty → order item
+    // → order. Used to let a customer open a claim on their own warranty while
+    // keeping the authorization server-side.
+    async findWarrantyOwnerUserId(warrantyId) {
+      const result = await pool.query(
+        `SELECT o.user_id
+         FROM warranties w
+         JOIN order_items oi ON oi.id = w.order_item_id
+         JOIN orders o ON o.id = oi.order_id
+         WHERE w.id::text = $1
+         LIMIT 1`,
+        [warrantyId]
+      );
+      return result.rows[0]?.user_id ?? null;
+    },
+
     async markClaimResolved(claimId, now) {
       return transaction(pool, async (client) => {
         const updated = await client.query(

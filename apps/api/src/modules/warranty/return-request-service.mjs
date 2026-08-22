@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createReturnRequest, settleRefund } from "../../../../../packages/domain/src/warranty/return-refund.mjs";
-import { hasPermission, Permission } from "../../../../../packages/domain/src/index.mjs";
+import { hasPermission, normalizeSerialIdentifier, Permission } from "../../../../../packages/domain/src/index.mjs";
 
 export class ReturnRequestError extends Error {
   constructor(code) { super(code); this.name = "ReturnRequestError"; this.code = code; }
@@ -10,7 +10,7 @@ const createFields = new Set(["orderItemId", "reasonCode", "customerNotes"]);
 
 export function createReturnRequestService({ authService, repository, id = randomUUID, clock = () => new Date() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  for (const method of ["create", "approve", "markReceived", "settleRefund", "findById", "findRefundableByOrderItem", "orderItemInventoryId", "list"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  for (const method of ["create", "approve", "markReceived", "settleRefund", "findById", "findRefundableByOrderItem", "orderItemInventoryId", "findPrimarySerialByOrderItem", "list"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
 
   async function customer(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -67,8 +67,17 @@ export function createReturnRequestService({ authService, repository, id = rando
       return result.record;
     },
 
-    async receive(accessCredential, returnId) {
+    async receive(accessCredential, returnId, serial) {
       await refundActor(accessCredential);
+      const existing = await repository.findById(returnId);
+      if (!existing) throw new ReturnRequestError("not_found");
+      // Physical identity guard: the received serial must match the sold unit's
+      // primary serial. Comparison is on the normalized value (upper-cased), so
+      // casing/whitespace does not defeat the match.
+      const expected = await repository.findPrimarySerialByOrderItem(existing.orderItemId);
+      let supplied = null;
+      try { supplied = normalizeSerialIdentifier(serial); } catch { supplied = null; }
+      if (!expected || supplied !== expected) throw new ReturnRequestError("serial_mismatch");
       const result = await repository.markReceived(returnId, clock().toISOString());
       if (result.status !== "received") throw new ReturnRequestError("invalid_state");
       return result.record;

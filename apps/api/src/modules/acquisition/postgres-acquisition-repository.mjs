@@ -93,6 +93,29 @@ export function createPostgresAcquisitionRepository({ pool }) {
       });
     },
 
+    async rejectOffer(offerId) {
+      const updated = await pool.query(
+        `UPDATE offers SET status = 'REJECTED'
+         WHERE id = $1 AND status = 'ACTIVE'
+         RETURNING id, sell_request_id, valuation_id, amount, status, expires_at, accepted_at, created_by, created_at`,
+        [offerId]
+      );
+      return updated.rowCount === 1 ? offer(updated.rows[0]) : null;
+    },
+
+    // Resolve the seller (owner) of the offer via the linked sell_request, so
+    // the service can enforce that only the owning customer may accept/reject.
+    async findOwnerUserIdByOffer(offerId) {
+      const result = await pool.query(
+        `SELECT sr.user_id
+         FROM offers o
+         JOIN sell_requests sr ON sr.id = o.sell_request_id
+         WHERE o.id::text = $1`,
+        [offerId]
+      );
+      return result.rows[0]?.user_id ?? null;
+    },
+
     async findOfferById(offerId) {
       const result = await pool.query("SELECT id, sell_request_id, valuation_id, amount, status, expires_at, accepted_at, created_by, created_at FROM offers WHERE id::text = $1", [offerId]);
       return result.rows[0] ? offer(result.rows[0]) : null;

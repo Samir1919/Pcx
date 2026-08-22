@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { listingApi } from "../../../lib/listing-api.js";
+import ListingMediaModal from "./media-modal";
 
 function slug(value) { return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); }
 function Banner({ notice, onClose }) { if (!notice) return null; return <div className={`banner ${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}><span>{notice.message}</span><button type="button" onClick={onClose} aria-label="Dismiss message">×</button></div>; }
@@ -73,6 +74,7 @@ export default function ListingsPage() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
   const [dialog, setDialog] = useState(null);
+  const [mediaListing, setMediaListing] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -204,6 +206,7 @@ export default function ListingsPage() {
                         <div className="actions">
                           {l.status === "DRAFT" && <button type="button" disabled={busy} onClick={() => openDialog("publish", l)}>Publish</button>}
                           <button type="button" disabled={busy} onClick={() => openDialog("price", l)}>Set price</button>
+                          <button type="button" disabled={busy} onClick={() => setMediaListing(l)}>Photos</button>
                         </div>
                       </td>
                     </tr>
@@ -224,6 +227,7 @@ export default function ListingsPage() {
           </form>
         </section>
       </div>
+      {mediaListing && <ListingMediaModal listing={mediaListing} onClose={() => setMediaListing(null)} onUploaded={() => load()} />}
       {dialog && (
         <FieldDialog
           title={dialog.title}

@@ -71,6 +71,8 @@ function match(url) {
     [/^\/api\/v1\/admin\/valuations$/, "createValuation"],
     [/^\/api\/v1\/admin\/offers$/, "createOffer"],
     [/^\/api\/v1\/admin\/offers\/([^/]+)\/accept$/, "acceptOffer"],
+    [/^\/api\/v1\/offers\/([^/]+)\/accept$/, "acceptOfferCustomer"],
+    [/^\/api\/v1\/offers\/([^/]+)\/reject$/, "rejectOfferCustomer"],
     [/^\/api\/v1\/admin\/acquisitions$/, "createAcquisition"],
     [/^\/api\/v1\/admin\/acquisitions\/([^/]+)\/pay$/, "markAcquisitionPaid"]
   ];
@@ -100,6 +102,8 @@ export async function handleAcquisitionRequest(request, response, { acquisitionS
     if (route.op === "createValuation") result = await acquisitionService.createValuation(cookies.pcx_access, body);
     else if (route.op === "createOffer") result = await acquisitionService.createOffer(cookies.pcx_access, body);
     else if (route.op === "acceptOffer") result = await acquisitionService.acceptOffer(cookies.pcx_access, id(route.id));
+    else if (route.op === "acceptOfferCustomer") result = await acquisitionService.acceptOfferForCustomer(cookies.pcx_access, id(route.id));
+    else if (route.op === "rejectOfferCustomer") result = await acquisitionService.rejectOfferForCustomer(cookies.pcx_access, id(route.id));
     else if (route.op === "markAcquisitionPaid") result = await acquisitionService.markAcquisitionPaid(cookies.pcx_access, id(route.id));
     else result = await acquisitionService.createAcquisition(cookies.pcx_access, body);
     send(response, 201, { data: result });

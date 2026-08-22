@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createOffer, createValuation, createAcquisition, markAcquisitionPaid } from "../../../../../packages/domain/src/acquisition/valuation-offer.mjs";
-import { hasPermission, Permission } from "../../../../../packages/domain/src/index.mjs";
+import { hasPermission, Permission, Role } from "../../../../../packages/domain/src/index.mjs";
 
 export class AcquisitionError extends Error {
   constructor(code) { super(code); this.name = "AcquisitionError"; this.code = code; }
@@ -12,7 +12,7 @@ const acquisitionFields = new Set(["sellRequestId", "acceptedOfferId", "sellerUs
 
 export function createAcquisitionService({ authService, repository, id = randomUUID, clock = () => new Date() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  for (const method of ["createValuation", "createOffer", "acceptOffer", "findOfferById", "createAcquisition", "findByOffer", "markPaid"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  for (const method of ["createValuation", "createOffer", "acceptOffer", "rejectOffer", "findOwnerUserIdByOffer", "findOfferById", "createAcquisition", "findByOffer", "markPaid"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
 
   async function actor(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -23,6 +23,20 @@ export function createAcquisitionService({ authService, repository, id = randomU
   function exact(input, allowed) {
     for (const key of Object.keys(input ?? {})) if (!allowed.has(key)) throw new AcquisitionError("invalid_input");
     return input ?? {};
+  }
+
+  async function customerActor(accessCredential) {
+    const identity = await authService.authenticateAccess({ accessCredential });
+    if (identity.status !== "ACTIVE" || !Array.isArray(identity.roles) || !identity.roles.includes(Role.CUSTOMER)) throw new AcquisitionError("forbidden");
+    return identity;
+  }
+
+  async function ownerOfOffer(accessCredential, offerId) {
+    const identity = await customerActor(accessCredential);
+    const ownerUserId = await repository.findOwnerUserIdByOffer(offerId);
+    if (!ownerUserId) throw new AcquisitionError("not_found");
+    if (ownerUserId !== identity.userId) throw new AcquisitionError("forbidden");
+    return identity;
   }
 
   return Object.freeze({
@@ -65,6 +79,23 @@ export function createAcquisitionService({ authService, repository, id = randomU
       const result = await repository.acceptOffer(offerId, clock().toISOString());
       if (result.status !== "accepted") throw new AcquisitionError("invalid_state");
       return result.record;
+    },
+
+    // Seller-owned public path: the customer who owns the sell request commits
+    // to the final offer. The server verifies ownership and transitions ACTIVE
+    // → ACCEPTED (or REJECTED) with expiry enforcement for acceptance.
+    async acceptOfferForCustomer(accessCredential, offerId) {
+      await ownerOfOffer(accessCredential, offerId);
+      const result = await repository.acceptOffer(offerId, clock().toISOString());
+      if (result.status !== "accepted") throw new AcquisitionError("invalid_state");
+      return result.record;
+    },
+
+    async rejectOfferForCustomer(accessCredential, offerId) {
+      await ownerOfOffer(accessCredential, offerId);
+      const record = await repository.rejectOffer(offerId);
+      if (!record) throw new AcquisitionError("invalid_state");
+      return record;
     },
 
     async createAcquisition(accessCredential, input) {
