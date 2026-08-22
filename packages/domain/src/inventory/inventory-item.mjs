@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 export const InventoryItemStatus = Object.freeze({
   RECEIVED: "RECEIVED",
   INSPECTION: "INSPECTION",
@@ -34,6 +36,14 @@ function timestamp(value, name) {
 
 // Serial identifiers are normalized (trimmed, upper-cased) before persistence so
 // the same physical unit cannot be registered twice with minor formatting.
+// Human-readable, deterministic PCX ID derived from the item's unique id (8
+// uppercase hex chars). The item UUID is the collision-free source, so the
+// public identifier is monotonic and unique without a separate counter table.
+export function generatePcxItemId(itemId) {
+  const hash = createHash("sha1").update(requiredString(itemId, "itemId")).digest("hex");
+  return `PCX-${hash.slice(0, 8).toUpperCase()}`;
+}
+
 export function normalizeSerialIdentifier(value) {
   const normalized = requiredString(value, "value").toUpperCase();
   if (normalized.length > 128) throw new TypeError("serial identifier is too long");

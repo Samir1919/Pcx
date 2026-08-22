@@ -95,6 +95,7 @@ export function createPostgresListingRepository({ pool }) {
       const result = await pool.query(
         `SELECT ii.pcx_item_id, ii.id AS inventory_item_id, l.id AS listing_id,
                 pm.id AS model_id, pm.name, pm.category_id, pm.brand_id,
+                ii.condition_grade, ii.current_health_score,
                 l.status, l.published_at, lp.price
          FROM listings l
          JOIN inventory_items ii ON ii.id = l.inventory_item_id
@@ -168,6 +169,7 @@ export function createPostgresListingRepository({ pool }) {
       const pageSize = add(limit + 1);
       const result = await pool.query(
         `SELECT l.id, l.public_slug, ii.id AS inventory_item_id, ii.pcx_item_id, pm.id AS model_id, pm.name, pm.category_id, pm.brand_id,
+                ii.condition_grade, ii.current_health_score,
                 l.published_at, lp.price
          FROM listings l
          JOIN inventory_items ii ON ii.id = l.inventory_item_id

@@ -1,12 +1,14 @@
 import { randomUUID } from "node:crypto";
-import { createInventoryItem, createSerialIdentifier, assertPrimarySerialIdentifier } from "../../../../../packages/domain/src/inventory/inventory-item.mjs";
+import { createInventoryItem, createSerialIdentifier, assertPrimarySerialIdentifier, generatePcxItemId } from "../../../../../packages/domain/src/inventory/inventory-item.mjs";
 import { hasPermission, Permission } from "../../../../../packages/domain/src/index.mjs";
 
 export class InventoryError extends Error {
   constructor(code) { super(code); this.name = "InventoryError"; this.code = code; }
 }
 
-const intakeFields = new Set(["productModelId", "acquisitionId", "pcxItemId", "status", "identifiers"]);
+// PCX ID is always server-derived and never client-authoritative. Client
+// cannot set `pcxItemId` even though the inventory column is nullable.
+const intakeFields = new Set(["productModelId", "acquisitionId", "status", "identifiers"]);
 const identifierFields = new Set(["identifierType", "value", "isPrimary"]);
 
 export function createInventoryService({ authService, repository, id = randomUUID, clock = () => new Date() }) {
@@ -30,9 +32,10 @@ export function createInventoryService({ authService, repository, id = randomUUI
       const fields = exact(input, intakeFields);
       if (!Array.isArray(fields.identifiers)) throw new InventoryError("invalid_input");
       const now = clock().toISOString();
+      const itemId = id();
       let record;
       try {
-        record = createInventoryItem({ id: id(), productModelId: fields.productModelId, acquisitionId: fields.acquisitionId, pcxItemId: fields.pcxItemId, status: fields.status, receivedAt: now });
+        record = createInventoryItem({ id: itemId, productModelId: fields.productModelId, acquisitionId: fields.acquisitionId, pcxItemId: generatePcxItemId(itemId), status: fields.status, receivedAt: now });
       } catch {
         throw new InventoryError("invalid_input");
       }

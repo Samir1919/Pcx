@@ -20,20 +20,28 @@ function fixture(overrides = {}) {
   return { service, calls };
 }
 
-test("intake creates RECEIVED item with normalized primary serial and inventory-permission gate", async () => {
+test("intake creates RECEIVED item with server-derived PCX ID and normalized primary serial", async () => {
   const { service, calls } = fixture();
   const result = await service.intake("access", {
     productModelId: "model-1",
-    pcxItemId: "PCX-1",
     identifiers: [{ identifierType: SerialIdentifierType.SERIAL, value: " SN-123 ", isPrimary: true }]
   });
   assert.equal(result.item.status, InventoryItemStatus.RECEIVED);
-  assert.equal(result.item.pcxItemId, "PCX-1");
+  // PCX ID is always server-derived and never client-authoritative.
+  assert.match(result.item.pcxItemId, /^PCX-[0-9A-F]{8}$/);
   assert.equal(result.identifiers[0].valueNormalized, "SN-123");
   assert.equal(calls.intakes.length, 1);
 
   const denied = fixture({ authService: { async authenticateAccess() { return { userId: "u", status: "ACTIVE", roles: ["CUSTOMER"] }; } } });
   await assert.rejects(denied.service.intake("access", { productModelId: "model", identifiers: [{ identifierType: "SERIAL", value: "x", isPrimary: true }] }), (error) => error.code === "forbidden");
+});
+
+test("intake rejects client-supplied pcxItemId", async () => {
+  const { service } = fixture();
+  await assert.rejects(
+    service.intake("access", { productModelId: "model", pcxItemId: "PCX-MINE", identifiers: [{ identifierType: "SERIAL", value: "x", isPrimary: true }] }),
+    (error) => error.code === "invalid_input"
+  );
 });
 
 test("intake rejects missing primary, extra fields, and duplicate identifier constraint", async () => {
