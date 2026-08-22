@@ -39,7 +39,8 @@ const record = (name, ok, detail = "") => {
 };
 
 async function run() {
-  const browser = await chromium.launch();
+  const headed = process.env.PCX_HEADED === "1";
+  const browser = await chromium.launch({ headless: !headed, slowMo: headed ? 350 : 0 });
   const context = await browser.newContext({ viewport: { width: 1360, height: 860 } });
   const page = await context.newPage();
 
@@ -89,8 +90,14 @@ async function run() {
     page.on("console", (msg) => {
       if (msg.type() !== "error") return;
       const text = msg.text();
-      if (/Failed to load resource:.*401/.test(text)) return;
+      // Browser's request-level failure mirror; counted once via "response" and
+      // "requestfailed" below (avoids double-counting and headed DevTools
+      // source-map noise).
+      if (/Failed to load resource/.test(text)) return;
       consoleErrors.push(text);
+    });
+    page.on("requestfailed", (request) => {
+      failedRequests.push(`${request.method()} ${request.url()} -> failed`);
     });
     page.on("response", (response) => {
       if (response.status() >= 400) failedRequests.push(`${response.request().method()} ${response.url()} -> ${response.status()}`);

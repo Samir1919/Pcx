@@ -35,8 +35,15 @@ async function checkPage(page, name, url, requiredText) {
   page.on("console", (msg) => {
     if (msg.type() !== "error") return;
     const text = msg.text();
-    if (/Failed to load resource:.*401/.test(text)) return;
+    // The browser's "Failed to load resource" message is just the console
+    // mirror of the request-level failures captured below (response >= 400 and
+    // requestfailed). Skip it here to avoid double-counting and to avoid a
+    // headed-DevTools-only source-map 404 that has no page-level response event.
+    if (/Failed to load resource/.test(text)) return;
     consoleErrors.push(text);
+  });
+  page.on("requestfailed", (request) => {
+    failedRequests.push(`${request.method()} ${request.url()} -> failed`);
   });
   page.on("response", (response) => {
     if (response.status() >= 400 && !(response.status() === 401 && /\/api\/v1\/me$/.test(response.url()))) {
@@ -56,7 +63,8 @@ async function checkPage(page, name, url, requiredText) {
 }
 
 async function run() {
-  const browser = await chromium.launch();
+  const headed = process.env.PCX_HEADED === "1";
+  const browser = await chromium.launch({ headless: !headed, slowMo: headed ? 350 : 0 });
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 
   if (enabled("pages")) {
