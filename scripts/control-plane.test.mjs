@@ -157,6 +157,28 @@ test("validateExecutorResult requires at least one artifact when requireArtifact
   assert.doesNotThrow(() => validateExecutorResult({ artifacts: [] }));
 });
 
+test("validateExecutorResult preserves a secret-free token usage block and rejects malformed usage", () => {
+  const validated = validateExecutorResult({
+    artifacts: [{ type: "commit", path: "abc", status: "ok" }],
+    usage: { promptTokens: 12, completionTokens: 5 }
+  });
+  assert.deepEqual(validated.usage, { promptTokens: 12, completionTokens: 5 });
+  assert.equal(validateExecutorResult({ artifacts: [] }).usage, null);
+  assert.throws(() => validateExecutorResult({ artifacts: [], usage: { promptTokens: -1 } }), /non-negative integer/);
+  assert.throws(() => validateExecutorResult({ artifacts: [], usage: { promptTokens: "12" } }), /non-negative integer/);
+  assert.throws(() => validateExecutorResult({ artifacts: [], usage: { secret: "x" } }), /prohibited field/);
+});
+
+test("runBoundedTask threads executor usage into a PASSED result", async () => {
+  const outcome = await runBoundedTask({
+    task: task("with-usage"),
+    actions: ["read"],
+    executor: async () => ({ artifacts: [{ type: "commit", path: "abc", status: "ok" }], usage: { promptTokens: 30, completionTokens: 7 } })
+  });
+  assert.equal(outcome.status, "PASSED");
+  assert.deepEqual(outcome.usage, { promptTokens: 30, completionTokens: 7 });
+});
+
 test("bounded runner rejects a PASSED executor that returns no artifacts", async () => {
   const outcome = await runBoundedTask({ task: task("no-artifacts"), actions: ["read"], executor: async () => ({ artifacts: [] }) });
   assert.equal(outcome.status, "FAILED");
@@ -575,6 +597,20 @@ test("appendRunRecord maps a worker record to a sanitized durable entry", async 
   assert.equal(await appendRunRecord({ record }), null);
 });
 
+test("appendRunRecord maps execution usage tokens into the durable entry", async () => {
+  const lines = [];
+  const store = createFileLogStore({ path: ".worktrees/control-plane.log", write: async ({ line }) => { lines.push(line); }, read: async () => lines.map((line) => JSON.parse(line)) });
+  const record = {
+    taskId: "a",
+    status: "PASSED",
+    execution: { attempts: 1, costUnits: 1, usage: { promptTokens: 44, completionTokens: 9 } },
+    qa: { verdict: "PASSED" }
+  };
+  const entry = await appendRunRecord({ store, record });
+  assert.equal(entry.promptTokens, 44);
+  assert.equal(entry.completionTokens, 9);
+});
+
 test("summarizeRuns aggregates cost, runtime, retry rate, and status counts", () => {
   const records = [
     { ts: "2026-01-01T00:00:00.000Z", taskId: "a", status: "PASSED", attempts: 1, costUnits: 1, batch: 0 },
@@ -594,6 +630,20 @@ test("summarizeRuns aggregates cost, runtime, retry rate, and status counts", ()
   assert.equal(report.perTask.b.attempts, 2);
   assert.equal(report.perTask.b.costUnits, 2);
   assert.equal(report.perTask.d.status, "BLOCKED");
+});
+
+test("summarizeRuns aggregates token usage from both log-entry and worker-record shapes", () => {
+  const records = [
+    { ts: "2026-01-01T00:00:00.000Z", taskId: "a", status: "PASSED", attempts: 1, costUnits: 1, promptTokens: 10, completionTokens: 3, batch: 0 },
+    { ts: "2026-01-01T00:00:05.000Z", taskId: "b", status: "PASSED", execution: { attempts: 1, costUnits: 1, usage: { promptTokens: 20, completionTokens: 4 } }, batch: 0 }
+  ];
+  const report = summarizeRuns(records);
+  assert.equal(report.totalPromptTokens, 30);
+  assert.equal(report.totalCompletionTokens, 7);
+  assert.equal(report.perTask.a.promptTokens, 10);
+  assert.equal(report.perTask.a.completionTokens, 3);
+  assert.equal(report.perTask.b.promptTokens, 20);
+  assert.equal(report.perTask.b.completionTokens, 4);
 });
 
 test("summarizeRuns handles empty input and rejects malformed records", () => {

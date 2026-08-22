@@ -131,6 +131,34 @@ test("deepseek executor rejects an invalid reasoning effort", () => {
   assert.throws(() => createDeepSeekExecutor({ apiKey: "k", reasoningEffort: "extreme", fetchImpl: async () => okResponse("{}") }), /reasoningEffort must be low, medium, or high/);
 });
 
+test("provider executor surfaces accumulated token usage from the response payload", async () => {
+  const provider = resolveProvider({ name: "deepseek", env: { DEEPSEEK_API_KEY: "k" } });
+  const payloads = [
+    { choices: [{ message: { content: "<｜tool_calls｜>..." } }], usage: { prompt_tokens: 10, completion_tokens: 4 } },
+    { choices: [{ message: { content: JSON.stringify({ artifactPath: "apps/api/src/a.mjs" }) } }], usage: { prompt_tokens: 20, completion_tokens: 6 } }
+  ];
+  const enriched = Object.freeze({ ...provider, supportsThinking: true, effortParam: "reasoning_effort", thinkingEnabled: true, reasoningEffort: "high" });
+  let call = 0;
+  const executor = createProviderExecutor({
+    provider: enriched,
+    fetchImpl: async () => ({ ok: true, status: 200, json: async () => payloads[call++] })
+  });
+  const result = await executor({ task: task("api") });
+  // One leaked-tool-call self-heal fallback, so both responses' usage is summed.
+  assert.equal(call, 2);
+  assert.deepEqual(result.usage, { promptTokens: 30, completionTokens: 10 });
+});
+
+test("provider executor returns zero usage when the provider reports none", async () => {
+  const provider = resolveProvider({ name: "openai", env: { OPENAI_API_KEY: "k" } });
+  const executor = createProviderExecutor({
+    provider,
+    fetchImpl: async () => okResponse(JSON.stringify({ artifactPath: "apps/api/src/a.mjs" }))
+  });
+  const result = await executor({ task: task("api") });
+  assert.deepEqual(result.usage, { promptTokens: 0, completionTokens: 0 });
+});
+
 test("provider executor sends an OpenAI-compatible request and returns a validated artifact", async () => {
   const provider = resolveProvider({ name: "kimi", env: { KIMI_API_KEY: "k", KIMI_MODEL: "kimi-k2" } });
   let captured;

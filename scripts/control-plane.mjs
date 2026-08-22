@@ -217,6 +217,28 @@ const sanitizeArtifacts = (artifacts = []) => {
   });
 };
 
+const asNonNegativeInt = (value, field) => {
+  if (!Number.isInteger(value) || value < 0) throw new Error(`${field} must be a non-negative integer`);
+  return value;
+};
+
+/**
+ * Sanitizes a provider-reported token usage block into secret-free numbers.
+ * Accepts `{ promptTokens, completionTokens }` (each a non-negative integer or
+ * null). Returns null when no usage is provided. Token counts are the only
+ * usage data admitted; no other metadata is preserved.
+ */
+const asUsage = (usage) => {
+  if (usage == null) return null;
+  if (typeof usage !== "object" || Array.isArray(usage)) throw new Error("usage must be an object");
+  const allowed = new Set(["promptTokens", "completionTokens"]);
+  const unknown = Object.keys(usage).filter((key) => !allowed.has(key));
+  if (unknown.length > 0) throw new Error(`usage contains prohibited field: ${unknown.join(",")}`);
+  const promptTokens = usage.promptTokens == null ? null : asNonNegativeInt(usage.promptTokens, "usage.promptTokens");
+  const completionTokens = usage.completionTokens == null ? null : asNonNegativeInt(usage.completionTokens, "usage.completionTokens");
+  return Object.freeze({ promptTokens, completionTokens });
+};
+
 /**
  * Validates an external-agent executor's result against the vendor-neutral
  * executor contract (ADR 0007). Any vendor executor (Cline, DeepSeek, or future
@@ -226,23 +248,25 @@ const sanitizeArtifacts = (artifacts = []) => {
  * Each artifact must have exactly `type`, `path`, `status`; any other field is
  * rejected (secret-free output). Paths must be repository-relative without
  * traversal. When `requireArtifacts` is true, at least one artifact is required
- * (a PASSED task must produce verifiable output).
+ * (a PASSED task must produce verifiable output). An optional secret-free token
+ * `usage` block is preserved for cost observability.
  */
 export const validateExecutorResult = (result, { requireArtifacts = false } = {}) => {
   if (!result || typeof result !== "object" || Array.isArray(result)) throw new Error("executor result must be an object");
   const artifacts = sanitizeArtifacts(result.artifacts);
   if (requireArtifacts && artifacts.length === 0) throw new Error("executor result must contain at least one artifact");
-  return Object.freeze({ artifacts });
+  return Object.freeze({ artifacts, usage: asUsage(result.usage) });
 };
 
 
-const result = (taskId, status, attempts, costUnits, failureClass, artifacts = []) => Object.freeze({
+const result = (taskId, status, attempts, costUnits, failureClass, artifacts = [], usage = null) => Object.freeze({
   taskId,
   status,
   attempts,
   costUnits,
   failureClass,
-  artifacts: Object.freeze(artifacts)
+  artifacts: Object.freeze(artifacts),
+  ...(usage ? { usage: Object.freeze(usage) } : {})
 });
 
 export const runBoundedTask = async ({ task, actions, executor, environment = "local", signal, isKilled = () => false, approvalBoundary } = {}) => {
@@ -295,7 +319,7 @@ export const runBoundedTask = async ({ task, actions, executor, environment = "l
       // Validate the executor's output against the vendor-neutral executor
       // contract (ADR 0007): secret-free, repository-relative, verifiable.
       const validatedResult = validateExecutorResult(executionResult, { requireArtifacts: true });
-      return result(validated.id, "PASSED", attempts, costUnits, null, validatedResult.artifacts);
+      return result(validated.id, "PASSED", attempts, costUnits, null, validatedResult.artifacts, validatedResult.usage);
 
     } catch (error) {
       const failureClass = error?.failureClass ?? "execution_failure";
@@ -859,7 +883,7 @@ const extractConflicts = (stderr) => {
   return lines.slice(0, 20);
 };
 
-const LOG_ALLOWED_KEYS = new Set(["ts", "taskId", "status", "failureClass", "attempts", "costUnits", "qaVerdict", "securityVerdict", "reviewVerdict", "commit", "batch"]);
+const LOG_ALLOWED_KEYS = new Set(["ts", "taskId", "status", "failureClass", "attempts", "costUnits", "promptTokens", "completionTokens", "qaVerdict", "securityVerdict", "reviewVerdict", "commit", "batch"]);
 const LOG_SECRET_PATTERNS = [/token/i, /secret/i, /credential/i, /password/i, /api[_ -]?key/i, /authorization/i, /bearer/i];
 
 const sanitizeLogRecord = (record) => {
@@ -917,6 +941,8 @@ export const appendRunRecord = async ({ store, record, batch = 0 } = {}) => {
     failureClass: record?.failureClass ?? null,
     attempts: record?.execution?.attempts ?? null,
     costUnits: record?.execution?.costUnits ?? null,
+    promptTokens: record?.execution?.usage?.promptTokens ?? null,
+    completionTokens: record?.execution?.usage?.completionTokens ?? null,
     qaVerdict: record?.qa?.verdict ?? null,
     securityVerdict: record?.security?.verdict ?? null,
     reviewVerdict: record?.review?.verdict ?? null,
@@ -940,6 +966,8 @@ export const summarizeRuns = (records = []) => {
   const perTask = {};
   let totalCostUnits = 0;
   let totalAttempts = 0;
+  let totalPromptTokens = 0;
+  let totalCompletionTokens = 0;
   let retried = 0;
   let passed = 0;
   let failed = 0;
@@ -958,9 +986,17 @@ export const summarizeRuns = (records = []) => {
     const execution = record.execution && typeof record.execution === "object" ? record.execution : {};
     const costUnits = Number.isFinite(record.costUnits) ? record.costUnits : Number.isFinite(execution.costUnits) ? execution.costUnits : 0;
     const attempts = Number.isFinite(record.attempts) ? record.attempts : Number.isFinite(execution.attempts) ? execution.attempts : 0;
+    // Token usage surfaces from two shapes: sanitized log entries carry
+    // promptTokens/completionTokens at the top level, while raw worker records
+    // nest them under `execution.usage`.
+    const usage = execution.usage && typeof execution.usage === "object" ? execution.usage : {};
+    const promptTokens = Number.isFinite(record.promptTokens) ? record.promptTokens : Number.isFinite(usage.promptTokens) ? usage.promptTokens : 0;
+    const completionTokens = Number.isFinite(record.completionTokens) ? record.completionTokens : Number.isFinite(usage.completionTokens) ? usage.completionTokens : 0;
 
     totalCostUnits += costUnits;
     totalAttempts += attempts;
+    totalPromptTokens += promptTokens;
+    totalCompletionTokens += completionTokens;
     if (attempts > 1) retried += 1;
     if (status === "PASSED") passed += 1;
     else if (status === "FAILED") failed += 1;
@@ -971,9 +1007,11 @@ export const summarizeRuns = (records = []) => {
       if (earliest === null || ts < earliest) earliest = ts;
       if (latest === null || ts > latest) latest = ts;
     }
-    const entry = perTask[taskId] ?? { attempts: 0, costUnits: 0, status };
+    const entry = perTask[taskId] ?? { attempts: 0, costUnits: 0, promptTokens: 0, completionTokens: 0, status };
     entry.attempts += attempts;
     entry.costUnits += costUnits;
+    entry.promptTokens += promptTokens;
+    entry.completionTokens += completionTokens;
     entry.status = status;
     perTask[taskId] = entry;
   }
@@ -982,6 +1020,8 @@ export const summarizeRuns = (records = []) => {
   return Object.freeze({
     taskCount,
     totalCostUnits,
+    totalPromptTokens,
+    totalCompletionTokens,
     totalRuntimeMs,
     retryRate: taskCount > 0 ? retried / taskCount : 0,
     passed,

@@ -26,7 +26,7 @@
  * This adapter never performs a hard-stop action and only emits allow-listed
  * artifacts, so it is safe to run locally or in CI (with a mocked fetch).
  */
-import { buildChatRequest, extractContent, parseProviderJson, resolveActiveProviders, resolveProvider } from "./ai-providers.mjs";
+import { buildChatRequest, extractContent, extractUsage, parseProviderJson, resolveActiveProviders, resolveProvider } from "./ai-providers.mjs";
 import { validateExecutorResult } from "./control-plane.mjs";
 
 const asNonEmptyString = (value, field) => {
@@ -54,8 +54,10 @@ export const createProviderExecutor = ({
   if (resolved.reasoningEffort != null && !REASONING_EFFORTS.has(resolved.reasoningEffort)) throw new Error("reasoningEffort must be low, medium, or high");
 
   // Perform a single completion with a given provider config and return the
-  // extracted assistant text.
-  const complete = async (config, user, controller) => {
+  // extracted assistant text. Usage is accumulated into the provided `usage`
+  // accumulator so the bounded task result can surface token consumption
+  // without exposing any secret.
+  const complete = async (config, user, controller, usage) => {
     const { body, headers } = buildChatRequest(config, {
       system: "You are a coding agent working on the PCX repository.",
       user
@@ -72,6 +74,11 @@ export const createProviderExecutor = ({
       throw error;
     }
     const payload = await response.json();
+    const tokenUsage = extractUsage(payload);
+    if (tokenUsage) {
+      usage.promptTokens = (usage.promptTokens ?? 0) + (tokenUsage.promptTokens ?? 0);
+      usage.completionTokens = (usage.completionTokens ?? 0) + (tokenUsage.completionTokens ?? 0);
+    }
     return extractContent(payload);
   };
 
@@ -94,8 +101,9 @@ export const createProviderExecutor = ({
     try {
       timer = setTimeout(() => controller.abort("timeout"), timeoutMs);
 
+      const usage = { promptTokens: 0, completionTokens: 0 };
       let parsed;
-      const content = await complete(resolved, user, controller);
+      const content = await complete(resolved, user, controller, usage);
       try {
         parsed = parseProviderJson(content);
       } catch (error) {
@@ -105,7 +113,7 @@ export const createProviderExecutor = ({
         // fallback attempt, so a genuinely broken provider still fails fast.
         if (resolved.thinkingEnabled) {
           const fallback = Object.freeze({ ...resolved, thinkingEnabled: false, reasoningEffort: null });
-          parsed = parseProviderJson(await complete(fallback, user, controller));
+          parsed = parseProviderJson(await complete(fallback, user, controller, usage));
         } else {
           throw error;
         }
@@ -115,7 +123,8 @@ export const createProviderExecutor = ({
       const result = { artifacts: [{ type: "commit", path: artifactPath, status: "ok" }] };
       // Enforce the vendor-neutral executor contract (ADR 0007): secret-free,
       // repository-relative, verifiable output.
-      return validateExecutorResult(result, { requireArtifacts: true });
+      const validated = validateExecutorResult(result, { requireArtifacts: true });
+      return Object.freeze({ ...validated, usage: Object.freeze(usage) });
     } finally {
       clearTimeout(timer);
       signal?.removeEventListener("abort", onAbort);
