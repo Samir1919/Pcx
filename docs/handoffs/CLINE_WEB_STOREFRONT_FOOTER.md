@@ -1,52 +1,74 @@
-# Agent Handoff: Web Storefront Footer
+# Agent Handoff: Admin-Configurable Dynamic Storefront Footer
 
 - Status: Complete
 - Branch: agent/web-storefront-footer
-- Latest commit: b01ea5d feat(web): add responsive storefront footer
-- Date: 2026-08-20
+- Latest commit: c3bb7c6 feat(footer): admin-configurable dynamic storefront footer
+- Date: 2026-08-22
 
 ## Outcome
 
-The customer storefront (`apps/web`) now renders a shared, responsive site footer on every page. It is mounted once in the root layout, so it appears below all storefront screens without duplicating markup across pages.
+The public storefront footer is now admin-configurable. An admin edits the
+footer (tagline, copyright, contact details, trade license/BIN, social links,
+and arbitrary link columns) from the admin panel's new **Footer** section, and
+the storefront renders that content dynamically. The previous hard-coded
+server-component footer is replaced by a client component that fetches
+`GET /api/v1/footer` with a safe in-browser fallback.
 
 ## Changed areas
 
-- `apps/web/app/StorefrontFooter.js` (new): a server component (no client state) with a brand column, Shop link column, Account link column, and a bottom copyright/trust bar. Link arrays are co-located constants. Uses a real `<footer>` landmark and labelled `<nav>` elements.
-- `apps/web/app/globals.css` (modified): added footer styles on the existing token system (`--paper`, `--panel`, `--line`, `--muted`, `--green`, `--space-*`, `--touch-target`). Mobile-first single column; switches to a `1.5fr 1fr 1fr` grid at `≥40rem`. Links satisfy the 44px touch-target floor and inherit the global `:focus-visible` ring and `prefers-reduced-motion` handling.
-- `apps/web/app/layout.js` (modified): imports and renders `<StorefrontFooter />` after `{children}` inside `<body>`.
+### API (new `footer` module)
+- `apps/api/migrations/0033_site_footer.sql` — singleton `site_footer` table + default seed row.
+- `apps/api/src/modules/footer/site-footer-service.mjs` — validation + authorization (`SYSTEM_CONFIGURE`), server-owned normalization.
+- `apps/api/src/modules/footer/postgres-site-footer-repository.mjs` — active/public + admin projections and transactional upsert with audit.
+- `apps/api/src/modules/footer/site-footer-http.mjs` — `GET /api/v1/footer` (public) and `GET/PUT /api/v1/admin/footer` (origin + double-submit CSRF for write).
+- `apps/api/src/modules/identity/auth-runtime.mjs` + `apps/api/src/server.mjs` — wiring + route registration.
+
+### Admin web
+- `apps/admin/lib/site-footer-api.js` — API client.
+- `apps/admin/app/(workspace)/footer/page.js` — structured editor (company details, social links, dynamic link columns).
+- `apps/admin/app/user-shell.js` — added "Footer" nav item + icon.
+- `apps/admin/app/globals.css` — added `.stack`, `.rowFields`, `.columnEditor`, `.formActions`, `.spread`.
+
+### Customer web
+- `apps/web/lib/storefront-api.js` — added `footer()`.
+- `apps/web/app/StorefrontFooter.js` — client component fetching footer with fallback.
+- `apps/web/app/globals.css` — added contact/social styles and fluid grid.
 
 ## Acceptance criteria
 
-- [x] A footer landmark (`footer.siteFooter`) renders on representative storefront pages.
-- [x] Footer is mounted once in the root layout (DRY, not per-workspace).
-- [x] Follows `docs/guidelines/UI_STYLE_GUIDE.md`: plain token CSS, fluid layout, mobile-first, 44px touch targets, no new hardcoded palette values outside `:root`.
-- [x] No horizontal overflow across 320/375/768/1024px.
+- [x] Public footer renders from `GET /api/v1/footer`.
+- [x] Admin "Footer" section edits and persists the footer.
+- [x] Server-validated content (no client-owned status, root-relative internal hrefs, http(s)-only social URLs).
+- [x] Modular-monolith boundary honored (footer module owns only `site_footer`).
 
 ## Verification
 
 | Command/test | Result |
 |---|---|
-| `npm run web:check` | Pass (4 pages, no client-side errors) |
 | `npm run typecheck` | Pass |
 | `npm run lint` | Pass |
 | `npm run build` | Pass |
-| `npm run verify:e0` | Pass (36 required artifacts) |
-| `npm test` | Pass (449 pass, 0 fail, 26 skipped) |
-| Playwright visual probe (320/375/768/1024) | Footer visible, 6 links, no horizontal overflow at any width |
+| `npm run verify:e0` | Pass (36 artifacts) |
+| `npm test` | Pass (458 pass, 0 fail, 26 skipped) |
+| `npm run web:check` | Pass (4 pages, no client errors) |
+| Migration via `migrate.mjs` | Applied; `GET /api/v1/footer` returns seed |
+| Playwright (1024px) | Footer visible, Shop/Account columns + links, no overflow |
 
 ## Architecture/security review
 
-- Purely presentational, static server component. No auth state, no secrets, no server-owned data. Links point only to existing customer routes (`/storefront`, `/sell`, `/verify`, `/login`, `/register`). No schema, invariant, or security-boundary change.
-- Uses anchor/`Link` only; no actions or privileged paths introduced.
+- Public footer endpoint is read-only GET, presentation-only DTO.
+- Admin write requires `SYSTEM_CONFIGURE` and exact-origin + double-submit CSRF.
+- Internal hrefs root-relative; social URLs http(s)-only; external links get `rel="noopener noreferrer"`.
+- No schema/invariant/secret change.
 
 ## Schema/configuration/deployment
 
-None.
+- Additive migration `0033_site_footer.sql`; run `db:migrate` on deploy.
 
 ## Remaining work and next safe action
 
-- Optionally add a "Merchant" link conditionally once an auth-aware shared shell exists (out of scope for this static slice; the current nav still owns authenticated state).
-- Admin app footer is a separate, future slice (the admin shell differs per `docs/guidelines/UI_STYLE_GUIDE.md` section 9).
+- Optional admin preview of rendered footer (future slice).
+- Optional `is_active` toggle UI.
 
 ## Blockers requiring human decision
 
