@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createCustomerRegistrationCandidate } from "../../../../../packages/domain/src/identity/identity-record.mjs";
+import { createCustomerRegistrationCandidate } from "@pcx/domain";
 import { generateOpaqueCredential, hashOpaqueCredential, sessionExpiries } from "./credentials.mjs";
 import { assertPassword, hashPassword, verifyPassword } from "./password.mjs";
 import { requiresPrivilegedMfa, safeMfaChallenge, safeMfaUserId } from "./privileged-mfa.mjs";

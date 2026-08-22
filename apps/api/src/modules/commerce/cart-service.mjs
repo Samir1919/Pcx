@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { CartStatus, createCart, createCartItem, Role } from "../../../../../packages/domain/src/index.mjs";
+import { CartStatus, createCart, createCartItem, Role } from "@pcx/domain";
 
 export class CartError extends Error {
   constructor(code) { super(code); this.name = "CartError"; this.code = code; }

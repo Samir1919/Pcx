@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createBrand, createCategory, createProductModel, hasPermission, Permission } from "../../../../../packages/domain/src/index.mjs";
+import { createBrand, createCategory, createProductModel, hasPermission, Permission } from "@pcx/domain";
 
 export class CatalogCommandError extends Error { constructor(code) { super(code); this.name = "CatalogCommandError"; this.code = code; } }
 

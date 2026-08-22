@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createShipmentService } from "../src/modules/logistics/shipment-service.mjs";
-import { ShipmentStatus } from "../../../packages/domain/src/index.mjs";
+import { ShipmentStatus } from "@pcx/domain";
 
 const address = { line1: "1 Main St", city: "Dhaka", country: "BD" };
 

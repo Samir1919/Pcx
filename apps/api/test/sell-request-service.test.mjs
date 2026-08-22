@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createSellRequestService, SellRequestError } from "../src/modules/acquisition/sell-request-service.mjs";
-import { FulfilmentPreference, SellRequestStatus } from "../../../packages/domain/src/index.mjs";
+import { FulfilmentPreference, SellRequestStatus } from "@pcx/domain";
 
 function fixture(overrides = {}) {
   const calls = { created: [], submitted: [], listed: [], found: [], transitioned: [] };

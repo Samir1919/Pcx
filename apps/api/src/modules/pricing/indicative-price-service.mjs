@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createIndicativePrice, hasPermission, Permission, toPublicQuoteRange } from "../../../../../packages/domain/src/index.mjs";
+import { createIndicativePrice, hasPermission, Permission, toPublicQuoteRange } from "@pcx/domain";
 
 export class IndicativePriceError extends Error {
   constructor(code) { super(code); this.name = "IndicativePriceError"; this.code = code; }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createMerchantListingService, MerchantListingError } from "../src/modules/listing/merchant-listing-service.mjs";
-import { ListingStatus } from "../../../packages/domain/src/index.mjs";
+import { ListingStatus } from "@pcx/domain";
 
 function fixture(overrides = {}) {
   const calls = { created: [], updated: [], archived: [], lists: [] };

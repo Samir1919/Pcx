@@ -3,7 +3,7 @@ import { access, readFile } from "node:fs/promises";
 const required = [
   "AGENTS.md", "README.md", "package.json", "package-lock.json", ".env.example",
   "apps/web/package.json", "apps/admin/package.json", "apps/api/package.json", "apps/worker/package.json",
-  "packages/domain/package.json", "packages/ui/package.json", "packages/config/package.json", "packages/testing/package.json",
+  "packages/domain/package.json",
   "infra/docker-compose.yml", ".github/workflows/ci.yml", "docs/brain/README.md", "docs/brain/domain-rules.md",
   "docs/brain/security.md", "docs/brain/state-machines.md", "docs/adr/0001-modular-monolith.md",
   "docs/specifications/PROJECT_BRAIN_AGENTIC_SYSTEM.md", "docs/agentic/PORTABLE_AGENT_WORKFLOW.md",

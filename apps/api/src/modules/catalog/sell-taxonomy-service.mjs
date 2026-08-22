@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { hasPermission, Permission, parseBuildComponentRole, parseSellEntryIcon, parseSellEntryKey } from "../../../../../packages/domain/src/index.mjs";
+import { hasPermission, Permission, parseBuildComponentRole, parseSellEntryIcon, parseSellEntryKey } from "@pcx/domain";
 
 export class SellTaxonomyError extends Error {
   constructor(code) { super(code); this.name = "SellTaxonomyError"; this.code = code; }

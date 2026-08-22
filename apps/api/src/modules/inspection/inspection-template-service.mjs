@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { createInspectionTemplate, createInspectionTemplateItem, assertUniqueInspectionTemplateItems } from "../../../../../packages/domain/src/inspection/inspection-template.mjs";
-import { hasPermission, Permission } from "../../../../../packages/domain/src/index.mjs";
+import { createInspectionTemplate, createInspectionTemplateItem, assertUniqueInspectionTemplateItems } from "@pcx/domain";
+import { hasPermission, Permission } from "@pcx/domain";
 
 export class InspectionTemplateError extends Error {
   constructor(code) { super(code); this.name = "InspectionTemplateError"; this.code = code; }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createUserAdminService, UserAdminError } from "../src/modules/identity/user-admin-service.mjs";
-import { Role } from "../../../packages/domain/src/index.mjs";
+import { Role } from "@pcx/domain";
 
 function fixture(overrides = {}) {
   const calls = { audits: [], statuses: [], roles: [], disables: [] };

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { createInventoryItem, createSerialIdentifier, assertPrimarySerialIdentifier, generatePcxItemId } from "../../../../../packages/domain/src/inventory/inventory-item.mjs";
-import { hasPermission, Permission } from "../../../../../packages/domain/src/index.mjs";
+import { createInventoryItem, createSerialIdentifier, assertPrimarySerialIdentifier, generatePcxItemId } from "@pcx/domain";
+import { hasPermission, Permission } from "@pcx/domain";
 
 export class InventoryError extends Error {
   constructor(code) { super(code); this.name = "InventoryError"; this.code = code; }

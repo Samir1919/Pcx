@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { hasPermission, Permission, Role } from "../../../../../packages/domain/src/index.mjs";
+import { hasPermission, Permission, Role } from "@pcx/domain";
 
 export class MediaError extends Error {
   constructor(code) { super(code); this.name = "MediaError"; this.code = code; }

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { createOffer, createValuation, createAcquisition, markAcquisitionPaid } from "../../../../../packages/domain/src/acquisition/valuation-offer.mjs";
-import { hasPermission, Permission, Role } from "../../../../../packages/domain/src/index.mjs";
+import { createOffer, createValuation, createAcquisition, markAcquisitionPaid } from "@pcx/domain";
+import { hasPermission, Permission, Role } from "@pcx/domain";
 
 export class AcquisitionError extends Error {
   constructor(code) { super(code); this.name = "AcquisitionError"; this.code = code; }

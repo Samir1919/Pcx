@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createOrderPaymentService } from "../src/modules/commerce/order-payment-service.mjs";
-import { PaymentDirection, PaymentMethod, PaymentStatus } from "../../../packages/domain/src/index.mjs";
+import { PaymentDirection, PaymentMethod, PaymentStatus } from "@pcx/domain";
 
 function fixture(overrides = {}) {
   const calls = { orders: [], items: [], payments: [], confirms: [] };

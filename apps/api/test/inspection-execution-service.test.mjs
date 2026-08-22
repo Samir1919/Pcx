@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createInspectionExecutionService, InspectionExecutionError } from "../src/modules/inspection/inspection-execution-service.mjs";
-import { InspectionStatus } from "../../../packages/domain/src/index.mjs";
+import { InspectionStatus } from "@pcx/domain";
 
 function technician() {
   return { userId: "tech-1", status: "ACTIVE", roles: ["TECHNICIAN"] };

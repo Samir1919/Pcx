@@ -1,4 +1,4 @@
-import { Role } from "../../../../../packages/domain/src/index.mjs";
+import { Role } from "@pcx/domain";
 
 const canonicalStatuses = new Set(["PENDING_VERIFICATION", "ACTIVE", "SUSPENDED", "DISABLED"]);
 

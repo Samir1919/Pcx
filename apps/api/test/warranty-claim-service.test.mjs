@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createWarrantyClaimService } from "../src/modules/warranty/warranty-claim-service.mjs";
-import { ClaimStatus, ResolutionType, WarrantyStatus } from "../../../packages/domain/src/index.mjs";
+import { ClaimStatus, ResolutionType, WarrantyStatus } from "@pcx/domain";
 
 function fixture(overrides = {}) {
   const calls = { warranties: [], claims: [], resolutions: [] };

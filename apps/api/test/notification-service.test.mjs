@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createNotificationService } from "../src/modules/notification/notification-service.mjs";
-import { NotificationChannel, NotificationStatus } from "../../../packages/domain/src/index.mjs";
+import { NotificationChannel, NotificationStatus } from "@pcx/domain";
 
 function fixture(overrides = {}) {
   const calls = { creates: [], sent: [], failed: [] };
