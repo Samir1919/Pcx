@@ -33,6 +33,9 @@ import { createPostgresReservationRepository } from "../commerce/postgres-reserv
 import { createReservationService } from "../commerce/reservation-service.mjs";
 import { createPostgresCartRepository } from "../commerce/postgres-cart-repository.mjs";
 import { createCartService } from "../commerce/cart-service.mjs";
+import { createLocalMediaStorage } from "../media/local-media-storage.mjs";
+import { createPostgresMediaRepository } from "../media/postgres-media-repository.mjs";
+import { createMediaService } from "../media/media-service.mjs";
 import { createPostgresOrderPaymentRepository } from "../commerce/postgres-order-payment-repository.mjs";
 import { createOrderPaymentService } from "../commerce/order-payment-service.mjs";
 import { createPostgresShipmentRepository } from "../logistics/postgres-shipment-repository.mjs";
@@ -112,6 +115,7 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   const merchantListingService = createMerchantListingService({ authService, repository: createMerchantListingRepository({ pool }) });
   const reservationService = createReservationService({ authService, listingRepository, reservationRepository: createPostgresReservationRepository({ pool }) });
   const cartService = createCartService({ authService, listingRepository, cartRepository: createPostgresCartRepository({ pool }) });
+  const mediaService = createMediaService({ authService, repository: createPostgresMediaRepository({ pool }), storage: createLocalMediaStorage() });
   const paymentProviderConfigRepository = createPostgresPaymentProviderConfigRepository({ pool });
   const paymentProviderConfigService = createPaymentProviderConfigService({ authService, repository: paymentProviderConfigRepository });
   const indicativePriceService = createIndicativePriceService({ authService, repository: createPostgresIndicativePriceRepository({ pool }) });
@@ -123,6 +127,6 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   const warrantyClaimService = createWarrantyClaimService({ authService, repository: createPostgresWarrantyClaimRepository({ pool }) });
   const operationsReportService = createOperationsReportService({ authService, repository: createPostgresOperationsReportRepository({ pool }) });
   const notificationService = createNotificationService({ authService, repository: createPostgresNotificationRepository({ pool }) });
-  return Object.freeze({ authService, identityActionService, userAdminService, addressService, catalogService, catalogCommandService, catalogSpecCommandService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, inspectionExecutionService, listingService, merchantListingService, reservationService, cartService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, operationsReportService, notificationService, auditLogService, paymentProviderConfigService, indicativePriceService, allowedOrigins: origins });
+  return Object.freeze({ authService, identityActionService, userAdminService, addressService, catalogService, catalogCommandService, catalogSpecCommandService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, inspectionExecutionService, listingService, merchantListingService, reservationService, cartService, mediaService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, operationsReportService, notificationService, auditLogService, paymentProviderConfigService, indicativePriceService, allowedOrigins: origins });
 
 }

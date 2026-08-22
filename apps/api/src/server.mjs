@@ -12,6 +12,7 @@ import { handleInspectionExecutionRequest } from "./modules/inspection/inspectio
 import { handleListingRequest } from "./modules/listing/listing-http.mjs";
 import { handleReservationRequest } from "./modules/commerce/reservation-http.mjs";
 import { handleCartRequest } from "./modules/commerce/cart-http.mjs";
+import { handleMediaRequest } from "./modules/media/media-http.mjs";
 import { handleOrderPaymentRequest } from "./modules/commerce/order-payment-http.mjs";
 import { handleShipmentRequest } from "./modules/logistics/shipment-http.mjs";
 import { handleCourierWebhookRequest } from "./modules/logistics/shipment-webhook-http.mjs";
@@ -68,7 +69,7 @@ function catalogFilters(url) {
   });
 }
 
-export function createRequestHandler({ readiness = () => ({ ok: true }), catalogService, catalogCommandService, catalogSpecCommandService, authService, identityActionService, userAdminService, addressService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, inspectionExecutionService, listingService, merchantListingService, reservationService, cartService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, operationsReportService, notificationService, auditLogService, paymentProviderConfigService, indicativePriceService, allowedOrigins } = {}) {
+export function createRequestHandler({ readiness = () => ({ ok: true }), catalogService, catalogCommandService, catalogSpecCommandService, authService, identityActionService, userAdminService, addressService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, inspectionExecutionService, listingService, merchantListingService, reservationService, cartService, mediaService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, operationsReportService, notificationService, auditLogService, paymentProviderConfigService, indicativePriceService, allowedOrigins } = {}) {
 
   return async (request, response) => {
     response.setHeader("content-type", "application/json; charset=utf-8");
@@ -102,6 +103,7 @@ export function createRequestHandler({ readiness = () => ({ ok: true }), catalog
     if (await handleListingRequest(request, response, { listingService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleReservationRequest(request, response, { reservationService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleCartRequest(request, response, { cartService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleMediaRequest(request, response, { mediaService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleOrderPaymentRequest(request, response, { orderPaymentService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleShipmentRequest(request, response, { shipmentService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleCourierWebhookRequest(request, response, { shipmentService, requestId: requestId(request) })) return;
