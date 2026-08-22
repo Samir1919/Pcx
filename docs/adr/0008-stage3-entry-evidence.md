@@ -14,7 +14,7 @@ The roadmap's Stage 2 exit criteria are met:
 - The backlog contains multiple dependency-ready tasks that benefit from parallel execution (spec, api, web slices in the autonomous graph).
 - Review/security/QA bottlenecks would delay delivery without a coordinated pipeline.
 - Cost, retry, timeout, and artifact tracking require centralized visibility (ADR 0005 success metrics).
-- Multiple agent branches and worktrees already exist, and coordination conflicts/merge failures have consumed material time (see `docs/handoffs/STAGE3_WORKTREE_CONFLICT_PLANNING.md`).
+- Multiple agent branches and worktrees already exist, and coordination conflicts/merge failures have consumed material time (see `docs/archive/handoffs/STAGE3_WORKTREE_CONFLICT_PLANNING.md`).
 
 ## Capabilities introduced
 
