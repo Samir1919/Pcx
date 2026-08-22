@@ -13,6 +13,7 @@ function fixture(overrides = {}) {
     async markReceived() { return { status: "received", record: { id: "r1", status: ReturnRequestStatus.RECEIVED } }; },
     async settleRefund() { return { status: "refunded", record: { id: "r1", status: ReturnRequestStatus.REFUNDED, resolutionAmount: 1000 } }; },
     async findById() { return { id: "r1", status: ReturnRequestStatus.RECEIVED }; },
+    async findPrimarySerialByOrderItem() { return "SN-123"; },
     async list() { return []; },
     ...overrides.repository
   };
@@ -38,6 +39,15 @@ test("return creation requires customer, existing order item, and blocks duplica
 
   const denied = fixture({ authService: { async authenticateAccess() { return { userId: "u", status: "ACTIVE", roles: ["CUSTOMER"] }; } } });
   await assert.rejects(denied.service.approve("access", "r1"), (error) => error.code === "forbidden");
+});
+
+test("receive enforces serial match before marking the return received", async () => {
+  const { service } = fixture();
+  const received = await service.receive("access", "r1", "sn-123");
+  assert.equal(received.status, ReturnRequestStatus.RECEIVED);
+
+  const mismatch = fixture({ repository: { async findById() { return { id: "r1", orderItemId: "oi1", status: ReturnRequestStatus.APPROVED }; }, async findPrimarySerialByOrderItem() { return "SN-123"; } } });
+  await assert.rejects(mismatch.service.receive("access", "r1", "SN-999"), (error) => error.code === "serial_mismatch");
 });
 
 test("approve and settle require REFUND_MANAGE and correct state", async () => {

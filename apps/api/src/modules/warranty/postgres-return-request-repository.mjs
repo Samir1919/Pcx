@@ -104,6 +104,22 @@ export function createPostgresReturnRequestRepository({ pool }) {
     async orderItemInventoryId(orderItemId) {
       const result = await pool.query("SELECT inventory_item_id FROM order_items WHERE id::text = $1", [orderItemId]);
       return result.rows[0]?.inventory_item_id ?? null;
+    },
+
+    // Resolve the sold unit's primary serial through order_items → inventory_items
+    // → serial_identifiers. The normalized value is the authoritative match key;
+    // full display serials never cross the public boundary.
+    async findPrimarySerialByOrderItem(orderItemId) {
+      const result = await pool.query(
+        `SELECT si.value_normalized
+         FROM order_items oi
+         JOIN inventory_items ii ON ii.id = oi.inventory_item_id
+         JOIN serial_identifiers si ON si.inventory_item_id = ii.id AND si.is_primary = true
+         WHERE oi.id::text = $1
+         LIMIT 1`,
+        [orderItemId]
+      );
+      return result.rows[0]?.value_normalized ?? null;
     }
   });
 }
