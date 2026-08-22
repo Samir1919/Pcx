@@ -50,6 +50,8 @@ import { createIndicativePriceService } from "../pricing/indicative-price-servic
 import { createPostgresSellTaxonomyRepository } from "../catalog/postgres-sell-taxonomy-repository.mjs";
 import { createPostgresSellTaxonomyCommandRepository } from "../catalog/postgres-sell-taxonomy-command-repository.mjs";
 import { createSellTaxonomyService } from "../catalog/sell-taxonomy-service.mjs";
+import { createPostgresSiteFooterRepository } from "../footer/postgres-site-footer-repository.mjs";
+import { createSiteFooterService } from "../footer/site-footer-service.mjs";
 
 export function parseAllowedOrigins(value) {
   if (typeof value !== "string") throw new TypeError("allowed origins are required");
@@ -109,6 +111,7 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   const paymentProviderConfigRepository = createPostgresPaymentProviderConfigRepository({ pool });
   const paymentProviderConfigService = createPaymentProviderConfigService({ authService, repository: paymentProviderConfigRepository });
   const sellTaxonomyService = createSellTaxonomyService({ authService, readRepository: createPostgresSellTaxonomyRepository({ pool }), commandRepository: createPostgresSellTaxonomyCommandRepository({ pool }) });
+  const siteFooterService = createSiteFooterService({ authService, repository: createPostgresSiteFooterRepository({ pool }) });
   const orderPaymentService = createOrderPaymentService({ authService, repository: createPostgresOrderPaymentRepository({ pool }), paymentProviderConfigService });
 
   const shipmentService = createShipmentService({ authService, repository: createPostgresShipmentRepository({ pool }), webhookSecret: courierWebhookSecret });
@@ -118,6 +121,6 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   const operationsReportService = createOperationsReportService({ authService, repository: createPostgresOperationsReportRepository({ pool }) });
   const notificationService = createNotificationService({ authService, repository: createPostgresNotificationRepository({ pool }) });
   const auditLogService = createAuditLogService({ authService, repository: createPostgresAuditLogRepository({ pool }) });
-  return Object.freeze({ authService, identityActionService, userAdminService, addressService, catalogService, catalogCommandService, catalogSpecCommandService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, listingService, merchantListingService, reservationService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, operationsReportService, notificationService, auditLogService, paymentProviderConfigService, indicativePriceService, sellTaxonomyService, allowedOrigins: origins });
+  return Object.freeze({ authService, identityActionService, userAdminService, addressService, catalogService, catalogCommandService, catalogSpecCommandService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, listingService, merchantListingService, reservationService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, operationsReportService, notificationService, auditLogService, paymentProviderConfigService, indicativePriceService, sellTaxonomyService, siteFooterService, allowedOrigins: origins });
 
 }

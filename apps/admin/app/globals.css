@@ -1115,6 +1115,48 @@ textarea:focus {
   }
 }
 
+/* Footer editor: stacked editors and inline field rows. */
+.stack {
+  display: grid;
+  gap: 16px;
+}
+
+.rowFields {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.rowFields label {
+  min-width: 0;
+}
+
+.columnEditor {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+}
+
+.formActions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.spread {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 640px) {
+  .rowFields {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Visible focus for keyboard users. */
 a:focus-visible,
 button:focus-visible,

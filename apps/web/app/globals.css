@@ -1591,10 +1591,56 @@ th {
   font-size: .8125rem;
 }
 
-/* Tablet and up: spread the footer into a 3-column layout. */
+.footerContact {
+  display: grid;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+.footerContactRow {
+  margin: 0;
+  color: var(--muted);
+  font-size: .8125rem;
+  line-height: 1.5;
+  text-decoration: none;
+  word-break: break-word;
+}
+
+a.footerContactRow:hover {
+  color: var(--green);
+}
+
+.footerSocial {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+.footerSocial a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target);
+  padding: .35rem .7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  color: var(--green);
+  text-decoration: none;
+  font-size: .8125rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.footerSocial a:hover {
+  background: var(--mint);
+}
+
+/* Tablet and up: flow the brand + any number of link columns fluidly. */
 @media (min-width: 40rem) {
   .footerGrid {
-    grid-template-columns: 1.5fr 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(min(12.5rem, 100%), 1fr));
     gap: var(--space-4);
   }
 

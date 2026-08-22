@@ -12,11 +12,13 @@ test("storefront reads hit the public read-only endpoints", async () => {
   try {
     await storefrontApi.categories();
     await storefrontApi.brands();
+    await storefrontApi.footer();
     await storefrontApi.listings({ categoryId: "c1", sort: "price_asc", limit: 12 });
     await storefrontApi.passport("pcx/one");
     assert.deepEqual(calls.map((c) => c.url), [
       "/api/v1/categories",
       "/api/v1/brands",
+      "/api/v1/footer",
       "/api/v1/listings?categoryId=c1&sort=price_asc&limit=12",
       "/api/v1/passport/pcx%2Fone"
     ]);

@@ -56,6 +56,7 @@ export const storefrontApi = Object.freeze({
   categories: () => request("/api/v1/categories"),
   brands: () => request("/api/v1/brands"),
   sellTaxonomy: () => request("/api/v1/sell-taxonomy"),
+  footer: () => request("/api/v1/footer"),
   listings: (params) => request(`/api/v1/listings${query(params)}`),
   productModels: (params) => request(`/api/v1/product-models${query(params)}`),
   productModel: (id) => request(`/api/v1/product-models/${encodeURIComponent(id)}`),

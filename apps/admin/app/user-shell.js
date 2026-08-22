@@ -19,6 +19,7 @@ const NAV = [
   { href: "/verification", label: "Verification", icon: "verification" },
   { href: "/payments", label: "Payments", icon: "payments" },
   { href: "/users", label: "Users", icon: "users" },
+  { href: "/footer", label: "Footer", icon: "footer" },
   { href: "/audit", label: "Audit logs", icon: "audit" }
 ];
 
@@ -111,6 +112,15 @@ function Icon({ name }) {
           <rect x="2" y="5" width="20" height="14" rx="2" />
           <path d="M2 10h20" />
           <path d="M6 15h4" />
+        </svg>
+      );
+    case "footer":
+      return (
+        <svg {...props}>
+          <path d="M3 4h18v4H3z" />
+          <path d="M3 12h18v8H3z" />
+          <path d="M3 8v4h4" />
+          <path d="M10 8v4" />
         </svg>
       );
     case "audit":
