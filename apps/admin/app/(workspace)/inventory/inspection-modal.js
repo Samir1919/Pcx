@@ -79,6 +79,22 @@ export default function InspectionModal({ item, onClose }) {
     try { await opsApi.rejectInspection(inspection.id); onClose(); } catch (err) { setNotice({ kind: "error", message: err.message }); } finally { setBusy(false); }
   }
 
+  async function uploadEvidence(event) {
+    setBusy(true);
+    setNotice(null);
+    try {
+      for (const file of Array.from(event.target.files ?? [])) {
+        await opsApi.uploadInspectionMedia(inspection.id, file);
+      }
+      event.target.value = "";
+      setNotice({ kind: "success", message: "Evidence uploaded." });
+    } catch (err) {
+      setNotice({ kind: "error", message: err.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const templateItems = results?.items ?? [];
 
   return createPortal(
@@ -99,6 +115,10 @@ export default function InspectionModal({ item, onClose }) {
             <div className="detailList">
               <div><dt>Status</dt><dd><span className="pill">{inspection.status}</span></dd></div>
               {results?.healthScore ? <div><dt>Health score</dt><dd>{results.healthScore.score}/100</dd></div> : null}
+            </div>
+
+            <div className="detailList" style={{ marginTop: 12 }}>
+              <div><dt>Evidence</dt><dd><input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={uploadEvidence} /></dd></div>
             </div>
 
             {(templateItems.length > 0) && (

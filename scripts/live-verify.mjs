@@ -81,6 +81,17 @@ const CHECKS = {
     }
     return { ok: true, missing: [], skipped: false };
   },
+  "admin-listing-photos": async (page) => {
+    const loggedIn = await adminLogin(page);
+    if (!loggedIn) return { ok: false, skipped: true, reason: "admin login did not complete" };
+    await page.goto(`${ADMIN_WEB}/listings`, { waitUntil: "domcontentloaded" });
+    await settle(page);
+    const body = await bodyText(page);
+    if (!body.includes("Photos")) {
+      return { ok: false, skipped: false, missing: ["Photos button"], reason: `url=${page.url()} body=${body.slice(0, 200).replace(/\\n+/g, " ")}` };
+    }
+    return { ok: true, missing: [], skipped: false };
+  },
   "sell-flow": async (page) => {
     await page.goto(`${WEB}/sell`, { waitUntil: "domcontentloaded" });
     await settle(page);

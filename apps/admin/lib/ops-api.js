@@ -1,6 +1,6 @@
 "use client";
 
-import { apiRequest } from "./api-client.js";
+import { apiRequest, ApiError, csrfToken } from "./api-client.js";
 
 export const opsApi = Object.freeze({
   dashboard: () => apiRequest("/api/v1/admin/reports/operations"),
@@ -16,5 +16,22 @@ export const opsApi = Object.freeze({
   submitInspection: (id) => apiRequest(`/api/v1/inspections/${encodeURIComponent(id)}/submit`, { method: "POST", body: {} }),
   approveInspection: (id) => apiRequest(`/api/v1/inspections/${encodeURIComponent(id)}/approve`, { method: "POST", body: {} }),
   rejectInspection: (id) => apiRequest(`/api/v1/inspections/${encodeURIComponent(id)}/reject`, { method: "POST", body: {} }),
-  auditLogs: () => apiRequest("/api/v1/admin/audit-logs")
+  auditLogs: () => apiRequest("/api/v1/admin/audit-logs"),
+  uploadInspectionMedia: async (inspectionId, file) => {
+    const token = csrfToken();
+    if (!token) throw new ApiError("CSRF_MISSING", "Your secure session is incomplete. Sign in again.", 403);
+    const response = await fetch(`/api/v1/inspections/${encodeURIComponent(inspectionId)}/media`, {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/octet-stream",
+        "x-csrf-token": token
+      },
+      credentials: "include",
+      body: file
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) throw new ApiError(payload?.error?.code ?? "REQUEST_FAILED", payload?.error?.message ?? "Upload failed", response.status);
+    return payload;
+  }
 });

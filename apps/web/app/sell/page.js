@@ -131,6 +131,8 @@ function SellFlow() {
   const [result, setResult] = useState(null);
   const [quote, setQuote] = useState({ range: null, loading: false });
   const [showMarketplace, setShowMarketplace] = useState(false);
+  const [photos, setPhotos] = useState([]);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -310,6 +312,16 @@ function SellFlow() {
         };
       }
       const created = await storefrontApi.createSellRequest(payload);
+      if (created.data?.id && photos.length > 0) {
+        setUploading(true);
+        try {
+          for (const file of photos) {
+            await storefrontApi.uploadSellRequestMedia(created.data.id, file);
+          }
+        } finally {
+          setUploading(false);
+        }
+      }
       setResult(created.data);
     } catch (err) {
       setError(err.message);
@@ -488,8 +500,21 @@ function SellFlow() {
             <label className="check"><input type="checkbox" checked={boxAvailable} onChange={(e) => setBoxAvailable(e.target.checked)} /><span>Original box available</span></label>
             <label className="check"><input type="checkbox" checked={invoiceAvailable} onChange={(e) => setInvoiceAvailable(e.target.checked)} /><span>Invoice available</span></label>
             <label className="check"><input type="checkbox" checked readOnly /><span>I confirm I own this item</span></label>
+
+            <div className="entryHeading"><h2>Item photos</h2></div>
+            <label className="check"><span>Add photos (JPEG, PNG, WebP)</span>
+              <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(e) => setPhotos(Array.from(e.target.files ?? []))} />
+            </label>
+            {photos.length > 0 && (
+              <div className="mediaGrid">
+                {photos.map((file, i) => (
+                  <img key={i} src={URL.createObjectURL(file)} alt={`Selected ${i + 1}`} />
+                ))}
+              </div>
+            )}
+
             {identity ? (
-              <button className="primary" type="submit" disabled={busy}>{busy ? "Submitting…" : "Submit sell request"}</button>
+              <button className="primary" type="submit" disabled={busy || uploading}>{busy || uploading ? "Submitting…" : "Submit sell request"}</button>
             ) : (
               <a className="primary" href={loginHref}>Sign in to submit</a>
             )}
