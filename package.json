@@ -37,6 +37,8 @@
     "release:preflight": "node scripts/release-preflight.mjs",
     "autonomous:loop": "node scripts/autonomous-loop.mjs --dry-run",
     "web:check": "node scripts/web-check.mjs",
+    "merge-gate": "node scripts/merge-gate.mjs",
+    "merge-check": "node scripts/merge-gate.mjs",
     "verify": "npm run verify:e0 && npm run lint && npm run typecheck && npm test && npm run build && npm run security",
     "verify:ci": "npm run verify && npm run test:integration && npm run smoke"
   },

@@ -45,6 +45,8 @@ Agentic infrastructure must evolve according to `docs/agentic/AUTONOMY_EVOLUTION
 - Write or update tests for changed business behavior.
 - Any change to a browser-facing page or flow (`apps/web`, `apps/admin`) must be verified with a real browser check (`npm run web:check`, or the Playwright MCP tool) before it is reported as done; code review and `curl` are not acceptable substitutes. If the tooling is missing, ask the human before installing/configuring it. When using the MCP browser tool interactively, it must run headed (a real, visible window), never headless — see `docs/agentic/PORTABLE_AGENT_WORKFLOW.md`.
 - Run `npm run verify:e0`, `npm test`, and relevant checks before commit.
+- After a successful commit, push and merge into `main` (or open/merge a PR) as part of the same slice — a slice is NOT complete while its work remains on an unmerged feature branch. Verify with `node scripts/merge-gate.mjs`; it must report `OK: ... is merged into origin/main` (exit 0). `git push` alone on a feature branch is insufficient.
+- Never leave unresolved merge-conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`) in a tracked file. The `npm run lint` gate fails if any exist, so run it before every commit.
 - Never commit credentials, production data, or private evidence.
 - Never put a multi-line string inside a shell command. Write commit bodies to a file and use `git commit -F <file>`. See "Shell command safety" in `docs/agentic/PORTABLE_AGENT_WORKFLOW.md`.
 - Record approved architecture changes as ADRs; do not silently change business truth.
