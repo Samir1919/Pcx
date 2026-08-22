@@ -49,6 +49,23 @@ function query(params) {
   return text ? `?${text}` : "";
 }
 
+async function uploadBinary(path, file) {
+  const token = cookieValue("pcx_csrf");
+  const response = await fetch(path, {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/octet-stream",
+      ...(token ? { "x-csrf-token": token } : {})
+    },
+    credentials: "include",
+    body: file
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) throw new StorefrontApiError(payload?.error?.code ?? "REQUEST_FAILED", payload?.error?.message ?? "Upload failed", response.status);
+  return payload;
+}
+
 // Public storefront surface. Read paths never request serial/cost/private
 // evidence; writes carry the double-submit CSRF token from the session cookie
 // and rely on server-side authorization/ownership checks for every action.
@@ -72,6 +89,7 @@ export const storefrontApi = Object.freeze({
   addToCart: (inventoryItemId) => request("/api/v1/cart", { method: "POST", body: { inventoryItemId }, headers: csrfHeaders() }),
   removeFromCart: (inventoryItemId) => request(`/api/v1/cart/items/${encodeURIComponent(inventoryItemId)}`, { method: "DELETE", headers: csrfHeaders() }),
   createSellRequest: (body) => request("/api/v1/sell-requests", { method: "POST", body, headers: csrfHeaders() }),
+  uploadSellRequestMedia: (sellRequestId, file) => uploadBinary(`/api/v1/sell-requests/${encodeURIComponent(sellRequestId)}/media`, file),
   createWarrantyClaim: (body) => request("/api/v1/claims", { method: "POST", body, headers: csrfHeaders() }),
   acceptOffer: (offerId) => request(`/api/v1/offers/${encodeURIComponent(offerId)}/accept`, { method: "POST", body: {}, headers: csrfHeaders() }),
   rejectOffer: (offerId) => request(`/api/v1/offers/${encodeURIComponent(offerId)}/reject`, { method: "POST", body: {}, headers: csrfHeaders() }),

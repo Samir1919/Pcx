@@ -72,6 +72,16 @@ export function createPostgresMediaRepository({ pool }) {
       return result.rows.map(media);
     },
 
+    async listInspectionMedia(inspectionId) {
+      const result = await pool.query(
+        `SELECT m.id, m.storage_key, m.mime_type, m.size_bytes, m.visibility, m.purpose, m.uploaded_by, m.created_at
+         FROM inspection_media im JOIN media m ON m.id = im.media_id
+         WHERE im.inspection_id::text = $1 ORDER BY m.created_at`,
+        [inspectionId]
+      );
+      return result.rows.map(media);
+    },
+
     async listListingMedia(listingId) {
       const result = await pool.query(
         `SELECT m.id, m.storage_key, m.mime_type, m.size_bytes, m.visibility, m.purpose, m.uploaded_by, m.created_at

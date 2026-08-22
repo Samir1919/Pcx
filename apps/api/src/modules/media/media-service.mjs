@@ -79,6 +79,11 @@ export function createMediaService({ authService, repository, storage, id = rand
       return Object.freeze(await repository.listSellRequestMedia(sellRequestId));
     },
 
+    async listInspectionMedia(accessCredential, inspectionId) {
+      await technician(accessCredential);
+      return Object.freeze(await repository.listInspectionMedia(inspectionId));
+    },
+
     // Public listing media is openly readable; private evidence requires an
     // internal actor (inspection read / pricing read / admin access).
     async listListingMedia(listingId) {

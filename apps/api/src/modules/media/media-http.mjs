@@ -65,17 +65,37 @@ function map(error) {
 export async function handleMediaRequest(request, response, { mediaService, allowedOrigins, requestId }) {
   const url = new URL(request.url, "http://pcx.local");
 
-  // Upload routes.
+  // Upload + list routes.
   const uploadMatch = url.pathname.match(/^\/api\/v1\/sell-requests\/([^/]+)\/media$/)
     || url.pathname.match(/^\/api\/v1\/inspections\/([^/]+)\/media$/)
     || url.pathname.match(/^\/api\/v1\/admin\/listings\/([^/]+)\/media$/);
   const readMatch = url.pathname.match(/^\/api\/v1\/media\/([^/]+)$/);
+  const listMatch = url.pathname.match(/^\/api\/v1\/sell-requests\/([^/]+)\/media$/)
+    || url.pathname.match(/^\/api\/v1\/inspections\/([^/]+)\/media$/)
+    || url.pathname.match(/^\/api\/v1\/admin\/listings\/([^/]+)\/media$/);
 
-  if (!uploadMatch && !readMatch) return false;
+  if (!uploadMatch && !readMatch && !listMatch) return false;
   if (!mediaService) { send(response, 503, failure("MEDIA_UNAVAILABLE", "Media is temporarily unavailable", requestId)); return true; }
 
   const method = request.method ?? "GET";
   const cookies = parsedCookies(request);
+
+  // List media for a resource (GET on the same paths).
+  if (listMatch && method === "GET" && !readMatch) {
+    const resourceId = id(listMatch[1]);
+    if (!resourceId) { send(response, 404, failure("MEDIA_NOT_FOUND", "Media not found", requestId)); return true; }
+    try {
+      let result;
+      if (url.pathname.startsWith("/api/v1/sell-requests/")) result = await mediaService.listSellRequestMedia(cookies.pcx_access, resourceId);
+      else if (url.pathname.startsWith("/api/v1/inspections/")) result = await mediaService.listInspectionMedia(cookies.pcx_access, resourceId);
+      else result = await mediaService.listListingMedia(resourceId);
+      send(response, 200, { data: result });
+    } catch (error) {
+      const [status, code, message] = map(error);
+      send(response, status, failure(code, message, requestId));
+    }
+    return true;
+  }
 
   // Public read of a media object by id.
   if (readMatch && method === "GET") {
