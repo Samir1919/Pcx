@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { storefrontApi } from "../../lib/storefront-api";
+import { safeReturnPath } from "../../lib/redirect";
 import StorefrontNav from "../StorefrontNav";
 
 export default function LoginPage() {
@@ -21,7 +22,10 @@ export default function LoginPage() {
         setError("This account requires a multi-factor challenge that is not available on the storefront. Please use the admin workspace.");
         return;
       }
-      router.replace("/storefront");
+      // Read the return path at submit time (client-only) to avoid a
+      // `useSearchParams` suspense boundary during static prerender.
+      const params = new URLSearchParams(window.location.search);
+      router.replace(safeReturnPath(params.get("redirect")));
     } catch (err) {
       setError(err.message);
     } finally {
