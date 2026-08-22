@@ -32,7 +32,7 @@ This file is the central progress index. Approved specifications define what PCX
 
 
 
-| E12 — Return & refund | In progress | Customer-gated return request with server-owned REQUESTED→APPROVED→RECEIVED→REFUNDED lifecycle and database-enforced one-refundable-request-per-item (double-refund guard); admin return & refund management workspace with read-only return list | Refund gateway execution, physical serial-match intake, carrier pickup |
+| E12 — Return & refund | In progress | Customer-gated return request with server-owned REQUESTED→APPROVED→RECEIVED→REFUNDED lifecycle and database-enforced one-refundable-request-per-item (double-refund guard); physical serial-match enforced on return intake (received serial must equal the sold unit's primary serial, normalized); admin return & refund management workspace with read-only return list | Refund gateway execution (sandbox), carrier pickup |
 | E13 — Warranty & claims | In progress | One warranty per sold order item with a valid window, plus server-owned claim lifecycle (REQUESTED→RESOLVED) and typed resolutions (REPAIR/REPLACE/REFUND/REJECT) recorded with approving identity; admin warranty & claims management workspace with read-only warranty and claim lists | Warranty policy authoring, claim inspections, carrier pickup, cost accounting |
 | E14 — Admin operations & reporting | In progress | Admin-gated operations dashboard (`GET /api/v1/admin/reports/operations`) with lifecycle counts and recent orders/sell requests under AUDIT_READ/SYSTEM_CONFIGURE; admin operational workspaces (listing, acquisition, shipment, return, warranty, notifications) | Full BI/reporting UI, scheduled exports, per-module operational screens |
 | E15 — Notifications | In progress | Provider-neutral notification outbox (PENDING→SENT/FAILED) with SYSTEM_CONFIGURE-gated creation and dispatch; delivery failure never rolls back a business transaction; admin notification create workspace with read-only notification list | Concrete email/SMS/push providers, retries, delivery visibility |
@@ -62,7 +62,7 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Current verification baseline
 
-- Root `npm test`: 476 total, 453 pass, 0 fail, 23 skipped (DB integration) after the inspection-execution, server-derived PCX ID, and COD payment slices.
+- Root `npm test`: 480 total, 457 pass, 0 fail, 23 skipped (DB integration) after the inspection-execution, server-derived PCX ID, COD payment, seller accept/reject, and return serial-match slices.
 - Root `npm run verify`: pass for this slice: E0, lint, typecheck, tests, build, and security scan (secrets + dependencies + container).
 - CI-equivalent `npm run verify:ci`: application/unit + PostgreSQL integration + E2E smoke, all passing (0 failures).
 - E0 artifact verification: 36 required artifacts; latest GitHub merge evidence is PR #1 (`1692049`).
