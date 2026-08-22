@@ -31,6 +31,8 @@ import { createMerchantListingRepository } from "../listing/merchant-listing-rep
 import { createMerchantListingService } from "../listing/merchant-listing-service.mjs";
 import { createPostgresReservationRepository } from "../commerce/postgres-reservation-repository.mjs";
 import { createReservationService } from "../commerce/reservation-service.mjs";
+import { createPostgresCartRepository } from "../commerce/postgres-cart-repository.mjs";
+import { createCartService } from "../commerce/cart-service.mjs";
 import { createPostgresOrderPaymentRepository } from "../commerce/postgres-order-payment-repository.mjs";
 import { createOrderPaymentService } from "../commerce/order-payment-service.mjs";
 import { createPostgresShipmentRepository } from "../logistics/postgres-shipment-repository.mjs";
@@ -107,6 +109,7 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   const listingService = createListingService({ authService, repository: listingRepository });
   const merchantListingService = createMerchantListingService({ authService, repository: createMerchantListingRepository({ pool }) });
   const reservationService = createReservationService({ authService, listingRepository, reservationRepository: createPostgresReservationRepository({ pool }) });
+  const cartService = createCartService({ authService, listingRepository, cartRepository: createPostgresCartRepository({ pool }) });
   const paymentProviderConfigRepository = createPostgresPaymentProviderConfigRepository({ pool });
   const paymentProviderConfigService = createPaymentProviderConfigService({ authService, repository: paymentProviderConfigRepository });
   const indicativePriceService = createIndicativePriceService({ authService, repository: createPostgresIndicativePriceRepository({ pool }) });
@@ -119,6 +122,6 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   const operationsReportService = createOperationsReportService({ authService, repository: createPostgresOperationsReportRepository({ pool }) });
   const notificationService = createNotificationService({ authService, repository: createPostgresNotificationRepository({ pool }) });
   const auditLogService = createAuditLogService({ authService, repository: createPostgresAuditLogRepository({ pool }) });
-  return Object.freeze({ authService, identityActionService, userAdminService, addressService, catalogService, catalogCommandService, catalogSpecCommandService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, inspectionExecutionService, listingService, merchantListingService, reservationService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, operationsReportService, notificationService, auditLogService, paymentProviderConfigService, indicativePriceService, allowedOrigins: origins });
+  return Object.freeze({ authService, identityActionService, userAdminService, addressService, catalogService, catalogCommandService, catalogSpecCommandService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, inspectionExecutionService, listingService, merchantListingService, reservationService, cartService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, operationsReportService, notificationService, auditLogService, paymentProviderConfigService, indicativePriceService, allowedOrigins: origins });
 
 }
