@@ -1,7 +1,7 @@
 # PCX Project Status
 
-- Updated: 2026-08-18
-- Current main evidence commit: `f8644c6` on branch `agent/admin-web-crud-list-improvements` (admin catalog full-field edit modal replacing `window.prompt`; read-only admin list endpoints + tables for sell-requests, shipments, returns, warranty/claims, notifications; inventory item detail view)
+- Updated: 2026-08-23
+- Current main evidence commit: `1abc07c` on branch `agent/project-lightening` (project lightening: historical docs archived to `docs/archive/`, unused package stubs deleted, domain imports normalized to `@pcx/domain`)
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: Stage 3 control-plane completion and next dependency-ready work
 - Current autonomy maturity: Stage 2 in progress; Stage 3 control plane complete for bounded local/CI parallel orchestration (ADR 0008)
@@ -63,10 +63,10 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Current verification baseline
 
-- Root `npm test`: 484 total, 461 pass, 0 fail, 23 skipped (DB integration) after the cart persistence, customer-owned warranty claim, and critical-action audit slices.
+- Root `npm test`: 526 total, 500 pass, 0 fail, 26 skipped (DB integration) after the project-lightening slice.
 - Root `npm run verify`: pass for this slice: E0, lint, typecheck, tests, build, and security scan (secrets + dependencies + container).
 - CI-equivalent `npm run verify:ci`: application/unit + PostgreSQL integration + E2E smoke, all passing (0 failures).
-- E0 artifact verification: 36 required artifacts; latest GitHub merge evidence is PR #1 (`1692049`).
+- E0 artifact verification: 33 required artifacts (3 unused package stubs removed); latest GitHub merge evidence is PR #1 (`1692049`).
 - Dependency audit (`npm audit --omit=dev --audit-level=high`): 0 known vulnerabilities.
 - Backup/restore drill: seed rows recovered to a throwaway database.
 - Autonomous loop dry-run: `node scripts/autonomous-loop.mjs --dry-run --real-executor --no-persist-graph` completes spec/api/web with a surfaced cost/runtime report (Tasks 3, Passed 3, Cost 3); `--approval-required` blocks commit-creating tasks with `approval_required`; `--deepseek-executor` and `--openai-review` opt into AI-backed adapters.
