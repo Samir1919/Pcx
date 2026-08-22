@@ -107,6 +107,15 @@ export const resolveProvider = ({ name = "deepseek", env = process.env } = {}) =
     throw new Error(`${provider.envPrefix}_REASONING_EFFORT must be one of ${provider.effortAllowed.join(", ")} for ${name}`);
   }
 
+  const maxTokensRaw = env[`${provider.envPrefix}_MAX_TOKENS`];
+  let maxTokens = null;
+  if (maxTokensRaw != null && maxTokensRaw !== "") {
+    maxTokens = Number.parseInt(maxTokensRaw, 10);
+    if (!Number.isInteger(maxTokens) || maxTokens < 1 || maxTokens > 128_000) {
+      throw new Error(`${provider.envPrefix}_MAX_TOKENS must be an integer between 1 and 128000 for ${name}`);
+    }
+  }
+
   const thinkingValue = env[`${provider.envPrefix}_THINKING`];
   const thinkingEnabled = provider.supportsThinking && (thinkingValue === "enabled" || thinkingValue === "true" || thinkingValue === "1");
 
@@ -119,7 +128,8 @@ export const resolveProvider = ({ name = "deepseek", env = process.env } = {}) =
     model,
     endpoint: asNonEmptyString(env[`${provider.envPrefix}_ENDPOINT`] ?? provider.defaultEndpoint, `${provider.envPrefix}_ENDPOINT`),
     thinkingEnabled,
-    reasoningEffort
+    reasoningEffort,
+    maxTokens
   });
 };
 
@@ -168,7 +178,7 @@ export const buildChatRequest = (provider, { system, user, temperature = 0.2 } =
       model: provider.model,
       system: systemText,
       messages: [{ role: "user", content: userText }],
-      max_tokens: 4096
+      max_tokens: provider.maxTokens ?? 4096
     };
     if (provider.supportsThinking && provider.thinkingEnabled) body.thinking = { type: "enabled" };
     if (provider.reasoningEffort && provider.effortParam) body[provider.effortParam] = provider.reasoningEffort;
@@ -196,6 +206,11 @@ export const buildChatRequest = (provider, { system, user, temperature = 0.2 } =
     body.response_format = { type: "json_object" };
   }
   if (provider.reasoningEffort && provider.effortParam) body[provider.effortParam] = provider.reasoningEffort;
+  // Cap output length so a runaway model cannot generate unbounded tokens.
+  // Reasoning ("thinking") tokens count against the same cap on DeepSeek, so use
+  // a larger default when thinking is on to avoid truncating the reasoning block
+  // and breaking the requested JSON.
+  body.max_tokens = provider.maxTokens ?? (thinkingOn ? 8192 : 4096);
 
   return {
     body,
@@ -207,9 +222,23 @@ export const buildChatRequest = (provider, { system, user, temperature = 0.2 } =
 };
 
 /**
- * Extracts the assistant text from a provider response payload. Supports the
- * OpenAI-compatible `choices[].message.content` and Anthropic's
- * `content[].text` shapes.
+ * Extracts the provider's token usage from a response payload. Returns
+ * `{ promptTokens, completionTokens }` or `null` when the payload carries no
+ * usable usage block. Values are numbers only; no secrets are ever exposed.
+ */
+export const extractUsage = (payload) => {
+  const usage = payload?.usage;
+  if (!usage || typeof usage !== "object") return null;
+  const promptTokens = Number.isFinite(usage.prompt_tokens) ? usage.prompt_tokens : Number.isFinite(usage.promptTokens) ? usage.promptTokens : null;
+  const completionTokens = Number.isFinite(usage.completion_tokens) ? usage.completion_tokens : Number.isFinite(usage.completionTokens) ? usage.completionTokens : null;
+  if (promptTokens == null && completionTokens == null) return null;
+  return Object.freeze({ promptTokens, completionTokens });
+};
+
+/**
+ * Some model-serving paths leak their reserved tool-call template tokens back as
+ * plain assistant text (the `｜` fullwidth bars plus `<invoke>`/`<tool_calls>`
+ * wrappers). Fail fast with a specific, non-retryable error instead of looping.
  */
 export const extractContent = (payload) => {
   const choiceText = payload?.choices?.[0]?.message?.content;

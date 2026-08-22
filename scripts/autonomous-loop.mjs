@@ -261,6 +261,8 @@ const writeSummary = (summary) => {
       `Failed: ${report.failed}`,
       `Blocked: ${report.blocked}`,
       `Total cost units: ${report.totalCostUnits}`,
+      `Total prompt tokens: ${report.totalPromptTokens}`,
+      `Total completion tokens: ${report.totalCompletionTokens}`,
       `Total runtime (ms): ${report.totalRuntimeMs}`,
       `Retry rate: ${report.retryRate.toFixed(3)}`,
       `Batches: ${report.batches.length > 0 ? report.batches.join(", ") : "(none)"}`

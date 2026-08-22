@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildChatRequest, extractContent, isProviderHeld, parseProviderJson, PROVIDER_NAMES, resolveActiveProviders, resolveProvider } from "./ai-providers.mjs";
+import { buildChatRequest, extractContent, extractUsage, isProviderHeld, parseProviderJson, PROVIDER_NAMES, resolveActiveProviders, resolveProvider } from "./ai-providers.mjs";
 
 test("provider names cover deepseek, openai, anthropic, and kimi", () => {
   assert.deepEqual([...PROVIDER_NAMES].sort(), ["anthropic", "deepseek", "kimi", "openai"]);
@@ -84,6 +84,40 @@ test("buildChatRequest emits provider-correct reasoning field names", () => {
   const kimi = resolveProvider({ name: "kimi", env: { KIMI_API_KEY: "k", KIMI_REASONING_EFFORT: "high" } });
   assert.equal(buildChatRequest(kimi, { system: "s", user: "u" }).body.reasoning_effort, "high");
   assert.equal("thinking" in buildChatRequest(kimi, { system: "s", user: "u" }).body, false);
+});
+
+test("buildChatRequest caps max_tokens and honors an env override", () => {
+  // OpenAI-compatible default cap is 4096 when thinking is off.
+  const deepseek = resolveProvider({ name: "deepseek", env: { DEEPSEEK_API_KEY: "k" } });
+  assert.equal(buildChatRequest(deepseek, { system: "s", user: "u" }).body.max_tokens, 4096);
+
+  // Thinking on raises the default cap (reasoning tokens count against it).
+  const thinking = resolveProvider({ name: "deepseek", env: { DEEPSEEK_API_KEY: "k", DEEPSEEK_THINKING: "enabled" } });
+  assert.equal(buildChatRequest(thinking, { system: "s", user: "u" }).body.max_tokens, 8192);
+
+  // Explicit env override wins on both dialects.
+  const overridden = resolveProvider({ name: "deepseek", env: { DEEPSEEK_API_KEY: "k", DEEPSEEK_MAX_TOKENS: "1234" } });
+  assert.equal(buildChatRequest(overridden, { system: "s", user: "u" }).body.max_tokens, 1234);
+  const anthropic = resolveProvider({ name: "anthropic", env: { ANTHROPIC_API_KEY: "a", ANTHROPIC_MAX_TOKENS: "999" } });
+  assert.equal(buildChatRequest(anthropic, { system: "s", user: "u" }).body.max_tokens, 999);
+});
+
+test("resolveProvider rejects an invalid max_tokens override", () => {
+  assert.throws(
+    () => resolveProvider({ name: "deepseek", env: { DEEPSEEK_API_KEY: "k", DEEPSEEK_MAX_TOKENS: "0" } }),
+    /DEEPSEEK_MAX_TOKENS/
+  );
+  assert.throws(
+    () => resolveProvider({ name: "openai", env: { OPENAI_API_KEY: "k", OPENAI_MAX_TOKENS: "nope" } }),
+    /OPENAI_MAX_TOKENS/
+  );
+});
+
+test("extractUsage reads snake_case and camelCase token usage blocks", () => {
+  assert.deepEqual(extractUsage({ usage: { prompt_tokens: 11, completion_tokens: 22 } }), { promptTokens: 11, completionTokens: 22 });
+  assert.deepEqual(extractUsage({ usage: { promptTokens: 7, completionTokens: 3 } }), { promptTokens: 7, completionTokens: 3 });
+  assert.equal(extractUsage({ usage: {} }), null);
+  assert.equal(extractUsage({}), null);
 });
 
 test("resolveProvider enforces per-provider reasoning effort values", () => {
