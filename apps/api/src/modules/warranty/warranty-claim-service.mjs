@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { createWarranty, createClaim, createClaimResolution } from "../../../../../packages/domain/src/warranty/warranty-claim.mjs";
-import { hasPermission, Permission, Role } from "../../../../../packages/domain/src/index.mjs";
+import { createWarranty, createClaim, createClaimResolution } from "@pcx/domain";
+import { hasPermission, Permission, Role } from "@pcx/domain";
 
 export class WarrantyClaimError extends Error {
   constructor(code) { super(code); this.name = "WarrantyClaimError"; this.code = code; }

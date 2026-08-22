@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createPaymentProviderConfig, hasPermission, maskCredentials, normalizeCredentials, PaymentProvider, PaymentProviderMode, Permission } from "../../../../../packages/domain/src/index.mjs";
+import { createPaymentProviderConfig, hasPermission, maskCredentials, normalizeCredentials, PaymentProvider, PaymentProviderMode, Permission } from "@pcx/domain";
 import { createCredentialsCipher } from "./credentials-cipher.mjs";
 
 export class PaymentProviderConfigError extends Error {

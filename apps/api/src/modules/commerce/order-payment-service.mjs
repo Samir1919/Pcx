@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { createOrder, createOrderItemSnapshot, createPayment } from "../../../../../packages/domain/src/commerce/order-payment.mjs";
-import { createBkashGateway, createSandboxPaymentGateway, PaymentMethod, PaymentProvider, Role } from "../../../../../packages/domain/src/index.mjs";
+import { createOrder, createOrderItemSnapshot, createPayment } from "@pcx/domain";
+import { createBkashGateway, createSandboxPaymentGateway, PaymentMethod, PaymentProvider, Role } from "@pcx/domain";
 
 export class OrderPaymentError extends Error {
   constructor(code) { super(code); this.name = "OrderPaymentError"; this.code = code; }

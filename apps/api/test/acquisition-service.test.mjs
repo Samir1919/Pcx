@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createAcquisitionService, AcquisitionError } from "../src/modules/acquisition/acquisition-service.mjs";
-import { OfferStatus, ValuationType } from "../../../packages/domain/src/index.mjs";
+import { OfferStatus, ValuationType } from "@pcx/domain";
 
 function fixture(overrides = {}) {
   const calls = { valuations: [], offers: [], accepts: [], rejections: [], owners: [], acquisitions: [], foundOffers: [], foundAcq: [], paid: [] };

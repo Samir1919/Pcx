@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { hasPermission, Permission } from "../../../../../packages/domain/src/index.mjs";
+import { hasPermission, Permission } from "@pcx/domain";
 
 export class SiteFooterError extends Error {
   constructor(code) { super(code); this.name = "SiteFooterError"; this.code = code; }

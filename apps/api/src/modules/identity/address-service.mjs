@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createOwnAddress } from "../../../../../packages/domain/src/identity/identity-record.mjs";
+import { createOwnAddress } from "@pcx/domain";
 
 export class AddressError extends Error {
   constructor(code) { super(code); this.name = "AddressError"; this.code = code; }

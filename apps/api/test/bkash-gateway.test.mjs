@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createBkashGateway } from "../../../packages/domain/src/index.mjs";
+import { createBkashGateway } from "@pcx/domain";
 
 test("bkash gateway derives a deterministic provider transaction id from mode and reference", async () => {
   const gateway = createBkashGateway({ mode: "SANDBOX", credentials: { appKey: "k" } });

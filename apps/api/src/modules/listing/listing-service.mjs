@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { createListing, createListingPrice, createPublicListing, createPublicPassport, publishListing } from "../../../../../packages/domain/src/listing/listing.mjs";
-import { hasPermission, Permission } from "../../../../../packages/domain/src/index.mjs";
+import { createListing, createListingPrice, createPublicListing, createPublicPassport, publishListing } from "@pcx/domain";
+import { hasPermission, Permission } from "@pcx/domain";
 
 export class ListingError extends Error {
   constructor(code) { super(code); this.name = "ListingError"; this.code = code; }

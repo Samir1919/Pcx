@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { advanceSellRequest, createSellRequest, createSellerDeclaration, submitSellRequest } from "../../../../../packages/domain/src/acquisition/sell-request.mjs";
-import { UserStatus } from "../../../../../packages/domain/src/identity/constants.mjs";
-import { hasPermission, Permission } from "../../../../../packages/domain/src/index.mjs";
+import { advanceSellRequest, createSellRequest, createSellerDeclaration, submitSellRequest } from "@pcx/domain";
+import { UserStatus } from "@pcx/domain";
+import { hasPermission, Permission } from "@pcx/domain";
 
 export class SellRequestError extends Error {
   constructor(code) { super(code); this.name = "SellRequestError"; this.code = code; }

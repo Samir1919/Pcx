@@ -1,4 +1,4 @@
-import { hasPermission, Permission } from "../../../../../packages/domain/src/index.mjs";
+import { hasPermission, Permission } from "@pcx/domain";
 
 export class AuditLogError extends Error {
   constructor(code) { super(code); this.name = "AuditLogError"; this.code = code; }

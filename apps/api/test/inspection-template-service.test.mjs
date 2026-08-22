@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createInspectionTemplateService, InspectionTemplateError } from "../src/modules/inspection/inspection-template-service.mjs";
-import { InspectionResultType } from "../../../packages/domain/src/index.mjs";
+import { InspectionResultType } from "@pcx/domain";
 
 function fixture(overrides = {}) {
   const calls = { creates: [], lists: [], gets: [] };

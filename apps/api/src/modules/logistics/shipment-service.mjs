@@ -1,6 +1,6 @@
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
-import { createShipment, createShipmentEvent, markShipped, markDelivered, markReturned } from "../../../../../packages/domain/src/logistics/shipment.mjs";
-import { createSandboxCourier, hasPermission, Permission } from "../../../../../packages/domain/src/index.mjs";
+import { createShipment, createShipmentEvent, markShipped, markDelivered, markReturned } from "@pcx/domain";
+import { createSandboxCourier, hasPermission, Permission } from "@pcx/domain";
 
 
 export class ShipmentError extends Error {

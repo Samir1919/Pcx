@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createModelSpecificationValue, createSpecificationDefinition, hasPermission, Permission } from "../../../../../packages/domain/src/index.mjs";
+import { createModelSpecificationValue, createSpecificationDefinition, hasPermission, Permission } from "@pcx/domain";
 
 export class CatalogSpecCommandError extends Error { constructor(code) { super(code); this.name="CatalogSpecCommandError"; this.code=code; } }
 const createFields=new Set(["categoryId","key","label","dataType","unit","filterable","required","sortOrder"]);

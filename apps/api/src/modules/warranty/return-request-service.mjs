@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { createReturnRequest, settleRefund } from "../../../../../packages/domain/src/warranty/return-refund.mjs";
-import { hasPermission, normalizeSerialIdentifier, Permission } from "../../../../../packages/domain/src/index.mjs";
+import { createReturnRequest, settleRefund } from "@pcx/domain";
+import { hasPermission, normalizeSerialIdentifier, Permission } from "@pcx/domain";
 
 export class ReturnRequestError extends Error {
   constructor(code) { super(code); this.name = "ReturnRequestError"; this.code = code; }

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { authorizeRoleAssignment, createSecurityAuditEvent, hasPermission, Permission, Role } from "../../../../../packages/domain/src/index.mjs";
+import { authorizeRoleAssignment, createSecurityAuditEvent, hasPermission, Permission, Role } from "@pcx/domain";
 
 export class UserAdminError extends Error {
   constructor(code) {

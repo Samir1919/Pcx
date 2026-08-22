@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createInventoryService, InventoryError } from "../src/modules/inventory/inventory-service.mjs";
-import { InventoryItemStatus, SerialIdentifierType } from "../../../packages/domain/src/index.mjs";
+import { InventoryItemStatus, SerialIdentifierType } from "@pcx/domain";
 
 function fixture(overrides = {}) {
   const calls = { intakes: [], lists: [], finds: [] };

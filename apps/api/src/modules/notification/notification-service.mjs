@@ -1,5 +1,5 @@
-import { createNotification, markNotificationSent, markNotificationFailed } from "../../../../../packages/domain/src/notification/notification.mjs";
-import { hasPermission, Permission } from "../../../../../packages/domain/src/index.mjs";
+import { createNotification, markNotificationSent, markNotificationFailed } from "@pcx/domain";
+import { hasPermission, Permission } from "@pcx/domain";
 
 export class NotificationError extends Error {
   constructor(code) { super(code); this.name = "NotificationError"; this.code = code; }

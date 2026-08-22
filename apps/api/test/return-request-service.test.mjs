@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createReturnRequestService } from "../src/modules/warranty/return-request-service.mjs";
-import { ReturnRequestStatus } from "../../../packages/domain/src/index.mjs";
+import { ReturnRequestStatus } from "@pcx/domain";
 
 function fixture(overrides = {}) {
   const calls = { creates: [], approves: [], receives: [], refunds: [] };

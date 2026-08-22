@@ -1,4 +1,4 @@
-import { CatalogStatus } from "../../../../../packages/domain/src/index.mjs";
+import { CatalogStatus } from "@pcx/domain";
 import { toPublicBrand, toPublicCategory, toPublicProductModel, toPublicSpecification } from "./catalog-dto.mjs";
 
 const requiredMethods = ["listCategories", "listBrands", "listProductModels", "findProductModelById"];

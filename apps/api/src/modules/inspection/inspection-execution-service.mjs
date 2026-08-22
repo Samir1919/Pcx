@@ -8,7 +8,7 @@ import {
   Permission,
   rejectInspection,
   submitInspection
-} from "../../../../../packages/domain/src/index.mjs";
+} from "@pcx/domain";
 
 export class InspectionExecutionError extends Error {
   constructor(code) { super(code); this.name = "InspectionExecutionError"; this.code = code; }

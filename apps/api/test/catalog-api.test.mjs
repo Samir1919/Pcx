@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createBrand, createCategory, createProductModel, archiveCatalogRecord } from "../../../packages/domain/src/index.mjs";
+import { createBrand, createCategory, createProductModel, archiveCatalogRecord } from "@pcx/domain";
 import { createCatalogService } from "../src/modules/catalog/catalog-service.mjs";
 import { createRequestHandler } from "../src/server.mjs";
 

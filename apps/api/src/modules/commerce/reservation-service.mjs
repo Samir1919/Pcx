@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { createReservation, convertReservation } from "../../../../../packages/domain/src/commerce/reservation.mjs";
-import { Role } from "../../../../../packages/domain/src/index.mjs";
+import { createReservation, convertReservation } from "@pcx/domain";
+import { Role } from "@pcx/domain";
 
 export class ReservationError extends Error {
   constructor(code) { super(code); this.name = "ReservationError"; this.code = code; }
