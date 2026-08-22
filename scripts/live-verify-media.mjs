@@ -66,7 +66,9 @@ function report(name, ok, detail = "") {
 let pass = true;
 
 async function main() {
-  const browser = await chromium.launch();
+  // Headed (visible window) so the human can watch the real click-through.
+  // Set PCX_BROWSER_HEADLESS=1 to run without a window in CI.
+  const browser = await chromium.launch({ headless: process.env.PCX_BROWSER_HEADLESS === "1" });
   try {
     const page = await browser.newPage();
     page.setDefaultTimeout(8_000);

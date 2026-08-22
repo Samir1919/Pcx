@@ -109,7 +109,9 @@ async function run(name) {
     process.exitCode = 2;
     return;
   }
-  const browser = await chromium.launch();
+  // Headed (visible window) by default so a human can watch the real flow.
+  // Set PCX_BROWSER_HEADLESS=1 to run without a window in CI.
+  const browser = await chromium.launch({ headless: process.env.PCX_BROWSER_HEADLESS === "1" });
   try {
     const page = await browser.newPage();
     page.setDefaultTimeout(5_000);
