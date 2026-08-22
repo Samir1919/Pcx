@@ -66,6 +66,20 @@ export function createPostgresReservationRepository({ pool }) {
         [inventoryItemId, now]
       );
       return result.rows[0] ? row(result.rows[0]) : null;
+    },
+
+    // Expire all ACTIVE reservations whose reserved_until has passed. Each row is
+    // a state-only transition that releases the physical item for re-sale, so the
+    // one-active-per-item guard no longer blocks a fresh reservation. Idempotent:
+    // rows already expired are not matched again.
+    async expireDue(now) {
+      const result = await pool.query(
+        `UPDATE reservations SET status = 'EXPIRED'
+         WHERE status = 'ACTIVE' AND reserved_until <= $1
+         RETURNING id, inventory_item_id, cart_id, reserved_by_user_id, status, reserved_until, converted_at, created_at`,
+        [now]
+      );
+      return result.rows.map(row);
     }
   });
 }

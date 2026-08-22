@@ -14,7 +14,7 @@ const createFields = new Set(["inventoryItemId", "cartId"]);
 export function createReservationService({ authService, listingRepository, reservationRepository, id = randomUUID, clock = () => new Date(), reservationWindowMs = 15 * 60 * 1000 }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
   for (const method of ["findPublishedByInventoryItem"]) if (!listingRepository || typeof listingRepository[method] !== "function") throw new TypeError(`listingRepository.${method} is required`);
-  for (const method of ["create", "convert", "findById", "findActiveByItem"]) if (!reservationRepository || typeof reservationRepository[method] !== "function") throw new TypeError(`reservationRepository.${method} is required`);
+  for (const method of ["create", "convert", "findById", "findActiveByItem", "expireDue"]) if (!reservationRepository || typeof reservationRepository[method] !== "function") throw new TypeError(`reservationRepository.${method} is required`);
 
   async function actor(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -70,6 +70,13 @@ export function createReservationService({ authService, listingRepository, reser
       await actor(accessCredential);
       const record = await reservationRepository.findActiveByItem(inventoryItemId, clock().toISOString());
       return record;
+    },
+
+    // Background job entry point: no customer identity is required because this
+    // is a clock-driven, state-only transition that releases expired holds.
+    async expireDue() {
+      const records = await reservationRepository.expireDue(clock().toISOString());
+      return Object.freeze(records.map((record) => Object.freeze(record)));
     }
   });
 }
