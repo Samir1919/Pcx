@@ -10,6 +10,7 @@ function fixture(overrides = {}) {
     async createClaim(record) { calls.claims.push(record); return record; },
     async createResolution(record) { calls.resolutions.push(record); return record; },
     async findWarrantyById(id) { return id === "w1" ? { id, status: WarrantyStatus.ACTIVE } : null; },
+    async findWarrantyOwnerUserId(id) { return id === "w1" ? "customer-1" : null; },
     async markClaimResolved() { return { status: "resolved", record: { id: "c1", status: ClaimStatus.RESOLVED } }; },
     async listWarranties() { return []; },
     async listClaims() { return []; },
@@ -32,6 +33,16 @@ test("warranty creation requires inventory/system permission", async () => {
 
   const denied = fixture({ authService: { async authenticateAccess() { return { userId: "u", status: "ACTIVE", roles: ["CUSTOMER"] }; } } });
   await assert.rejects(denied.service.createWarranty("access", { orderItemId: "oi", inventoryItemId: "inv", endsAt: "2027-01-01T00:00:00.000Z" }), (error) => error.code === "forbidden");
+});
+
+test("customer can open a claim on their own warranty with ownership enforced", async () => {
+  const { service } = fixture({ authService: { async authenticateAccess() { return { userId: "customer-1", status: "ACTIVE", roles: ["CUSTOMER"] }; } } });
+  const claim = await service.createClaimForCustomer("access", { warrantyId: "w1", orderItemId: "oi1", reasonCode: "DEAD" });
+  assert.equal(claim.status, ClaimStatus.REQUESTED);
+
+  // A different customer is not the warranty owner.
+  const foreign = fixture({ authService: { async authenticateAccess() { return { userId: "other", status: "ACTIVE", roles: ["CUSTOMER"] }; } } });
+  await assert.rejects(foreign.service.createClaimForCustomer("access", { warrantyId: "w1", orderItemId: "oi1", reasonCode: "DEAD" }), (error) => error.code === "forbidden");
 });
 
 test("claim requires ACTIVE warranty and resolve records resolution", async () => {

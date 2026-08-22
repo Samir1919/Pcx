@@ -69,10 +69,12 @@ export async function handleWarrantyClaimRequest(request, response, { warrantyCl
   const url = new URL(request.url, "http://pcx.local");
   const warranties = "/api/v1/admin/warranties";
   const claims = "/api/v1/admin/claims";
+  const customerClaim = "/api/v1/claims";
   let op = null;
   if (url.pathname === warranties) op = "createWarranty";
   else if (url.pathname === claims) op = "createClaim";
   else if (url.pathname === `${claims}/resolve`) op = "resolveClaim";
+  else if (url.pathname === customerClaim) op = "createClaimCustomer";
   else return false;
 
   if (!warrantyClaimService) { send(response, 503, failure("WARRANTY_UNAVAILABLE", "Warranty/claims are temporarily unavailable", requestId)); return true; }
@@ -99,6 +101,7 @@ export async function handleWarrantyClaimRequest(request, response, { warrantyCl
     let result;
     if (op === "createWarranty") result = await warrantyClaimService.createWarranty(cookies.pcx_access, body);
     else if (op === "createClaim") result = await warrantyClaimService.createClaim(cookies.pcx_access, body);
+    else if (op === "createClaimCustomer") result = await warrantyClaimService.createClaimForCustomer(cookies.pcx_access, body);
     else result = await warrantyClaimService.resolveClaim(cookies.pcx_access, body);
     send(response, op === "createWarranty" || op === "createClaim" ? 201 : 200, { data: result });
   } catch (error) {

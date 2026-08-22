@@ -72,6 +72,7 @@ export const storefrontApi = Object.freeze({
   addToCart: (inventoryItemId) => request("/api/v1/cart", { method: "POST", body: { inventoryItemId }, headers: csrfHeaders() }),
   removeFromCart: (inventoryItemId) => request(`/api/v1/cart/items/${encodeURIComponent(inventoryItemId)}`, { method: "DELETE", headers: csrfHeaders() }),
   createSellRequest: (body) => request("/api/v1/sell-requests", { method: "POST", body, headers: csrfHeaders() }),
+  createWarrantyClaim: (body) => request("/api/v1/claims", { method: "POST", body, headers: csrfHeaders() }),
   acceptOffer: (offerId) => request(`/api/v1/offers/${encodeURIComponent(offerId)}/accept`, { method: "POST", body: {}, headers: csrfHeaders() }),
   rejectOffer: (offerId) => request(`/api/v1/offers/${encodeURIComponent(offerId)}/reject`, { method: "POST", body: {}, headers: csrfHeaders() }),
   merchantListings: () => request("/api/v1/merchant/listings"),

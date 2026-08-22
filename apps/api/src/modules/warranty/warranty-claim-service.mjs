@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createWarranty, createClaim, createClaimResolution } from "../../../../../packages/domain/src/warranty/warranty-claim.mjs";
-import { hasPermission, Permission } from "../../../../../packages/domain/src/index.mjs";
+import { hasPermission, Permission, Role } from "../../../../../packages/domain/src/index.mjs";
 
 export class WarrantyClaimError extends Error {
   constructor(code) { super(code); this.name = "WarrantyClaimError"; this.code = code; }
@@ -12,7 +12,7 @@ const resolutionFields = new Set(["claimId", "resolutionType", "notes", "costAmo
 
 export function createWarrantyClaimService({ authService, repository, id = randomUUID, clock = () => new Date() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  for (const method of ["createWarranty", "createClaim", "createResolution", "findWarrantyById", "markClaimResolved", "listWarranties", "listClaims"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  for (const method of ["createWarranty", "createClaim", "createResolution", "findWarrantyById", "findWarrantyOwnerUserId", "markClaimResolved", "listWarranties", "listClaims"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
   if (typeof repository.listWarranties !== "function" || typeof repository.listClaims !== "function") throw new TypeError("repository warranty/claim list methods are required");
 
   async function actor(accessCredential) {
@@ -24,6 +24,12 @@ export function createWarrantyClaimService({ authService, repository, id = rando
   function exact(input, allowed) {
     for (const key of Object.keys(input ?? {})) if (!allowed.has(key)) throw new WarrantyClaimError("invalid_input");
     return input ?? {};
+  }
+
+  async function customer(accessCredential) {
+    const identity = await authService.authenticateAccess({ accessCredential });
+    if (identity.status !== "ACTIVE" || !Array.isArray(identity.roles) || !identity.roles.includes(Role.CUSTOMER)) throw new WarrantyClaimError("forbidden");
+    return identity;
   }
 
   return Object.freeze({
@@ -50,6 +56,29 @@ export function createWarrantyClaimService({ authService, repository, id = rando
       const fields = exact(input, claimFields);
       const warranty = await repository.findWarrantyById(fields.warrantyId);
       if (!warranty || warranty.status !== "ACTIVE") throw new WarrantyClaimError("invalid_state");
+      let record;
+      try {
+        record = createClaim({ id: id(), ...fields, requestedAt: clock() });
+      } catch {
+        throw new WarrantyClaimError("invalid_input");
+      }
+      try {
+        return Object.freeze(await repository.createClaim(record));
+      } catch (error) {
+        if (error?.code === "23503") throw new WarrantyClaimError("invalid_reference");
+        throw error;
+      }
+    },
+
+    // Customer-owned public path: the customer who owns the warranty can open a
+    // claim themselves. The server verifies ownership and ACTIVE warranty state.
+    async createClaimForCustomer(accessCredential, input) {
+      const identity = await customer(accessCredential);
+      const fields = exact(input, claimFields);
+      const warranty = await repository.findWarrantyById(fields.warrantyId);
+      if (!warranty || warranty.status !== "ACTIVE") throw new WarrantyClaimError("invalid_state");
+      const ownerUserId = await repository.findWarrantyOwnerUserId(fields.warrantyId);
+      if (!ownerUserId || ownerUserId !== identity.userId) throw new WarrantyClaimError("forbidden");
       let record;
       try {
         record = createClaim({ id: id(), ...fields, requestedAt: clock() });
