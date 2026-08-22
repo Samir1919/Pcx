@@ -16,7 +16,7 @@ export class InspectionExecutionError extends Error {
 
 const resultFields = new Set(["inspectionTemplateItemId", "resultStatus", "valueNumber", "valueText", "passBoolean", "notes"]);
 
-export function createInspectionExecutionService({ authService, inventoryRepository, inspectionTemplateRepository, repository, id = randomUUID, clock = () => new Date() }) {
+export function createInspectionExecutionService({ authService, inventoryRepository, inspectionTemplateRepository, repository, auditLogService, id = randomUUID, clock = () => new Date() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
   for (const method of ["findById"]) if (!inventoryRepository || typeof inventoryRepository[method] !== "function") throw new TypeError(`inventoryRepository.${method} is required`);
   for (const method of ["findById", "listItems"]) if (!inspectionTemplateRepository || typeof inspectionTemplateRepository[method] !== "function") throw new TypeError(`inspectionTemplateRepository.${method} is required`);
@@ -37,6 +37,13 @@ export function createInspectionExecutionService({ authService, inventoryReposit
   function exact(input, allowed) {
     for (const key of Object.keys(input ?? {})) if (!allowed.has(key)) throw new InspectionExecutionError("invalid_input");
     return input ?? {};
+  }
+
+  async function record(action, entityId, actorUserId, afterSnapshot) {
+    if (!auditLogService) return;
+    try {
+      await auditLogService.record({ actorUserId, action, entityType: "inspection", entityId, afterSnapshot });
+    } catch { /* audit must never fail the business operation */ }
   }
 
   async function loadTemplateItems(templateId) {
@@ -147,6 +154,7 @@ export function createInspectionExecutionService({ authService, inventoryReposit
       }
       const result = await repository.finalize(inspectionId, { status: finalized.status, supervisorUserId: finalized.supervisorUserId, finalizedAt: finalized.finalizedAt, grade: finalized.grade, score: health.score }, now);
       if (result.status !== "finalized") throw new InspectionExecutionError("invalid_state");
+      await record("INSPECTION_APPROVED", inspectionId, identity.userId, { status: "APPROVED", grade: finalized.grade });
       return Object.freeze(finalized);
     },
 
@@ -164,6 +172,7 @@ export function createInspectionExecutionService({ authService, inventoryReposit
       }
       const result = await repository.finalize(inspectionId, { status: finalized.status, supervisorUserId: finalized.supervisorUserId, finalizedAt: finalized.finalizedAt, grade: null, score: health?.score ?? null }, now);
       if (result.status !== "finalized") throw new InspectionExecutionError("invalid_state");
+      await record("INSPECTION_REJECTED", inspectionId, identity.userId, { status: "REJECTED" });
       return Object.freeze(finalized);
     },
 

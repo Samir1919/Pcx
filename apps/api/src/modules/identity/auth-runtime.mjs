@@ -105,8 +105,10 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   const inspectionTemplateRepository = createPostgresInspectionTemplateRepository({ pool });
   const inspectionTemplateService = createInspectionTemplateService({ authService, repository: inspectionTemplateRepository });
   const inspectionExecutionService = createInspectionExecutionService({ authService, inventoryRepository, inspectionTemplateRepository, repository: createPostgresInspectionExecutionRepository({ pool }) });
+  const auditLogRepository = createPostgresAuditLogRepository({ pool });
+  const auditLogService = createAuditLogService({ authService, repository: auditLogRepository });
   const listingRepository = createPostgresListingRepository({ pool });
-  const listingService = createListingService({ authService, repository: listingRepository });
+  const listingService = createListingService({ authService, repository: listingRepository, auditLogService });
   const merchantListingService = createMerchantListingService({ authService, repository: createMerchantListingRepository({ pool }) });
   const reservationService = createReservationService({ authService, listingRepository, reservationRepository: createPostgresReservationRepository({ pool }) });
   const cartService = createCartService({ authService, listingRepository, cartRepository: createPostgresCartRepository({ pool }) });
@@ -121,7 +123,6 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   const warrantyClaimService = createWarrantyClaimService({ authService, repository: createPostgresWarrantyClaimRepository({ pool }) });
   const operationsReportService = createOperationsReportService({ authService, repository: createPostgresOperationsReportRepository({ pool }) });
   const notificationService = createNotificationService({ authService, repository: createPostgresNotificationRepository({ pool }) });
-  const auditLogService = createAuditLogService({ authService, repository: createPostgresAuditLogRepository({ pool }) });
   return Object.freeze({ authService, identityActionService, userAdminService, addressService, catalogService, catalogCommandService, catalogSpecCommandService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, inspectionExecutionService, listingService, merchantListingService, reservationService, cartService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, operationsReportService, notificationService, auditLogService, paymentProviderConfigService, indicativePriceService, allowedOrigins: origins });
 
 }
