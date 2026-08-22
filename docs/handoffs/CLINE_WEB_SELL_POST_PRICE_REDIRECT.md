@@ -1,6 +1,6 @@
 # Agent Handoff: Web sell post-price decision + dynamic sign-in redirect
 
-- Status: Complete (Part A) / Proposed-ADR only (Part B)
+- Status: Complete (marketplace option is a spec-approved Phase 3 placeholder; no ADR required)
 - Branch: `agent/web-sell-post-price-redirect`
 - Date: 2026-08-22
 
@@ -14,7 +14,6 @@ The customer sell flow (`apps/web/app/sell/page.js`) is now split into three URL
 - `apps/web/app/login/page.js` — reads a `redirect` query param at submit time and navigates to the validated return path; falls back to `/storefront`.
 - `apps/web/lib/redirect.js` — new `safeReturnPath` helper that accepts only same-origin paths and rejects protocol-relative/absolute/scheme URLs (open-redirect guard).
 - `apps/web/test/redirect.test.mjs` — unit tests for `safeReturnPath`.
-- `docs/adr/0010-open-marketplace-advertise-flow.md` — Proposed ADR that must be accepted (plus a spec scope change) before implementing the full marketplace/advertise flow.
 
 ## Acceptance criteria
 
@@ -41,8 +40,7 @@ The customer sell flow (`apps/web/app/sell/page.js`) is now split into three URL
 
 - Open-redirect prevention: `safeReturnPath` only returns paths starting with a single `/` and rejects `//`, scheme-bearing values, and blank/non-path input. Login uses this at submit time.
 - The `useSearchParams` suspension boundary keeps static prerender valid.
-- No domain invariant changes. The marketplace path does not create listings, KYC, commissions, or payouts — it is a placeholder only, honouring `BUSINESS_PRODUCT_REQUIREMENTS.md` §23 NOT IN MVP.
-- Marketplace enablement is a hard stop: see ADR `0010` (Proposed) and the blocker below.
+- No domain invariant changes. The marketplace path does not create listings, KYC, commissions, or payouts — it is a placeholder only, honouring `BUSINESS_PRODUCT_REQUIREMENTS.md` §23 NOT IN MVP (Phase 3). No spec change or ADR is required for this placeholder.
 
 ## Schema/configuration/deployment
 
@@ -50,11 +48,8 @@ None. No migrations or environment changes.
 
 ## Remaining work and next safe action
 
-1. Accept ADR `0010` and update `BUSINESS_PRODUCT_REQUIREMENTS.md` (move marketplace into the MVP boundary) — required before any marketplace code.
-2. Backend slice for third-party marketplace listings (separate from PCX-owned `listings`), KYC-gated seller eligibility, and PCX-recorded final price/publication.
-3. Merchant-facing advertise form and public distinction between PCX-owned and third-party listings.
-4. Finance-reviewed payout/commission records (idempotent, delivery-gated).
+Marketplace/advertise remains Phase 3 (NOT IN MVP) and is intentionally a placeholder; no follow-up needed for MVP. The next dependency-ready MVP slice is E5 inspection execution (technician test results → evidence → health score → suggested grade), which unblocks PCX ID, grade/health, and passport completeness.
 
 ## Blockers requiring human decision
 
-Full marketplace/advertise implementation is blocked pending explicit human approval of ADR `0010` and the spec phase change (core MVP scope + source-of-truth change).
+None for the Sell-to-PCX path and the marketplace placeholder. Real bKash live credentials remain a separate hard stop for the payment epic.
