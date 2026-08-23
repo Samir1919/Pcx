@@ -130,8 +130,11 @@ export function createPostgresSellRequestRepository({ pool }) {
       return result.rows.map(row);
     },
 
+    // Admin queue: only requests the seller actually submitted. DRAFT is the
+    // seller's private unfinished state and must never appear here (spec §12:
+    // "Request submitted → Admin review").
     async listAll() {
-      const result = await pool.query(`${selectClause} ORDER BY sr.created_at DESC LIMIT 100`, []);
+      const result = await pool.query(`${selectClause} WHERE sr.status <> 'DRAFT' ORDER BY sr.created_at DESC LIMIT 100`, []);
       return result.rows.map(row);
     }
   });

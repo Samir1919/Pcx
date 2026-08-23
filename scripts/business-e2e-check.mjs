@@ -116,6 +116,10 @@ async function main() {
   await web.getByText("Contact & fulfilment").waitFor({ state: "visible", timeout: 15_000 });
   const nameInput = web.locator('label:has-text("Your name") input').first();
   if (await nameInput.count()) await nameInput.fill("Demo Seller");
+  const submitResp = web.waitForResponse(
+    (r) => r.url().match(/\/submit$/) && r.request().method() === "POST",
+    { timeout: 30_000 }
+  );
   await web.getByRole("button", { name: /Submit sell request/ }).click();
 
   const sellCreated = await sellCreateResp;
@@ -125,10 +129,13 @@ async function main() {
   rec("sell-request-created", !!sellRequestId, sellRequestId ? `no=${sellRequestNo ?? "n/a"}` : `http ${sellCreated.status()}`);
 
   if (sellRequestId) {
-    const submitRes = await pageFetchJson(web, `/api/v1/sell-requests/${encodeURIComponent(sellRequestId)}/submit`, { method: "POST", body: {} });
+    // The web flow now auto-submits after create (DRAFT -> SUBMITTED), so the
+    // request must land in the owner's list as SUBMITTED without any manual call.
+    const submitted = await submitResp;
+    const submittedJson = await submitted.json().catch(() => null);
     const listRes = await pageFetchJson(web, "/api/v1/sell-requests");
     const mine = (listRes.body?.data ?? []).find((r) => r.id === sellRequestId);
-    rec("sell-request-submitted", submitRes.status === 200 && mine?.status === "SUBMITTED", `status=${mine?.status ?? "missing"}`);
+    rec("sell-request-submitted", submitted.status() === 200 && (submittedJson?.data?.status ?? mine?.status) === "SUBMITTED", `status=${submittedJson?.data?.status ?? mine?.status ?? "missing"}`);
 
     await adminLogin(admin);
     await admin.goto(`${ADMIN}/acquisition`, { waitUntil: "networkidle", timeout: 30_000 });

@@ -8,7 +8,6 @@ function Field({ label, name, ...props }) { return <label><span>{label}</span><i
 
 // Server-owned transition graph (mirrors SellRequestTransitions for UI actions).
 const TRANSITIONS = {
-  DRAFT: ["SUBMITTED", "CANCELLED"],
   SUBMITTED: ["REVIEWING", "CANCELLED"],
   REVIEWING: ["INFO_REQUIRED", "INSPECTION_REQUIRED", "REJECTED", "CANCELLED"],
   INFO_REQUIRED: ["REVIEWING"],
