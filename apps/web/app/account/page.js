@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { storefrontApi } from "../../lib/storefront-api";
 import StorefrontNav from "../StorefrontNav";
+import IntlPhoneInput from "../components/IntlPhoneInput";
+import { validatePhone } from "../../lib/contact-validation";
 
 export default function AccountPage() {
   const [identity, setIdentity] = useState(null);
@@ -34,6 +36,14 @@ export default function AccountPage() {
     event.preventDefault();
     setBusy(true);
     setNotice(null);
+    if (phone) {
+      const phoneCheck = validatePhone(phone);
+      if (!phoneCheck.ok) {
+        setNotice({ kind: "error", message: phoneCheck.reason });
+        setBusy(false);
+        return;
+      }
+    }
     try {
       const me = await storefrontApi.updateProfile({ fullName: fullName || null, phone: phone || null });
       setIdentity(me.data);
@@ -95,7 +105,7 @@ export default function AccountPage() {
             <p className="meta">Email (read-only): {identity.email ?? "—"}</p>
             <form className="sellForm" onSubmit={saveProfile}>
               <label><span>Full name</span><input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="name" /></label>
-              <label><span>Phone</span><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" /></label>
+              <IntlPhoneInput label="Phone" value={phone} onChange={setPhone} />
               <button className="primary" type="submit" disabled={busy}>{busy ? "Saving…" : "Save profile"}</button>
             </form>
           </div>

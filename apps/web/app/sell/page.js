@@ -3,6 +3,8 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { storefrontApi } from "../../lib/storefront-api";
 import StorefrontNav from "../StorefrontNav";
+import IntlPhoneInput from "../components/IntlPhoneInput";
+import { validateEmail, validatePhone } from "../../lib/contact-validation";
 
 const ENTRIES = [
   { key: "DESKTOP_PC", label: "Desktop PC", icon: "🖥️", hint: "Sell a complete desktop build" },
@@ -276,6 +278,22 @@ function SellFlow() {
     setResult(null);
     try {
       const contact = contactReused();
+      if (contact.email) {
+        const emailCheck = validateEmail(contact.email);
+        if (!emailCheck.ok) {
+          setError(emailCheck.reason);
+          setBusy(false);
+          return;
+        }
+      }
+      if (contact.phone) {
+        const phoneCheck = validatePhone(contact.phone);
+        if (!phoneCheck.ok) {
+          setError(phoneCheck.reason);
+          setBusy(false);
+          return;
+        }
+      }
       const common = {
         contactName: contact.name || undefined,
         contactPhone: contact.phone || undefined,
@@ -489,7 +507,7 @@ function SellFlow() {
                   : <label><span>Your name *</span><input type="text" value={fallbackName} onChange={(e) => setFallbackName(e.target.value)} required /></label>}
                 {identity.phone
                   ? <p className="meta">Phone: {identity.phone}</p>
-                  : <label><span>Phone *</span><input type="tel" value={fallbackPhone} onChange={(e) => setFallbackPhone(e.target.value)} required /></label>}
+                  : <IntlPhoneInput label="Phone" value={fallbackPhone} onChange={setFallbackPhone} required />}
                 {identity.email
                   ? <p className="meta">Email: {identity.email}</p>
                   : <label><span>Email (optional)</span><input type="email" value={fallbackEmail} onChange={(e) => setFallbackEmail(e.target.value)} /></label>}

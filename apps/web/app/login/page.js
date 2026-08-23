@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { storefrontApi } from "../../lib/storefront-api";
 import { safeReturnPath } from "../../lib/redirect";
+import { validateContact } from "../../lib/contact-validation";
 import StorefrontNav from "../StorefrontNav";
 
 export default function LoginPage() {
@@ -16,6 +17,12 @@ export default function LoginPage() {
     event.preventDefault();
     setBusy(true);
     setError(null);
+    const contactCheck = validateContact(contact);
+    if (!contactCheck.ok) {
+      setError(contactCheck.reason);
+      setBusy(false);
+      return;
+    }
     try {
       const result = await storefrontApi.login(contact, password);
       if (result.data?.status === "mfa_required") {
@@ -43,7 +50,7 @@ export default function LoginPage() {
           <p className="meta">Sign in to browse, buy, and submit sell requests.</p>
           {error ? <div className="banner error" role="alert"><span>{error}</span></div> : null}
           <form className="buyBox" onSubmit={submit}>
-            <label><span>Email or phone</span><input type="text" value={contact} onChange={(e) => setContact(e.target.value)} required autoComplete="username" /></label>
+            <label><span>Email or phone</span><input type="text" value={contact} onChange={(e) => setContact(e.target.value)} required autoComplete="username" placeholder="you@example.com or +8801XXXXXXXXX" /></label>
             <label><span>Password</span><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" /></label>
             <button className="primary" type="submit" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
           </form>

@@ -3,6 +3,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { storefrontApi } from "../../lib/storefront-api";
 import StorefrontNav from "../StorefrontNav";
+import IntlPhoneInput from "../components/IntlPhoneInput";
+import { validateEmail, validatePhone } from "../../lib/contact-validation";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -22,6 +24,22 @@ export default function RegisterPage() {
       setError("Email or phone is required.");
       setBusy(false);
       return;
+    }
+    if (email) {
+      const emailCheck = validateEmail(email);
+      if (!emailCheck.ok) {
+        setError(emailCheck.reason);
+        setBusy(false);
+        return;
+      }
+    }
+    if (phone) {
+      const phoneCheck = validatePhone(phone);
+      if (!phoneCheck.ok) {
+        setError(phoneCheck.reason);
+        setBusy(false);
+        return;
+      }
     }
     try {
       await storefrontApi.register(email || null, phone || null, fullName || null, password);
@@ -48,8 +66,8 @@ export default function RegisterPage() {
           {done ? <div className="banner" role="status"><span>Registration submitted. You can now sign in.</span></div> : (
             <form className="buyBox" onSubmit={submit}>
               <label><span>Full name (optional)</span><input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="name" /></label>
-              <label><span>Email (optional)</span><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></label>
-              <label><span>Phone (optional)</span><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" /></label>
+              <label><span>Email (optional)</span><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" placeholder="you@example.com" /></label>
+              <IntlPhoneInput label="Phone (optional)" value={phone} onChange={setPhone} />
               <label><span>Password</span><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={12} required autoComplete="new-password" /></label>
               <button className="primary" type="submit" disabled={busy}>{busy ? "Registering…" : "Register"}</button>
             </form>

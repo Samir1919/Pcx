@@ -1666,3 +1666,142 @@ a.footerContactRow:hover {
   border-radius: var(--radius-sm);
   border: 1px solid var(--line);
 }
+
+/* ---------- International phone input ---------- */
+.phoneInput {
+  display: grid;
+  gap: .4rem;
+  position: relative;
+  font-size: .8125rem;
+  font-weight: 700;
+  color: var(--muted);
+  min-width: 0;
+}
+
+.phoneInputLabel {
+  color: var(--muted);
+}
+
+.phoneInputRow {
+  display: flex;
+  align-items: stretch;
+  gap: .5rem;
+  min-width: 0;
+}
+
+.phoneInputCountry {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  border: 1px solid #cdd8d1;
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--ink);
+  padding: .55rem .7rem;
+  min-height: var(--touch-target);
+  font-size: .9375rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.phoneInputCountry:hover {
+  background: var(--mint);
+}
+
+.phoneInputCaret {
+  font-size: .625rem;
+  color: var(--muted);
+}
+
+.phoneInputField {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid #cdd8d1;
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--ink);
+  padding: .75rem .9rem;
+  min-height: var(--touch-target);
+  font-size: 1rem;
+  outline: none;
+}
+
+.phoneInputField:focus,
+.phoneInputCountry:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.phoneInputList {
+  position: absolute;
+  top: calc(100% + .4rem);
+  left: 0;
+  z-index: 40;
+  width: min(20rem, 100%);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.phoneInputSearch {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  padding: .7rem .8rem;
+  min-height: var(--touch-target);
+  font-size: .9375rem;
+  outline: none;
+}
+
+.phoneInputOptions {
+  max-height: 16rem;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.phoneInputOption {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: .6rem .8rem;
+  min-height: var(--touch-target);
+  font-size: .875rem;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.phoneInputOption:hover {
+  background: var(--mint);
+}
+
+.phoneInputOption.selected {
+  background: var(--mint-strong);
+  color: var(--green);
+}
+
+.phoneInputOptionName {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phoneInputOptionDial {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.phoneInputError {
+  margin: 0;
+  color: var(--danger-text);
+  font-size: .75rem;
+  font-weight: 700;
+}
