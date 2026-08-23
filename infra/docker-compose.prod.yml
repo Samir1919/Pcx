@@ -49,7 +49,7 @@ services:
 
   api:
     build:
-      context: .
+      context: ..
       dockerfile: apps/api/Dockerfile
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://pcx:pcx_prod_local_only@postgres:5432/pcx}
@@ -69,7 +69,7 @@ services:
 
   web:
     build:
-      context: .
+      context: ..
       dockerfile: apps/web/Dockerfile
       args:
         PCX_API_ORIGIN: ${WEB_API_ORIGIN:-http://api:4000}
@@ -87,7 +87,7 @@ services:
 
   admin:
     build:
-      context: .
+      context: ..
       dockerfile: apps/admin/Dockerfile
       args:
         PCX_API_ORIGIN: ${ADMIN_API_ORIGIN:-http://api:4000}
@@ -105,7 +105,7 @@ services:
 
   worker:
     build:
-      context: .
+      context: ..
       dockerfile: apps/worker/Dockerfile
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://pcx:pcx_prod_local_only@postgres:5432/pcx}
@@ -119,7 +119,7 @@ services:
 
   migrate:
     build:
-      context: .
+      context: ..
       dockerfile: apps/api/Dockerfile
     command: [ "node", "apps/api/src/infrastructure/database/migrate.mjs" ]
     environment:

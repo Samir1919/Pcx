@@ -13,10 +13,7 @@ COPY apps/admin/package.json apps/admin/package.json
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY apps/worker/package.json apps/worker/package.json
-COPY packages/config/package.json packages/config/package.json
 COPY packages/domain/package.json packages/domain/package.json
-COPY packages/testing/package.json packages/testing/package.json
-COPY packages/ui/package.json packages/ui/package.json
 RUN npm ci --workspace @pcx/admin
 
 FROM deps AS builder
