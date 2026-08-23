@@ -194,6 +194,17 @@ async function run() {
     record("acquisition-offer-expiry-default", false, e.message);
   }
 
+  // Notifications: provider panel renders Email/SMS tabs and masks credentials.
+  try {
+    await page.goto(`${BASE_ADMIN}/notifications`, { waitUntil: "networkidle", timeout: 30_000 });
+    const emailTab = page.getByRole("tab", { name: /Email \(Resend\)/ });
+    const smsTab = page.getByRole("tab", { name: /SMS \(bdBulksms\)/ });
+    const tabsPresent = (await emailTab.count()) > 0 && (await smsTab.count()) > 0;
+    record("notifications-provider-tabs", tabsPresent, tabsPresent ? "email+sms provider tabs present" : "provider tabs missing");
+  } catch (e) {
+    record("notifications-provider-tabs", false, e.message);
+  }
+
   // Verification: confirm the version field is pre-filled (auto-incremented from
   // the active templates for the first category).
   try {

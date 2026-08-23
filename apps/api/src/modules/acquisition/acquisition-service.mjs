@@ -10,7 +10,7 @@ const valuationFields = new Set(["sellRequestId", "valuationType", "lowValue", "
 const offerFields = new Set(["sellRequestId", "valuationId", "amount", "expiresAt"]);
 const acquisitionFields = new Set(["sellRequestId", "acceptedOfferId", "sellerUserId", "sourceType", "idempotencyKey"]);
 
-export function createAcquisitionService({ authService, repository, id = randomUUID, clock = () => new Date() }) {
+export function createAcquisitionService({ authService, repository, id = randomUUID, clock = () => new Date(), notificationEmitter = null }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
   for (const method of ["createValuation", "createOffer", "acceptOffer", "rejectOffer", "findOwnerUserIdByOffer", "findOfferById", "createAcquisition", "findByOffer", "markPaid", "findOwnerUserIdBySellRequest", "listOffersBySellRequest"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
 
@@ -67,7 +67,23 @@ export function createAcquisitionService({ authService, repository, id = randomU
         throw new AcquisitionError("invalid_input");
       }
       try {
-        return Object.freeze(await repository.createOffer(record));
+        const created = await repository.createOffer(record);
+        if (notificationEmitter && typeof notificationEmitter.emit === "function") {
+          try {
+            const sellerUserId = await repository.findOwnerUserIdBySellRequest(record.sellRequestId);
+            if (sellerUserId) {
+              await notificationEmitter.emit({
+                notificationType: "OFFER_CREATED",
+                userId: sellerUserId,
+                channel: "EMAIL",
+                referenceType: "offer",
+                referenceId: created.id,
+                payloadSnapshot: { amount: created.amount }
+              });
+            }
+          } catch { /* best-effort; notification must never fail the offer */ }
+        }
+        return Object.freeze(created);
       } catch (error) {
         if (error?.code === "23503") throw new AcquisitionError("invalid_reference");
         throw error;

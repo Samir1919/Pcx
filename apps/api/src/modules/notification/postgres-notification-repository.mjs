@@ -21,10 +21,11 @@ export function createPostgresNotificationRepository({ pool }) {
       const result = await pool.query(
         `INSERT INTO notifications(id, user_id, channel, notification_type, reference_type, reference_id, status, payload_snapshot, scheduled_at)
          VALUES ($1, $2, $3, $4, $5, $6, 'PENDING', $7::jsonb, $8)
+         ON CONFLICT (id) DO NOTHING
          RETURNING id, user_id, channel, notification_type, reference_type, reference_id, status, payload_snapshot, scheduled_at, sent_at`,
         [record.id, record.userId, record.channel, record.notificationType, record.referenceType, record.referenceId, record.payloadSnapshot == null ? null : JSON.stringify(record.payloadSnapshot), record.scheduledAt]
       );
-      return row(result.rows[0]);
+      return result.rows[0] ? row(result.rows[0]) : null;
     },
 
     async markSent(id, now) {

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { notificationApi } from "../../../lib/notification-api.js";
+import NotificationProvidersPanel from "./providers-panel";
 
 function Banner({ notice, onClose }) { if (!notice) return null; return <div className={`banner ${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}><span>{notice.message}</span><button type="button" onClick={onClose} aria-label="Dismiss message">×</button></div>; }
 function Field({ label, name, ...props }) { return <label><span>{label}</span><input name={name} {...props} /></label>; }
@@ -63,7 +64,8 @@ export default function NotificationsPage() {
         <button className="refresh" type="button" onClick={load} disabled={loading}>↻ Refresh</button>
       </header>
       <Banner notice={notice} onClose={() => setNotice(null)} />
-      <div className="grid">
+      <NotificationProvidersPanel />
+      <div className="grid" style={{ marginTop: 18 }}>
         <section className="panel">
           <div className="panelTitle">
             <div>
