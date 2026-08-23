@@ -1,5 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { AuthenticationError } from "../identity/auth-service.mjs";
+import { AcquisitionError } from "./acquisition-service.mjs";
 import { SellRequestError } from "./sell-request-service.mjs";
 
 const maxBodyBytes = 16 * 1024;
@@ -53,6 +54,11 @@ function id(value) {
 
 function map(error) {
   if (error instanceof AuthenticationError && error.code === "invalid_access") return [401, "UNAUTHENTICATED", "Authentication required"];
+  if (error instanceof AcquisitionError) {
+    if (error.code === "forbidden") return [403, "ACQUISITION_FORBIDDEN", "Acquisition operation is not allowed"];
+    if (error.code === "not_found") return [404, "ACQUISITION_NOT_FOUND", "Acquisition resource not found"];
+    return [500, "INTERNAL_ERROR", "Unexpected server error"];
+  }
   if (error instanceof SellRequestError) {
     if (error.code === "origin_denied") return [403, "ORIGIN_DENIED", "Request origin is not allowed"];
     if (error.code === "csrf_invalid") return [403, "CSRF_INVALID", "CSRF validation failed"];
@@ -64,7 +70,7 @@ function map(error) {
   return [500, "INTERNAL_ERROR", "Unexpected server error"];
 }
 
-export async function handleSellRequestRequest(request, response, { sellRequestService, allowedOrigins, requestId }) {
+export async function handleSellRequestRequest(request, response, { sellRequestService, acquisitionService, allowedOrigins, requestId }) {
   const url = new URL(request.url, "http://pcx.local");
 
   // Admin queue: GET /api/v1/admin/sell-requests (read-only, non-owner-scoped).
@@ -75,6 +81,25 @@ export async function handleSellRequestRequest(request, response, { sellRequestS
     const cookies = parsedCookies(request);
     try {
       send(response, 200, await sellRequestService.listAdmin(cookies.pcx_access));
+    } catch (error) {
+      const [status, code, message] = map(error);
+      send(response, status, failure(code, message, requestId));
+    }
+    return true;
+  }
+
+  // Admin detail read: GET /api/v1/admin/sell-requests/:id
+  const adminPrefix = "/api/v1/admin/sell-requests/";
+  if (url.pathname.startsWith(adminPrefix) && !url.pathname.endsWith("/transition")) {
+    if (!sellRequestService) { send(response, 503, failure("SELL_REQUEST_UNAVAILABLE", "Sell requests are temporarily unavailable", requestId)); return true; }
+    if (url.searchParams.size > 0) { send(response, 400, failure("INVALID_REQUEST", "Query parameters are not supported", requestId)); return true; }
+    if (request.method !== "GET") { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
+    const rawId = url.pathname.slice(adminPrefix.length);
+    const requestIdValue = id(rawId);
+    if (!requestIdValue) { send(response, 404, failure("SELL_REQUEST_NOT_FOUND", "Sell request not found", requestId)); return true; }
+    const cookies = parsedCookies(request);
+    try {
+      send(response, 200, { data: await sellRequestService.getAdmin(cookies.pcx_access, requestIdValue) });
     } catch (error) {
       const [status, code, message] = map(error);
       send(response, status, failure(code, message, requestId));
@@ -111,19 +136,23 @@ export async function handleSellRequestRequest(request, response, { sellRequestS
   const suffix = url.pathname.slice(prefix.length);
   let requestIdValue = null;
   let submit = false;
+  let offers = false;
   if (suffix) {
     const parts = suffix.slice(1).split("/");
     const validShape = parts.length === 1
-      || (parts.length === 2 && parts[1] === "submit");
+      || (parts.length === 2 && parts[1] === "submit")
+      || (parts.length === 2 && parts[1] === "offers");
     if (!validShape || parts.some((part) => !part)) { send(response, 404, failure("SELL_REQUEST_NOT_FOUND", "Sell request not found", requestId)); return true; }
     requestIdValue = id(parts[0]);
-    submit = parts.length === 2;
+    submit = parts.length === 2 && parts[1] === "submit";
+    offers = parts.length === 2 && parts[1] === "offers";
     if (!requestIdValue) { send(response, 404, failure("SELL_REQUEST_NOT_FOUND", "Sell request not found", requestId)); return true; }
   }
 
   const method = request.method ?? "GET";
   const valid = (!requestIdValue && new Set(["GET", "POST"]).has(method))
-    || (requestIdValue && !submit && method === "GET")
+    || (requestIdValue && !submit && !offers && method === "GET")
+    || (requestIdValue && offers && method === "GET")
     || (requestIdValue && submit && method === "POST");
   if (!valid) { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
 
@@ -131,6 +160,7 @@ export async function handleSellRequestRequest(request, response, { sellRequestS
   try {
     if (method !== "GET") requireWriteSecurity(request, allowedOrigins, cookies);
     if (method === "GET" && !requestIdValue) send(response, 200, { data: await sellRequestService.list(cookies.pcx_access) });
+    else if (method === "GET" && offers) send(response, 200, await acquisitionService.listOffersForCustomer(cookies.pcx_access, requestIdValue));
     else if (method === "GET") send(response, 200, { data: await sellRequestService.get(cookies.pcx_access, requestIdValue) });
     else if (submit) send(response, 200, { data: await sellRequestService.submit(cookies.pcx_access, requestIdValue) });
     else send(response, 201, { data: await sellRequestService.create(cookies.pcx_access, await jsonBody(request)) });

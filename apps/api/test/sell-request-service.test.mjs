@@ -206,6 +206,22 @@ test("admin transition follows the canonical graph", async () => {
   await assert.rejects(adminService.transition("access", "missing", "ACCEPTED"), (error) => error.code === "not_found");
 });
 
+test("admin getAdmin reads any request and is permission-gated", async () => {
+  // Admin can read a record regardless of ownership.
+  const admin = fixture({
+    authService: { async authenticateAccess() { return { userId: "admin-1", status: "ACTIVE", roles: ["ADMIN"] }; } }
+  });
+  const record = await admin.service.getAdmin("access", "existing");
+  assert.equal(record.id, "existing");
+  assert.equal(record.status, "REVIEWING");
+
+  await assert.rejects(admin.service.getAdmin("access", "missing"), (error) => error.code === "not_found");
+
+  // A customer (non-admin) is denied.
+  const customer = fixture();
+  await assert.rejects(customer.service.getAdmin("access", "existing"), (error) => error.code === "forbidden");
+});
+
 test("get and submit enforce ownership and DRAFT-only transition", async () => {
   const { service } = fixture();
   assert.deepEqual((await service.get("access", "existing")).id, "existing");

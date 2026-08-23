@@ -45,6 +45,30 @@ test("storefront query builder omits empty filters and never sends client-owned 
   }
 });
 
+test("storefront seller endpoints hit owner-scoped sell-request paths", async () => {
+  const priorFetch = global.fetch;
+  const calls = [];
+  global.fetch = async (url, options) => {
+    calls.push({ url, options });
+    return { ok: true, status: 200, async text() { return JSON.stringify({ data: [] }); } };
+  };
+  try {
+    await storefrontApi.mySellRequests();
+    await storefrontApi.sellRequest("sr-1");
+    await storefrontApi.sellRequestOffers("sr-1");
+    await storefrontApi.submitSellRequest("sr-1");
+    assert.deepEqual(calls.map((c) => c.url), [
+      "/api/v1/sell-requests",
+      "/api/v1/sell-requests/sr-1",
+      "/api/v1/sell-requests/sr-1/offers",
+      "/api/v1/sell-requests/sr-1/submit"
+    ]);
+    assert.equal(calls[3].options.method, "POST");
+  } finally {
+    global.fetch = priorFetch;
+  }
+});
+
 test("storefront surfaces stable server errors", async () => {
   const priorFetch = global.fetch;
   global.fetch = async () => ({ ok: false, status: 404, async text() { return JSON.stringify({ error: { code: "PASSPORT_NOT_FOUND", message: "Passport not found" } }); } });

@@ -96,7 +96,7 @@ export function createRequestHandler({ readiness = () => ({ ok: true }), catalog
     if (await handleCatalogSpecCommandRequest(request, response, { catalogSpecCommandService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleCatalogCommandRequest(request, response, { catalogCommandService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleAddressRequest(request, response, { addressService, allowedOrigins, requestId: requestId(request) })) return;
-    if (await handleSellRequestRequest(request, response, { sellRequestService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleSellRequestRequest(request, response, { sellRequestService, acquisitionService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleAcquisitionRequest(request, response, { acquisitionService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleInventoryRequest(request, response, { inventoryService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleInspectionTemplateRequest(request, response, { inspectionTemplateService, allowedOrigins, requestId: requestId(request) })) return;

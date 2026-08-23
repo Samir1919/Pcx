@@ -67,6 +67,7 @@ export default function StorefrontNav() {
           {merchant && navLink("/merchant", "Merchant")}
           {identity ? (
             <>
+              {navLink("/sell-requests", "Sell requests")}
               {navLink("/storefront", "Account")}
               <button type="button" className="navLink" onClick={signOut} disabled={busy}>Sign out</button>
             </>
@@ -126,6 +127,7 @@ export default function StorefrontNav() {
             <div className="navDrawerAuth">
               {identity ? (
                 <>
+                  <a className="drawerLink" href="/sell-requests" onClick={() => setMenuOpen(false)}>Sell requests</a>
                   <a className="drawerBtn primary" href="/storefront" onClick={() => setMenuOpen(false)}>Account</a>
                   <button type="button" className="drawerBtn secondary" onClick={signOut} disabled={busy}>Sign out</button>
                 </>

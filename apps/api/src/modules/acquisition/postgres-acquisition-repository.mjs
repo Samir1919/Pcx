@@ -121,6 +121,24 @@ export function createPostgresAcquisitionRepository({ pool }) {
       return result.rows[0] ? offer(result.rows[0]) : null;
     },
 
+    // Owner lookup by sell request (not by offer) so a customer can only read
+    // offers attached to a request they own.
+    async findOwnerUserIdBySellRequest(sellRequestId) {
+      const result = await pool.query(
+        "SELECT user_id FROM sell_requests WHERE id::text = $1",
+        [sellRequestId]
+      );
+      return result.rows[0]?.user_id ?? null;
+    },
+
+    async listOffersBySellRequest(sellRequestId) {
+      const result = await pool.query(
+        "SELECT id, sell_request_id, valuation_id, amount, status, expires_at, accepted_at, created_by, created_at FROM offers WHERE sell_request_id::text = $1 ORDER BY created_at DESC",
+        [sellRequestId]
+      );
+      return result.rows.map(offer);
+    },
+
     async createAcquisition(record, offer, now) {
       return transaction(pool, async (client) => {
         if (offer.status !== "ACCEPTED") throw Object.assign(new Error("offer not accepted"), { code: "23514" });

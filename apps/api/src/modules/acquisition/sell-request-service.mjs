@@ -105,6 +105,16 @@ export function createSellRequestService({ authService, repository, indicativePr
       return record;
     },
 
+    // Admin detail read: full record for any request (non-owner-scoped), gated
+    // by acquisition/pricing audit permission. Used by the admin detail view.
+    async getAdmin(accessCredential, requestId) {
+      const identity = await authService.authenticateAccess({ accessCredential });
+      if (!hasPermission(identity, Permission.PRICING_MANAGE) && !hasPermission(identity, Permission.ACQUISITION_PAYMENT_MANAGE)) throw new SellRequestError("forbidden");
+      const record = await repository.findById(requestId);
+      if (!record) throw new SellRequestError("not_found");
+      return record;
+    },
+
     async submit(accessCredential, requestId) {
       const identity = await actor(accessCredential);
       const existing = await repository.findByOwner(identity.userId, requestId);
