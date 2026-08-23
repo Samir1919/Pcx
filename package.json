@@ -38,6 +38,7 @@
     "autonomous:loop": "node scripts/autonomous-loop.mjs --dry-run",
     "web:check": "node scripts/web-check.mjs",
     "web:e2e": "node scripts/storefront-e2e-check.mjs",
+    "staging:smoke": "node scripts/staging-smoke.mjs",
     "admin:e2e": "node scripts/admin-e2e-check.mjs",
     "merge-gate": "node scripts/merge-gate.mjs",
     "merge-check": "node scripts/merge-gate.mjs",

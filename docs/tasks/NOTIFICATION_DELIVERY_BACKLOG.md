@@ -1,5 +1,5 @@
-- Status: G + H + I complete (storefront IntlPhoneInput + shipment/order emits + provider MFA)
-- Latest commit: 51312c0
+- Status: G + H + I + J complete (storefront IntlPhoneInput + shipment/order emits + provider MFA + staging smoke)
+- Latest commit: b0af85f
 
 # Task Backlog: Notification & Contact Delivery Follow-ups
 
@@ -45,7 +45,11 @@ Scheduled follow-up slices after the unified contact delivery + notification wor
 
 ## J — Staging compose smoke (no deploy)
 
-- Scope: `infra/docker-compose.staging.yml` synthetic creds `up -d --build`;
-  curl health/web/admin home; `down`.
-- Acceptance: all services healthy in dockerized stack.
+- Status: Complete.
+- Scope: extended `infra/docker-compose.staging.yml` to a full production-like
+  stack (postgres/redis/minio + migrate/api/worker/web/admin + Caddy proxy on
+  isolated ports 8082/8083); added `scripts/staging-smoke.mjs` + `npm run
+  staging:smoke` (up --build → wait api ready → probe web/admin proxy → down).
+- Acceptance: `npm run staging:smoke` PASS (api/web/admin healthy), isolated
+  `pcx-staging` project, synthetic credentials only.
 - Deps: D2/D3 (dev docker) completion.
