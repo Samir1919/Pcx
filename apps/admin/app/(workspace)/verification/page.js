@@ -18,6 +18,9 @@ export default function VerificationPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
+  const [name, setName] = useState("");
+  const [version, setVersion] = useState("1.0");
+  const [items, setItems] = useState([newItem()]);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,6 +50,17 @@ export default function VerificationPage() {
     try {
       const payload = await opsApi.templates(categoryId);
       setTemplates(payload.data);
+      // Suggest the next version from the active templates for this category so
+      // the operator does not re-type a version each time. This is a convenience
+      // default only; the server stores the version and rejects invalid input.
+      const versions = (payload.data ?? []).map((t) => Number.parseFloat(t.version)).filter((n) => Number.isFinite(n));
+      if (versions.length > 0) {
+        const max = Math.floor(Math.max(...versions));
+        setVersion((prev) => {
+          const current = Number.parseFloat(prev);
+          return Number.isFinite(current) && Math.floor(current) > max ? prev : `${max + 1}.0`;
+        });
+      }
     } catch (err) {
       setError(err.code === "UNAUTHENTICATED" ? "Sign in to view verification templates." : err.message);
     } finally {
@@ -55,10 +69,6 @@ export default function VerificationPage() {
   }, [categoryId]);
 
   useEffect(() => { load(); }, [load]);
-
-  const [name, setName] = useState("");
-  const [version, setVersion] = useState("1.0");
-  const [items, setItems] = useState([newItem()]);
 
   function updateItem(index, patch) {
     setItems((prev) => prev.map((item, i) => (i === index ? { ...item, ...patch } : item)));
