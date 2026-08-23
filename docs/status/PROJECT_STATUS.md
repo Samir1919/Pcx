@@ -1,7 +1,7 @@
 # PCX Project Status
 
 - Updated: 2026-08-23
-- Current main evidence commit: `3bef1eb` on branch `main` (admin manual-to-automation slices: row actions, contextual prefill, defaults, template autoselect, polling, version auto-increment)
+- Current main evidence commit: `c680817` on branch `main` (unified contact delivery + notification provider config + event-driven emit + anti-spam)
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: Stage 3 control-plane completion and next dependency-ready work
 - Current autonomy maturity: Stage 2 in progress; Stage 3 control plane complete for bounded local/CI parallel orchestration (ADR 0008)
@@ -35,7 +35,7 @@ This file is the central progress index. Approved specifications define what PCX
 | E12 — Return & refund | In progress | Customer-gated return request with server-owned REQUESTED→APPROVED→RECEIVED→REFUNDED lifecycle and database-enforced one-refundable-request-per-item (double-refund guard); physical serial-match enforced on return intake (received serial must equal the sold unit's primary serial, normalized); admin return & refund management workspace with read-only return list | Refund gateway execution (sandbox), carrier pickup |
 | E13 — Warranty & claims | In progress | One warranty per sold order item with a valid window, server-owned claim lifecycle (REQUESTED→RESOLVED) with typed resolutions (REPAIR/REPLACE/REFUND/REJECT), and customer-owned public claim creation (`POST /api/v1/claims`, ownership enforced); admin warranty & claims management workspace with read-only warranty and claim lists | Warranty policy authoring, claim inspections, carrier pickup, cost accounting |
 | E14 — Admin operations & reporting | In progress | Admin-gated operations dashboard (`GET /api/v1/admin/reports/operations`) with lifecycle counts and recent orders/sell requests under AUDIT_READ/SYSTEM_CONFIGURE; admin operational workspaces (listing, acquisition, shipment, return, warranty, notifications) | Full BI/reporting UI, scheduled exports, per-module operational screens |
-| E15 — Notifications | In progress | Provider-neutral notification outbox (PENDING→SENT/FAILED) with SYSTEM_CONFIGURE-gated creation and dispatch; delivery failure never rolls back a business transaction; admin notification create workspace with read-only notification list | Concrete email/SMS/push providers, retries, delivery visibility |
+| E15 — Notifications | In progress | Provider-neutral notification outbox (PENDING→SENT/FAILED) with SYSTEM_CONFIGURE-gated creation and dispatch; delivery failure never rolls back a business transaction; admin notification create workspace with read-only notification list; EMAIL (Resend) + SMS (bdBulksms) provider credential config in admin (masked, encrypted, sandbox/live activation); synchronous contact delivery for verify/reset OTP; deterministic event emitter + idempotent outbox with ORDER_PLACED/OFFER_CREATED/SELL_REQUEST_SUBMITTED emits; worker resolves admin-configured dispatchers | Shipment/order-delivery customer-resolve emit, provider-based MFA, real provider activation |
 | E16 — Audit, observability & jobs | In progress | Append-only audit logs (`audit_logs`) with AUDIT_READ-gated filtered listing and best-effort critical-action writes (listing publish, price change, inspection approve/reject); no auto-delete retention; liveness/readiness endpoints | BI dashboards, external SIEM |
 | E17 — Security hardening | In progress | Baseline response security headers (`nosniff`, `DENY`, `no-referrer`, restrictive CSP) with regression coverage | Upload scanning, HSTS, CSP allowlisting for admin UI, MFA gates |
 | E18 — Backup, staging & release readiness | In progress | Release preflight (`npm run release:preflight`) verifying staging/backup/restore artifacts and no placeholder secrets; runbook in handoff | Real production deployment and real secrets (hard stop) |
@@ -72,6 +72,7 @@ This file is the central progress index. Approved specifications define what PCX
 - Autonomous loop dry-run: `node scripts/autonomous-loop.mjs --dry-run --real-executor --no-persist-graph` completes spec/api/web with a surfaced cost/runtime report (Tasks 3, Passed 3, Cost 3); `--approval-required` blocks commit-creating tasks with `approval_required`; `--deepseek-executor` and `--openai-review` opt into AI-backed adapters.
 - Latest: merge `1c0bb4b` completed the Sell-to-PCX seller/admin UX (A→D): real web submit (DRAFT→SUBMITTED), admin queue excludes DRAFT + admin detail view, seller "My sell requests"/offer Accept-Decline, and self-service profile edit + password change with sell-form name/phone autosave (534 tests / 0 fail; headed business-e2e 11/11). Prior: merge `fe84344` enforced the double-sell guard; `9492775` added `business-e2e`/`shipment-flow` checks; `b52d0a3` synced the stale migrations test; `FULLSTACK_A_TO_Z_VERIFY.md` built `storefront-e2e`/`admin-e2e`.
 - Admin manual-to-automation slices (commits `33eb30f`…`25979e4`, docs commit `3bef1eb`): returns/warranty/shipment row actions + acquisition contextual prefill; offer-expiry and warranty-window defaults; inspection-template autoselect + listing slug prefill; overview/audit 30s polling; verification template version auto-increment. Headed `admin-e2e` grown from 21→25 steps, all pass; `npm run verify` pass (534 tests / 0 fail).
+- Unified contact delivery + notification (commit `c680817`): contact normalization + per-contact abuse control; EMAIL/SMS provider config + dispatchers (Resend/bdBulksms); synchronous verify/reset delivery; event emitter + idempotent outbox + lifecycle emits + worker configured dispatch; admin Providers tab. Headed `admin-e2e` 26/26; `npm run verify` pass (543 tests / 517 pass / 0 fail / 26 skipped). Storefront IntlPhoneInput deferred (recorded in handoff).
 
 
 
@@ -105,7 +106,7 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Next dependency-ready work
 
-1. Event-driven notifications (server-side lifecycle events → notification outbox) — deferred from the admin manual-to-automation slice; requires business-policy decisions on which events notify which users plus notification-dispatcher wiring. See `docs/handoffs/ADMIN_MANUAL_TO_AUTOMATION.md`.
+1. Storefront `IntlPhoneInput` (all countries, default BD +880) + email validation UI on login/register/sell/account/verify/reset; backend normalization/anti-spam done, UI remains. See `docs/handoffs/UNIFIED_CONTACT_NOTIFICATION.md`.
 2. Bulk CSV import for catalog models/attributes and indicative quote ranges — deferred; larger backend feature (parser + mapping + idempotent batch insert).
 3. Install/authenticate a real container scanner (docker scout login or trivy) to produce an actual image vulnerability report.
 4. Implement a real bKash HTTP adapter behind the injected gateway contract (sandbox-only until real credentials are approved).
