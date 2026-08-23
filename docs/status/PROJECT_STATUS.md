@@ -1,7 +1,7 @@
 # PCX Project Status
 
 - Updated: 2026-08-23
-- Current main evidence commit: `237687d` (provider-based privileged MFA, merged into `origin/main`)
+- Current main evidence commit: `b06332e` (staging compose smoke, merged into `origin/main`)
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: Stage 3 control-plane completion and next dependency-ready work
 - Current autonomy maturity: Stage 2 in progress; Stage 3 control plane complete for bounded local/CI parallel orchestration (ADR 0008)
