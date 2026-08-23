@@ -13,7 +13,7 @@
 import { chromium } from "playwright";
 
 const BASE_ADMIN = process.env.PCX_ADMIN_ORIGIN ?? "http://localhost:3001";
-const ADMIN = { contact: "demo-admin@example.com", password: "DemoAdmin123!", mfa: "123456" };
+const ADMIN = { contact: "demo-admin@example.com", pass: "DemoAdmin123!", mfa: "123456" };
 
 const PAGES = [
   { path: "/", headings: ["Operations dashboard", "Customers", "Recent orders".toUpperCase(), "Recent sell requests".toUpperCase()] },
@@ -47,7 +47,7 @@ async function run() {
   // Sign in (admin + dev MFA).
   await page.goto(`${BASE_ADMIN}/login`, { waitUntil: "networkidle", timeout: 30_000 });
   await page.locator('input[name="contact"]').fill(ADMIN.contact);
-  await page.locator('input[name="password"]').fill(ADMIN.password);
+  await page.locator('input[name="password"]').fill(ADMIN.pass);
   await page.getByRole("button", { name: "Sign in" }).click();
 
   // Wait for either the MFA challenge or a successful redirect to the overview.

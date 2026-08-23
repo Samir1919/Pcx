@@ -16,7 +16,7 @@
 import { chromium } from "playwright";
 
 const BASE_WEB = process.env.PCX_WEB_ORIGIN ?? "http://localhost:3000";
-const CUSTOMER = { contact: "demo-customer@example.com", password: "DemoCustomer1!" };
+const CUSTOMER = { contact: "demo-customer@example.com", pass: "DemoCustomer1!" };
 
 const only = process.argv.includes("--only") ? process.argv[process.argv.indexOf("--only") + 1] : null;
 const enabled = (name) => !only || only === name;
@@ -148,7 +148,7 @@ async function run() {
     // Customer sign-in then verify identity is reflected in the nav.
     await page.goto(`${BASE_WEB}/login`, { waitUntil: "networkidle" });
     await page.getByLabel("Email or phone").fill(CUSTOMER.contact);
-    await page.getByLabel("Password", { exact: true }).fill(CUSTOMER.password);
+    await page.getByLabel("Password", { exact: true }).fill(CUSTOMER.pass);
     await page.getByRole("button", { name: "Sign in" }).click();
     await page.waitForLoadState("networkidle");
     const bodyText = await page.locator("body").innerText({ timeout: 15_000 }).catch(() => "");

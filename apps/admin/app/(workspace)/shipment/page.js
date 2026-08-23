@@ -63,7 +63,8 @@ export default function ShipmentPage() {
       phone: form.get("phone"),
       line1: form.get("line1"),
       city: form.get("city"),
-      postalCode: form.get("postalCode")
+      postalCode: form.get("postalCode"),
+      country: form.get("country") || "BD"
     };
     await run(() => shipmentApi.ship(form.get("shipmentId"), address), setBusy, setNotice);
     event.currentTarget.reset();
@@ -122,8 +123,8 @@ export default function ShipmentPage() {
           <form onSubmit={create}>
             <Field label="Order ID" name="orderId" required />
             <Field label="Courier" name="courier" required />
-            <Field label="Package type" name="packageType" />
-            <Field label="Weight" name="weight" type="number" min="0" />
+            <Field label="Package type" name="packageType" required />
+            <Field label="Weight" name="weight" type="number" min="0" step="any" required />
             <Field label="COD amount" name="codAmount" type="number" min="0" />
             <Field label="Shipping charge" name="shippingCharge" type="number" min="0" />
             <button className="primary" disabled={busy}>Create shipment</button>
@@ -139,6 +140,7 @@ export default function ShipmentPage() {
             <Field label="Address line 1" name="line1" required />
             <Field label="City" name="city" required />
             <Field label="Postal code" name="postalCode" />
+            <Field label="Country" name="country" defaultValue="BD" />
             <button className="primary" disabled={busy}>Mark shipped</button>
           </form>
         </section>
