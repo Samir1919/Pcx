@@ -1,7 +1,7 @@
 # PCX Project Status
 
 - Updated: 2026-08-23
-- Current main evidence commit: `1c0bb4b` on branch `main` (sell-to-PCX seller/admin UX completion: real submit, admin queue/detail, seller offers, profile+password)
+- Current main evidence commit: `3bef1eb` on branch `main` (admin manual-to-automation slices: row actions, contextual prefill, defaults, template autoselect, polling, version auto-increment)
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: Stage 3 control-plane completion and next dependency-ready work
 - Current autonomy maturity: Stage 2 in progress; Stage 3 control plane complete for bounded local/CI parallel orchestration (ADR 0008)
@@ -71,6 +71,7 @@ This file is the central progress index. Approved specifications define what PCX
 - Backup/restore drill: seed rows recovered to a throwaway database.
 - Autonomous loop dry-run: `node scripts/autonomous-loop.mjs --dry-run --real-executor --no-persist-graph` completes spec/api/web with a surfaced cost/runtime report (Tasks 3, Passed 3, Cost 3); `--approval-required` blocks commit-creating tasks with `approval_required`; `--deepseek-executor` and `--openai-review` opt into AI-backed adapters.
 - Latest: merge `1c0bb4b` completed the Sell-to-PCX seller/admin UX (A→D): real web submit (DRAFT→SUBMITTED), admin queue excludes DRAFT + admin detail view, seller "My sell requests"/offer Accept-Decline, and self-service profile edit + password change with sell-form name/phone autosave (534 tests / 0 fail; headed business-e2e 11/11). Prior: merge `fe84344` enforced the double-sell guard; `9492775` added `business-e2e`/`shipment-flow` checks; `b52d0a3` synced the stale migrations test; `FULLSTACK_A_TO_Z_VERIFY.md` built `storefront-e2e`/`admin-e2e`.
+- Admin manual-to-automation slices (commits `33eb30f`…`25979e4`, docs commit `3bef1eb`): returns/warranty/shipment row actions + acquisition contextual prefill; offer-expiry and warranty-window defaults; inspection-template autoselect + listing slug prefill; overview/audit 30s polling; verification template version auto-increment. Headed `admin-e2e` grown from 21→25 steps, all pass; `npm run verify` pass (534 tests / 0 fail).
 
 
 
@@ -104,9 +105,11 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Next dependency-ready work
 
-1. Install/authenticate a real container scanner (docker scout login or trivy) to produce an actual image vulnerability report.
-2. Implement a real bKash HTTP adapter behind the injected gateway contract (sandbox-only until real credentials are approved).
-3. Production deployment and real provider credentials remain human-approval hard stops.
+1. Event-driven notifications (server-side lifecycle events → notification outbox) — deferred from the admin manual-to-automation slice; requires business-policy decisions on which events notify which users plus notification-dispatcher wiring. See `docs/handoffs/ADMIN_MANUAL_TO_AUTOMATION.md`.
+2. Bulk CSV import for catalog models/attributes and indicative quote ranges — deferred; larger backend feature (parser + mapping + idempotent batch insert).
+3. Install/authenticate a real container scanner (docker scout login or trivy) to produce an actual image vulnerability report.
+4. Implement a real bKash HTTP adapter behind the injected gateway contract (sandbox-only until real credentials are approved).
+5. Production deployment and real provider credentials remain human-approval hard stops.
 
 
 
