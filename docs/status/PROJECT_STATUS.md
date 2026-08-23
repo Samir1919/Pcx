@@ -1,7 +1,7 @@
 # PCX Project Status
 
 - Updated: 2026-08-23
-- Current main evidence commit: pending (branch `agent/selltopcx-seller-admin-ux`, merge to follow)
+- Current main evidence commit: `1c0bb4b` on branch `main` (sell-to-PCX seller/admin UX completion: real submit, admin queue/detail, seller offers, profile+password)
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: Stage 3 control-plane completion and next dependency-ready work
 - Current autonomy maturity: Stage 2 in progress; Stage 3 control plane complete for bounded local/CI parallel orchestration (ADR 0008)
@@ -63,14 +63,14 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Current verification baseline
 
-- Root `npm test`: 528 total, 502 pass, 0 fail, 26 skipped (DB integration) after the double-sell guard slice.
+- Root `npm test`: 534 total, 508 pass, 0 fail, 26 skipped (DB integration) after the sell-to-PCX seller/admin UX slice.
 - Root `npm run verify`: pass for this slice: E0, lint, typecheck, tests, build, and security scan (secrets + dependencies + container).
 - CI-equivalent `npm run verify:ci`: application/unit + PostgreSQL integration + E2E smoke, all passing (0 failures).
 - E0 artifact verification: 33 required artifacts (3 unused package stubs removed); latest GitHub merge evidence is PR #1 (`1692049`).
 - Dependency audit (`npm audit --omit=dev --audit-level=high`): 0 known vulnerabilities.
 - Backup/restore drill: seed rows recovered to a throwaway database.
 - Autonomous loop dry-run: `node scripts/autonomous-loop.mjs --dry-run --real-executor --no-persist-graph` completes spec/api/web with a surfaced cost/runtime report (Tasks 3, Passed 3, Cost 3); `--approval-required` blocks commit-creating tasks with `approval_required`; `--deepseek-executor` and `--openai-review` opt into AI-backed adapters.
-- Latest detailed evidence: merge `fe84344` enforces the "an item cannot be sold twice" invariant discovered by headed testing — order creation now atomically moves the sellable listing `PUBLISHED→RESERVED` and consumes the ACTIVE reservation, so a purchased item's passport returns 404 and the item disappears from public listing search (verification: `npm test` 528/0 fail, fresh-DB integration 26/26, headed business-e2e 11/11). Prior: merge `9492775` added `business-e2e`/`shipment-flow` checks and fixed two admin shipment form mismatches (`packageType`/`weight`, courier `address.country`); merge `b52d0a3` synced the stale `migrations.test.mjs`. `FULLSTACK_A_TO_Z_VERIFY.md` built `storefront-e2e` (12/12) + `admin-e2e` (18/18) and fixed `seed-demo` reservation idempotency.
+- Latest: merge `1c0bb4b` completed the Sell-to-PCX seller/admin UX (A→D): real web submit (DRAFT→SUBMITTED), admin queue excludes DRAFT + admin detail view, seller "My sell requests"/offer Accept-Decline, and self-service profile edit + password change with sell-form name/phone autosave (534 tests / 0 fail; headed business-e2e 11/11). Prior: merge `fe84344` enforced the double-sell guard; `9492775` added `business-e2e`/`shipment-flow` checks; `b52d0a3` synced the stale migrations test; `FULLSTACK_A_TO_Z_VERIFY.md` built `storefront-e2e`/`admin-e2e`.
 
 
 
