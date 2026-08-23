@@ -1,4 +1,4 @@
-# Staging overlay. Runs a production-like local stack isolated from the
+# Staging overlay. Runs a production-like full-stack locally, isolated from the
 # development containers (separate project name, ports, volumes, credentials).
 # All credentials below are synthetic and marked non-production. Real staging
 # must inject secrets from a secret manager/environment, never from this file.
@@ -19,12 +19,14 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
   redis:
     image: redis:7-alpine
     restart: unless-stopped
     ports: [ "6380:6379" ]
     command: [ "redis-server", "--appendonly", "yes" ]
     volumes: [ "pcx-staging-redis:/data" ]
+
   minio:
     image: minio/minio:latest
     restart: unless-stopped
@@ -34,6 +36,100 @@ services:
       MINIO_ROOT_PASSWORD: change_me_staging_local_only
     ports: [ "9002:9000", "9003:9003" ]
     volumes: [ "pcx-staging-minio:/data" ]
+
+  migrate:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    command: [ "node", "apps/api/src/infrastructure/database/migrate.mjs" ]
+    environment:
+      DATABASE_URL: postgresql://pcx_staging:pcx_staging_local_only@postgres:5432/pcx_staging
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://pcx_staging:pcx_staging_local_only@postgres:5432/pcx_staging
+      API_PORT: 4000
+      API_ALLOWED_ORIGINS: http://localhost:8082,http://localhost:8083
+      NODE_ENV: staging
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:4000/health/ready" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    build:
+      context: ..
+      dockerfile: apps/worker/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://pcx_staging:pcx_staging_local_only@postgres:5432/pcx_staging
+      COURIER_WEBHOOK_SECRET: ${COURIER_WEBHOOK_SECRET:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    environment:
+      PCX_API_ORIGIN: http://api:4000
+      NODE_ENV: staging
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:3000" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  admin:
+    build:
+      context: ..
+      dockerfile: apps/admin/Dockerfile
+    environment:
+      PCX_API_ORIGIN: http://api:4000
+      NODE_ENV: staging
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:3001" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - web
+      - admin
+    ports:
+      - "8082:8080"
+      - "8083:8081"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+
 volumes:
   pcx-staging-postgres:
   pcx-staging-redis:
