@@ -146,6 +146,19 @@ export function createPostgresIdentityRepository({ pool }) {
 
     // Trusted-device window (ADR 0010). Returns the owning user id only when the
     // credential hash matches an active, unexpired, non-revoked device record.
+    // Composition-root only (never exposed over HTTP): resolves a user's
+    // delivery contact (email/phone) so the provider MFA adapter can send a
+    // one-time code to the right channel.
+    async findContactByUserId(userId) {
+      if (typeof userId !== "string" || userId.length === 0) throw new TypeError("userId is required");
+      const result = await pool.query(
+        `SELECT email, phone FROM users WHERE id = $1`,
+        [userId]
+      );
+      const row = result.rows[0];
+      return row ? Object.freeze({ email: row.email, phone: row.phone }) : null;
+    },
+
     async findActiveTrustedDeviceUserId(credentialHash, now) {
       assertHash(credentialHash, "credentialHash");
       const result = await pool.query(

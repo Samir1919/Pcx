@@ -12,8 +12,19 @@ import { classifyContact } from "../identity/contact-normalization.mjs";
 
 const SUBJECTS = Object.freeze({
   CONTACT_VERIFICATION: "Verify your PCX contact",
-  PASSWORD_RESET: "Reset your PCX password"
+  PASSWORD_RESET: "Reset your PCX password",
+  MFA: "Your PCX sign-in code"
 });
+
+function messageFor(purpose, credential, expiresAt) {
+  if (purpose === "CONTACT_VERIFICATION") return `Your PCX verification code is ${credential}. It expires at ${expiresAt}.`;
+  if (purpose === "MFA") return `Your PCX sign-in code is ${credential}. It expires at ${expiresAt}.`;
+  return `Your PCX password reset code is ${credential}. It expires at ${expiresAt}.`;
+}
+
+function subjectFor(purpose) {
+  return SUBJECTS[purpose] ?? SUBJECTS.PASSWORD_RESET;
+}
 
 export function createContactDeliveryService({ providerConfig, fetchImpl = globalThis.fetch } = {}) {
   if (!providerConfig || typeof providerConfig.getActiveCredentials !== "function") throw new TypeError("providerConfig.getActiveCredentials is required");
@@ -45,13 +56,11 @@ export function createContactDeliveryService({ providerConfig, fetchImpl = globa
       if (!classified.ok) throw new TypeError("contact is invalid");
       if (typeof credential !== "string" || credential.length === 0) throw new TypeError("credential is required");
 
-      const text = purpose === "CONTACT_VERIFICATION"
-        ? `Your PCX verification code is ${credential}. It expires at ${expiresAt}.`
-        : `Your PCX password reset code is ${credential}. It expires at ${expiresAt}.`;
-      const name = purpose === "CONTACT_VERIFICATION" ? "CONTACT_VERIFICATION" : "PASSWORD_RESET";
+      const text = messageFor(purpose, credential, expiresAt);
+      const subject = subjectFor(purpose);
 
       if (classified.channel === "EMAIL") {
-        await sendEmail(classified.value, SUBJECTS[name], text);
+        await sendEmail(classified.value, subject, text);
       } else {
         await sendSms(classified.value, text);
       }

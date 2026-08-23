@@ -107,6 +107,17 @@ test("privileged login requires a valid MFA challenge and never creates a passwo
   assert.equal(ready.calls.sessions.length, 0);
 });
 
+test("privileged login surfaces mfa_unavailable when the MFA provider's beginChallenge fails (fail closed)", async () => {
+  const repository = { async findPasswordIdentityByContact() { return { id: "admin-1", password_hash: "hash", status: "ACTIVE", roles: ["ADMIN"] }; } };
+  const { service, calls } = fixture({
+    repository,
+    mfa: { async beginChallenge() { throw new Error("no active provider"); } }
+  });
+  await assert.rejects(service.login({ contact: "admin@example.com", password: "password" }), (error) => error.code === "mfa_unavailable");
+  assert.equal(calls.sessions.length, 0);
+  assert.equal(calls.audits.at(-1).outcome, "mfa_unavailable");
+});
+
 test("mfa verification completes with a session and fails closed without provider", async () => {
   const missing = fixture();
   await assert.rejects(missing.service.verifyMfa({ challengeId: "c1", credential: "123456" }), (error) => error.code === "invalid_mfa");

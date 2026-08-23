@@ -155,7 +155,16 @@ export function createAuthService({
           await record("login", "mfa_unavailable", context, identity.id);
           throw new AuthenticationError("mfa_unavailable");
         }
-        const challenge = safeMfaChallenge(await mfa.beginChallenge({ userId: identity.id, requestId: safeContext(context).requestId }));
+        let challenge;
+        try {
+          challenge = safeMfaChallenge(await mfa.beginChallenge({ userId: identity.id, requestId: safeContext(context).requestId }));
+        } catch {
+          // Provider MFA fails closed: no contact channel or no active EMAIL/SMS
+          // provider means the challenge could not be delivered, which is
+          // surfaced as mfa_unavailable rather than a server error.
+          await record("login", "mfa_unavailable", context, identity.id);
+          throw new AuthenticationError("mfa_unavailable");
+        }
         await record("login", "mfa_required", context, identity.id);
         return Object.freeze({ status: "mfa_required", challenge });
       }
