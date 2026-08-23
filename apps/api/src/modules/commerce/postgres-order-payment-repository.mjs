@@ -58,6 +58,13 @@ export function createPostgresOrderPaymentRepository({ pool }) {
     // mid-loop failure can never leave a permanently orphaned, item-less order
     // (the order id is server-generated per call, so a retry after a partial
     // failure would otherwise create a new orphan rather than resuming).
+    //
+    // Double-sell guard (spec §5/§22): the sellable listing is atomically moved
+    // PUBLISHED -> RESERVED and the item's ACTIVE reservation is consumed exactly
+    // once in the same transaction. A second order for an already-claimed item
+    // finds no PUBLISHED row and aborts with item_unavailable, so the database
+    // (not the UI) is the final authority that a physical item cannot be sold
+    // twice.
     async createOrderWithItems(record, items) {
       return transaction(pool, async (client) => {
         const orderNo = await client.query("SELECT 'ORD-' || to_char(nextval('orders_no_seq'), 'FM000000') AS no");
@@ -69,6 +76,27 @@ export function createPostgresOrderPaymentRepository({ pool }) {
         );
         const orderItems = [];
         for (const snapshot of items) {
+          // Claim the sellable listing for this physical item. At most one
+          // PUBLISHED listing exists per item, so this is the authoritative
+          // double-sell lock.
+          const claimed = await client.query(
+            `UPDATE listings SET status = 'RESERVED'
+             WHERE inventory_item_id = $1 AND status = 'PUBLISHED'
+             RETURNING id`,
+            [snapshot.inventoryItemId]
+          );
+          if (claimed.rowCount !== 1) {
+            const error = new Error("item is no longer available");
+            error.code = "item_unavailable";
+            throw error;
+          }
+          // Consume the ACTIVE reservation exactly once (expired/cancelled or
+          // already-converted rows simply do not match).
+          await client.query(
+            `UPDATE reservations SET status = 'CONVERTED', converted_at = $2
+             WHERE inventory_item_id = $1 AND status = 'ACTIVE'`,
+            [snapshot.inventoryItemId, record.placedAt]
+          );
           const result = await client.query(
             `INSERT INTO order_items(id, order_id, inventory_item_id, listing_id, product_model_id, pcx_item_id_snapshot, product_name_snapshot, spec_snapshot, grade_snapshot, health_score_snapshot, unit_price)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11)

@@ -66,6 +66,22 @@ test("payment create derives provider txn id from the gateway and confirm enforc
   await assert.rejects(invalidState.service.confirmPayment("access", "sandbox-pay-id-1"), (error) => error.code === "invalid_state");
 });
 
+test("order creation surfaces the double-sell guard as item_unavailable", async () => {
+  const { service } = fixture({
+    repository: {
+      async createOrderWithItems() {
+        const error = new Error("item is no longer available");
+        error.code = "item_unavailable";
+        throw error;
+      }
+    }
+  });
+  await assert.rejects(
+    service.createOrder("access", { items: [{ inventoryItemId: "inv-1", productModelId: "m1", pcxItemId: "PCX-1", productName: "GPU", unitPrice: 1000 }] }),
+    (error) => error.code === "item_unavailable"
+  );
+});
+
 test("payment create rejects client-supplied provider and providerTransactionId (server-authoritative)", async () => {
   const { service } = fixture();
   await assert.rejects(

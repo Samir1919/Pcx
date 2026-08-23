@@ -58,6 +58,7 @@ function map(error) {
     if (error.code === "csrf_invalid") return [403, "CSRF_INVALID", "CSRF validation failed"];
     if (error.code === "forbidden") return [403, "ORDER_FORBIDDEN", "Order operation is not allowed"];
     if (error.code === "conflict") return [409, "PAYMENT_CONFLICT", "Payment provider transaction already exists"];
+    if (error.code === "item_unavailable") return [409, "ITEM_UNAVAILABLE", "The item is no longer available"];
     if (error.code === "invalid_state") return [409, "INVALID_PAYMENT_STATE", "Payment is not in an acceptable state"];
     if (error.code === "invalid_reference") return [422, "INVALID_REFERENCE", "Order/payment reference is invalid"];
     return [error.code === "invalid_request" ? 400 : 422, error.code === "invalid_request" ? "INVALID_REQUEST" : "INVALID_INPUT", "Order/payment request is invalid"];
