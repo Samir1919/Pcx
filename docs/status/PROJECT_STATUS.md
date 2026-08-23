@@ -1,7 +1,7 @@
 # PCX Project Status
 
 - Updated: 2026-08-23
-- Current main evidence commit: `40204ab` on branch `main`-bound `agent/dev-docker-node24` (dev Docker-first + Node 24 LTS + scheduled backlog); final status-only commit pending merge
+- Current main evidence commit: `d5e261a` (storefront IntlPhoneInput + contact validation, merged into `origin/main`)
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: Stage 3 control-plane completion and next dependency-ready work
 - Current autonomy maturity: Stage 2 in progress; Stage 3 control plane complete for bounded local/CI parallel orchestration (ADR 0008)
