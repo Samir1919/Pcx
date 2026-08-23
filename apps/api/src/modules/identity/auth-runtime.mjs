@@ -48,6 +48,9 @@ import { createPostgresOperationsReportRepository } from "../reporting/postgres-
 import { createOperationsReportService } from "../reporting/operations-report-service.mjs";
 import { createPostgresNotificationRepository } from "../notification/postgres-notification-repository.mjs";
 import { createNotificationService } from "../notification/notification-service.mjs";
+import { createPostgresNotificationProviderConfigRepository } from "../notification/postgres-notification-provider-config-repository.mjs";
+import { createNotificationProviderConfigService } from "../notification/notification-provider-config-service.mjs";
+import { createContactDeliveryService } from "../notification/contact-delivery-service.mjs";
 import { createPostgresAuditLogRepository } from "../audit/postgres-audit-log-repository.mjs";
 import { createAuditLogService } from "../audit/audit-log-service.mjs";
 import { createPostgresPaymentProviderConfigRepository } from "../payment/postgres-payment-provider-config-repository.mjs";
@@ -92,10 +95,19 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   // the dev MFA adapter. Production omits it, so verify-by-code fails closed
   // until a real mail/phone delivery provider is configured.
   const contactVerifier = process.env.NODE_ENV === "development" ? createDevContactVerifier() : undefined;
+  const notificationProviderConfigService = createNotificationProviderConfigService({
+    authService,
+    repository: createPostgresNotificationProviderConfigRepository({ pool })
+  });
+  // Synchronous OTP/verification/reset delivery now routes through the active
+  // EMAIL (Resend) / SMS (bdBulksms) provider config instead of a no-op. The
+  // fallback no-op from the caller is only used when the runtime is constructed
+  // without a pool-backed delivery for tests.
+  const contactDeliveryService = createContactDeliveryService({ providerConfig: notificationProviderConfigService });
   const identityActionService = createIdentityActionService({
     identityRepository: repository,
     actionRepository: createPostgresIdentityActionRepository({ pool }),
-    delivery,
+    delivery: contactDeliveryService,
     abuseControl: control,
     audit: auditSink,
     contactVerifier
@@ -158,6 +170,7 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
     warrantyClaimService,
     operationsReportService,
     notificationService,
+    notificationProviderConfigService,
     auditLogService,
     paymentProviderConfigService,
     indicativePriceService,
