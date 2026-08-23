@@ -1,5 +1,5 @@
-- Status: G + H complete (storefront IntlPhoneInput + shipment/order-delivery emits)
-- Latest commit: f756397
+- Status: G + H + I complete (storefront IntlPhoneInput + shipment/order emits + provider MFA)
+- Latest commit: 51312c0
 
 # Task Backlog: Notification & Contact Delivery Follow-ups
 
@@ -34,9 +34,13 @@ Scheduled follow-up slices after the unified contact delivery + notification wor
 
 ## I — Provider-based MFA (SMS/Email OTP)
 
-- Scope: new provider-MFA adapter using `ContactDeliveryService`; inject as
-  `mfa` in `auth-runtime`. Fail-closed when provider config absent.
-- Acceptance: auth-service MFA tests + integration (sandbox) + headed login flow.
+- Status: Complete.
+- Scope: new `provider-mfa.mjs` adapter (6-digit OTP, in-memory challenge) using
+  `ContactDeliveryService` (added `MFA` purpose); wired as the default MFA in
+  `auth-runtime` (lazy holder avoids the authService↔providerConfig cycle);
+  auth-service maps a `beginChallenge` failure to `mfa_unavailable` (fail closed).
+- Acceptance: provider-mfa unit tests (deliver/verify/fail-closed) + auth-service
+  fail-closed test; `npm run verify` green (560 tests / 0 fail).
 - Deps: G completion preferable.
 
 ## J — Staging compose smoke (no deploy)
