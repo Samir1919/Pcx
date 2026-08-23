@@ -8,7 +8,7 @@
 # The root `.dockerignore` keeps `.env`, node_modules, git, and logs out of the
 # build context so secrets never reach the image.
 
-FROM node:22-alpine
+FROM node:24.19.0-alpine
 
 WORKDIR /app
 

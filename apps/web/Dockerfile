@@ -6,7 +6,7 @@
 # The app already configures Next.js `output: "standalone"`, so the runner
 # stage only needs the standalone server and static assets.
 
-FROM node:22-alpine AS deps
+FROM node:24.19.0-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps/admin/package.json apps/admin/package.json
@@ -25,7 +25,7 @@ ENV PCX_API_ORIGIN=$PCX_API_ORIGIN
 COPY apps/web apps/web
 RUN npm run build -w @pcx/web
 
-FROM node:22-alpine AS runner
+FROM node:24.19.0-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=builder /app/apps/web/.next/standalone ./

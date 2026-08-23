@@ -25,17 +25,90 @@ services:
       MINIO_ROOT_PASSWORD: change_me_local_only
     ports: [ "9000:9000", "9001:9001" ]
     volumes: [ "pcx-minio:/data" ]
+
+  migrate:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    command: [ "node", "apps/api/src/infrastructure/database/migrate.mjs" ]
+    environment:
+      DATABASE_URL: postgresql://pcx:pcx_local_only@postgres:5432/pcx
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://pcx:pcx_local_only@postgres:5432/pcx
+      API_PORT: 4000
+      NODE_ENV: development
+      API_ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001
+    ports: [ "4000:4000" ]
+    volumes:
+      - ../apps/api:/app/apps/api
+      - ../packages/domain:/app/packages/domain
+      - ../package.json:/app/package.json
+      - ../package-lock.json:/app/package-lock.json
+    command: [ "node", "--watch", "apps/api/src/index.mjs" ]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   worker:
     build:
-      context: .
+      context: ..
       dockerfile: apps/worker/Dockerfile
     environment:
       DATABASE_URL: postgresql://pcx:pcx_local_only@postgres:5432/pcx
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
+
+  web:
+    image: node:24.19.0-alpine
+    working_dir: /app
+    environment:
+      PCX_API_ORIGIN: http://api:4000
+      NODE_ENV: development
+    ports: [ "3000:3000" ]
+    volumes:
+      - ..:/app
+      - web_node_modules:/app/node_modules
+    command: [ "sh", "-c", "npm ci --workspace @pcx/web --no-audit --no-fund && npm run dev -w @pcx/web -- -p 3000" ]
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
+
+  admin:
+    image: node:24.19.0-alpine
+    working_dir: /app
+    environment:
+      PCX_API_ORIGIN: http://api:4000
+      NODE_ENV: development
+    ports: [ "3001:3001" ]
+    volumes:
+      - ..:/app
+      - admin_node_modules:/app/node_modules
+    command: [ "sh", "-c", "npm ci --workspace @pcx/admin --no-audit --no-fund && npm run dev -w @pcx/admin -- -p 3001" ]
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   pcx-postgres:
   pcx-redis:
   pcx-minio:
+  web_node_modules:
+  admin_node_modules:

@@ -107,7 +107,7 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Next dependency-ready work
 
-1. Storefront `IntlPhoneInput` (all countries, default BD +880) + email validation UI on login/register/sell/account/verify/reset; backend normalization/anti-spam done, UI remains. See `docs/handoffs/UNIFIED_CONTACT_NOTIFICATION.md`.
+1. Scheduled notification/contact delivery follow-ups (G/H/I/J) are captured in `docs/tasks/NOTIFICATION_DELIVERY_BACKLOG.md`: storefront IntlPhoneInput UI, shipment/order-delivery emit, provider-based MFA, staging compose smoke.
 2. Bulk CSV import for catalog models/attributes and indicative quote ranges — deferred; larger backend feature (parser + mapping + idempotent batch insert).
 3. Install/authenticate a real container scanner (docker scout login or trivy) to produce an actual image vulnerability report.
 4. Implement a real bKash HTTP adapter behind the injected gateway contract (sandbox-only until real credentials are approved).
