@@ -9,9 +9,9 @@ function fixture(overrides = {}) {
   const calls = { creates: [], ships: [], delivers: [], returns: [], events: [], courierCalls: [], enqueued: [], applied: [], failed: [], pending: [] };
   const repository = {
     async create(record) { calls.creates.push(record); return record; },
-    async markShipped(id, trackingId, now) { calls.ships.push({ id, trackingId, now }); return { status: "shipped", record: { id, status: ShipmentStatus.SHIPPED, trackingId } }; },
-    async markDelivered(id, now) { calls.delivers.push({ id, now }); return { status: "delivered", record: { id, status: ShipmentStatus.DELIVERED } }; },
-    async markReturned(id, now) { calls.returns.push({ id, now }); return { status: "returned", record: { id, status: ShipmentStatus.RETURNED } }; },
+    async markShipped(id, trackingId, now) { calls.ships.push({ id, trackingId, now }); return { status: "shipped", record: { id, orderId: "o1", status: ShipmentStatus.SHIPPED, trackingId } }; },
+    async markDelivered(id, now) { calls.delivers.push({ id, now }); return { status: "delivered", record: { id, orderId: "o1", status: ShipmentStatus.DELIVERED } }; },
+    async markReturned(id, now) { calls.returns.push({ id, now }); return { status: "returned", record: { id, orderId: "o1", status: ShipmentStatus.RETURNED } }; },
     async recordEvent(event) { calls.events.push(event); return { id: event.id }; },
     async list() { return []; },
     async enqueueWebhookEvent(event) { calls.enqueued.push(event); return { ...event, status: "PENDING", retryCount: 0 }; },
@@ -27,15 +27,22 @@ function fixture(overrides = {}) {
     async createShipment({ reference, address: addr }) { calls.courierCalls.push({ reference, address: addr }); return { trackingId: `sandbox-trk-${reference}`, status: "CREATED" }; },
     ...overrides.courier
   };
+  const emitted = [];
+  const notificationEmitter = {
+    async emit(input) { emitted.push(input); return { status: "pending" }; },
+    ...overrides.notificationEmitter
+  };
   const service = createShipmentService({
     authService: { async authenticateAccess() { return { userId: "admin-1", status: "ACTIVE", roles: ["ADMIN"] }; }, ...overrides.authService },
     repository,
     courier,
     id: (() => { let n = 0; return () => `id-${++n}`; })(),
     clock: () => new Date("2026-08-16T12:00:00.000Z"),
-    webhookSecret: "test-secret"
+    webhookSecret: "test-secret",
+    notificationEmitter,
+    orderUserResolver: overrides.orderUserResolver ?? (async ({ orderId }) => `user-${orderId}`)
   });
-  return { service, calls };
+  return { service, calls, emitted };
 }
 
 
@@ -230,6 +237,60 @@ test("dispatchDueWebhookEvents exhausts the retry budget and stops scheduling", 
   assert.equal(calls.failed.length, 1);
   assert.equal(calls.failed[0].retryCount, 6);
   assert.equal(calls.failed[0].nextAttemptAt, null);
+});
+
+test("ship emits SHIPMENT_SHIPPED to the resolved buyer", async () => {
+  const { service, emitted } = fixture();
+  await service.ship("access", "s1", address);
+  assert.equal(emitted.length, 1);
+  assert.equal(emitted[0].notificationType, "SHIPMENT_SHIPPED");
+  assert.equal(emitted[0].userId, "user-o1");
+  assert.equal(emitted[0].referenceType, "shipment");
+  assert.equal(emitted[0].referenceId, "s1");
+});
+
+test("deliver emits ORDER_DELIVERED to the resolved buyer", async () => {
+  const { service, emitted } = fixture();
+  await service.deliver("access", "s1");
+  assert.equal(emitted.length, 1);
+  assert.equal(emitted[0].notificationType, "ORDER_DELIVERED");
+  assert.equal(emitted[0].userId, "user-o1");
+  assert.equal(emitted[0].referenceId, "s1");
+});
+
+test("delivery webhook emits ORDER_DELIVERED only for the delivered transition", async () => {
+  const { service, emitted } = fixture();
+  await service.handleWebhook({ signature: "test-secret", shipmentId: "s1", providerStatus: "DELIVERED" });
+  assert.equal(emitted.length, 1);
+  assert.equal(emitted[0].notificationType, "ORDER_DELIVERED");
+
+  const returned = fixture();
+  await returned.service.handleWebhook({ signature: "test-secret", shipmentId: "s1", providerStatus: "RETURNED" });
+  assert.equal(returned.emitted.length, 0);
+});
+
+test("dispatch due webhook emits ORDER_DELIVERED after applying a delivered event", async () => {
+  const { service, calls, emitted } = fixture();
+  calls.pending.push({ id: "evt-1", shipmentId: "s1", providerStatus: "DELIVERED", occurredAt: "2026-08-16T12:00:00.000Z", retryCount: 0 });
+  await service.dispatchDueWebhookEvents();
+  assert.equal(emitted.length, 1);
+  assert.equal(emitted[0].notificationType, "ORDER_DELIVERED");
+  assert.equal(emitted[0].userId, "user-o1");
+});
+
+test("notification emit failure never fails the shipment transition", async () => {
+  const bombingEmitter = { async emit() { throw new Error("delivery down"); } };
+  const { service, calls } = fixture({ notificationEmitter: bombingEmitter });
+  const shipped = await service.ship("access", "s1", address);
+  assert.equal(shipped.status, ShipmentStatus.SHIPPED);
+  assert.equal(calls.events.length, 1);
+});
+
+test("missing order user resolver skips the emit without failing the transition", async () => {
+  const { service, emitted } = fixture({ orderUserResolver: async () => null });
+  const shipped = await service.ship("access", "s1", address);
+  assert.equal(shipped.status, ShipmentStatus.SHIPPED);
+  assert.equal(emitted.length, 0);
 });
 
 

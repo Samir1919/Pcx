@@ -1,5 +1,5 @@
-- Status: G complete (storefront IntlPhoneInput + contact validation UI)
-- Latest commit: 8ada4ac
+- Status: G + H complete (storefront IntlPhoneInput + shipment/order-delivery emits)
+- Latest commit: f756397
 
 # Task Backlog: Notification & Contact Delivery Follow-ups
 
@@ -23,11 +23,13 @@ Scheduled follow-up slices after the unified contact delivery + notification wor
 
 ## H — SHIPMENT_SHIPPED / ORDER_DELIVERED emit
 
-- Scope: inject `orderUserResolver({ orderId }) → userId` into shipment service
-  (via a composition-root public method, not raw cross-module table access);
-  emit after ship/deliver.
+- Status: Complete.
+- Scope: injected `orderUserResolver({ orderId }) → userId` into the shipment
+  service (resolved via commerce's public `getUserIdByOrder`, never raw
+  cross-module table access); emits SHIPMENT_SHIPPED on ship and ORDER_DELIVERED
+  on deliver (both admin action and courier webhook / worker dispatch paths).
 - Acceptance: integration test — order → shipment ship/deliver → PENDING
-  notification row; `npm run verify` green.
+  notification rows; `npm run verify` green (554 tests / 0 fail).
 - Deps: modular-monolith boundary preserved.
 
 ## I — Provider-based MFA (SMS/Email OTP)
