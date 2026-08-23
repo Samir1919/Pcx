@@ -1,7 +1,7 @@
 # PCX Project Status
 
 - Updated: 2026-08-23
-- Current main evidence commit: `cadb0dc` on branch `main` (production Docker build fixes + compose context)
+- Current main evidence commit: `40204ab` on branch `main`-bound `agent/dev-docker-node24` (dev Docker-first + Node 24 LTS + scheduled backlog); final status-only commit pending merge
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: Stage 3 control-plane completion and next dependency-ready work
 - Current autonomy maturity: Stage 2 in progress; Stage 3 control plane complete for bounded local/CI parallel orchestration (ADR 0008)
@@ -107,7 +107,7 @@ This file is the central progress index. Approved specifications define what PCX
 
 ## Next dependency-ready work
 
-1. Storefront `IntlPhoneInput` (all countries, default BD +880) + email validation UI on login/register/sell/account/verify/reset; backend normalization/anti-spam done, UI remains. See `docs/handoffs/UNIFIED_CONTACT_NOTIFICATION.md`.
+1. Scheduled notification/contact delivery follow-ups (G/H/I/J) are captured in `docs/tasks/NOTIFICATION_DELIVERY_BACKLOG.md`: storefront IntlPhoneInput UI, shipment/order-delivery emit, provider-based MFA, staging compose smoke. Dev now runs Docker-first (`scripts/dev.mjs` + `infra/docker-compose.yml`) on Node 24 LTS.
 2. Bulk CSV import for catalog models/attributes and indicative quote ranges — deferred; larger backend feature (parser + mapping + idempotent batch insert).
 3. Install/authenticate a real container scanner (docker scout login or trivy) to produce an actual image vulnerability report.
 4. Implement a real bKash HTTP adapter behind the injected gateway contract (sandbox-only until real credentials are approved).

@@ -4,7 +4,7 @@
 # Build from the repository root so npm workspaces and relative imports resolve:
 #   docker build -f apps/api/Dockerfile -t pcx-api:latest .
 
-FROM node:22-alpine
+FROM node:24.19.0-alpine
 
 WORKDIR /app
 ENV NODE_ENV=production
