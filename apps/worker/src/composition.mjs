@@ -2,9 +2,12 @@ import { createShipmentService } from "../../api/src/modules/logistics/shipment-
 import { createPostgresShipmentRepository } from "../../api/src/modules/logistics/postgres-shipment-repository.mjs";
 import { createNotificationService } from "../../api/src/modules/notification/notification-service.mjs";
 import { createPostgresNotificationRepository } from "../../api/src/modules/notification/postgres-notification-repository.mjs";
+import { createNotificationEmitter } from "../../api/src/modules/notification/notification-emitter.mjs";
 import { createPostgresNotificationProviderConfigRepository } from "../../api/src/modules/notification/postgres-notification-provider-config-repository.mjs";
 import { createNotificationProviderConfigService } from "../../api/src/modules/notification/notification-provider-config-service.mjs";
 import { createConfiguredNotificationDispatchers } from "../../api/src/modules/notification/configured-notification-dispatchers.mjs";
+import { createPostgresOrderPaymentRepository } from "../../api/src/modules/commerce/postgres-order-payment-repository.mjs";
+import { createOrderPaymentService } from "../../api/src/modules/commerce/order-payment-service.mjs";
 import { createReservationService } from "../../api/src/modules/commerce/reservation-service.mjs";
 import { createPostgresReservationRepository } from "../../api/src/modules/commerce/postgres-reservation-repository.mjs";
 import { createPostgresListingRepository } from "../../api/src/modules/listing/postgres-listing-repository.mjs";
@@ -39,11 +42,23 @@ export function createWorkerRuntime({
   unref = true
 } = {}) {
   if (!pool || typeof pool.query !== "function" || typeof pool.connect !== "function") throw new TypeError("PostgreSQL pool is required");
+  const notificationRepository = createPostgresNotificationRepository({ pool });
+  const notificationEmitter = createNotificationEmitter({ repository: notificationRepository });
+
+  // The worker resolves the buyer for a delivery webhook through the commerce
+  // module's public getUserIdByOrder method (never a raw cross-module query),
+  // then emits the customer notification into the same outbox it dispatches.
+  const orderPaymentService = createOrderPaymentService({
+    authService: workerAuthService,
+    repository: createPostgresOrderPaymentRepository({ pool })
+  });
   const shipmentService = createShipmentService({
     authService: workerAuthService,
     repository: createPostgresShipmentRepository({ pool }),
     webhookSecret: courierWebhookSecret,
-    maxWebhookRetries
+    maxWebhookRetries,
+    notificationEmitter,
+    orderUserResolver: async ({ orderId }) => orderPaymentService.getUserIdByOrder(orderId)
   });
   // The worker resolves the active EMAIL/SMS provider config at dispatch time
   // via getActiveCredentials (which never authenticates), while still honoring
@@ -57,7 +72,7 @@ export function createWorkerRuntime({
     : createConfiguredNotificationDispatchers({ providerConfig: notificationProviderConfigService });
   const notificationService = createNotificationService({
     authService: workerAuthService,
-    repository: createPostgresNotificationRepository({ pool }),
+    repository: notificationRepository,
     dispatchers: resolvedDispatchers
   });
   const reservationService = createReservationService({

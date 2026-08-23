@@ -141,9 +141,19 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   const paymentProviderConfigService = createPaymentProviderConfigService({ authService, repository: paymentProviderConfigRepository });
   const sellTaxonomyService = createSellTaxonomyService({ authService, readRepository: createPostgresSellTaxonomyRepository({ pool }), commandRepository: createPostgresSellTaxonomyCommandRepository({ pool }) });
   const siteFooterService = createSiteFooterService({ authService, repository: createPostgresSiteFooterRepository({ pool }) });
-  const orderPaymentService = createOrderPaymentService({ authService, repository: createPostgresOrderPaymentRepository({ pool }), paymentProviderConfigService, notificationEmitter });
+  const orderPaymentRepository = createPostgresOrderPaymentRepository({ pool });
+  const orderPaymentService = createOrderPaymentService({ authService, repository: orderPaymentRepository, paymentProviderConfigService, notificationEmitter });
 
-  const shipmentService = createShipmentService({ authService, repository: createPostgresShipmentRepository({ pool }), webhookSecret: courierWebhookSecret });
+  // The logistics module resolves the buyer for a shipment through the commerce
+  // module's public getUserIdByOrder method (never a raw cross-module query),
+  // then emits customer notifications through the shared outbox emitter.
+  const shipmentService = createShipmentService({
+    authService,
+    repository: createPostgresShipmentRepository({ pool }),
+    webhookSecret: courierWebhookSecret,
+    notificationEmitter,
+    orderUserResolver: async ({ orderId }) => orderPaymentService.getUserIdByOrder(orderId)
+  });
 
   const returnRequestService = createReturnRequestService({ authService, repository: createPostgresReturnRequestRepository({ pool }) });
   const warrantyClaimService = createWarrantyClaimService({ authService, repository: createPostgresWarrantyClaimRepository({ pool }) });

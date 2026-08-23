@@ -182,6 +182,14 @@ export function createOrderPaymentService({ authService, repository, id = random
       const result = await repository.confirmPayment(providerTransactionId, identity.userId, clock().toISOString());
       if (result.status !== "confirmed") throw new OrderPaymentError("invalid_state");
       return result.record;
+    },
+
+    // Composition-root only (never exposed over HTTP): the logistics module
+    // asks the commerce module for the buyer's user id by order so it can emit
+    // a customer notification without querying the orders table directly.
+    async getUserIdByOrder(orderId) {
+      if (typeof repository.findUserIdByOrder !== "function") throw new OrderPaymentError("invalid_state");
+      return repository.findUserIdByOrder(orderId);
     }
   });
 }

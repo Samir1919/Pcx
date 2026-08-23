@@ -11,15 +11,35 @@ const createFields = new Set(["orderId", "courier", "packageType", "weight", "co
 // trackingId is intentionally NOT client-authoritative: it is derived from the
 // injected courier so the server owns the logistics fact.
 
-export function createShipmentService({ authService, repository, id = randomUUID, clock = () => new Date(), courier = createSandboxCourier(), webhookSecret = null, maxWebhookRetries = 5 }) {
+export function createShipmentService({ authService, repository, id = randomUUID, clock = () => new Date(), courier = createSandboxCourier(), webhookSecret = null, maxWebhookRetries = 5, notificationEmitter = null, orderUserResolver = null }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
   for (const method of ["create", "markShipped", "markDelivered", "markReturned", "recordEvent", "list"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
   if (!courier || typeof courier.createShipment !== "function") throw new TypeError("courier.createShipment is required");
   if (webhookSecret != null && typeof webhookSecret !== "string") throw new TypeError("webhookSecret must be a string");
   if (!Number.isInteger(maxWebhookRetries) || maxWebhookRetries < 0) throw new TypeError("maxWebhookRetries must be a non-negative integer");
+  if (notificationEmitter != null && typeof notificationEmitter.emit !== "function") throw new TypeError("notificationEmitter.emit must be a function");
+  if (orderUserResolver != null && typeof orderUserResolver !== "function") throw new TypeError("orderUserResolver must be a function");
 
-
-
+  // Resolves the buyer for a shipment's order through the composition-root
+  // resolver (a commerce module public method) and emits a best-effort customer
+  // notification. Delivery of the shipping event never rolls back the shipment
+  // transition, and a missing/unknown buyer silently skips the emit.
+  async function notify(type, shipment) {
+    if (!notificationEmitter || typeof notificationEmitter.emit !== "function") return;
+    if (!shipment || typeof shipment.orderId !== "string") return;
+    try {
+      const userId = orderUserResolver ? await orderUserResolver({ orderId: shipment.orderId }) : null;
+      if (!userId) return;
+      await notificationEmitter.emit({
+        notificationType: type,
+        userId,
+        channel: "EMAIL",
+        referenceType: "shipment",
+        referenceId: shipment.id,
+        payloadSnapshot: { orderId: shipment.orderId, trackingId: shipment.trackingId ?? null }
+      });
+    } catch { /* best-effort; notification must never fail the shipment */ }
+  }
 
   async function actor(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -88,6 +108,7 @@ export function createShipmentService({ authService, repository, id = randomUUID
       const result = await repository.markShipped(shipmentId, shipment.trackingId, clock().toISOString());
       if (result.status !== "shipped") throw new ShipmentError("invalid_state");
       await repository.recordEvent(createShipmentEvent({ id: id(), shipmentId, status: "SHIPPED", providerStatusRaw: shipment.status ?? null, occurredAt: clock() }));
+      await notify("SHIPMENT_SHIPPED", result.record);
       return result.record;
     },
 
@@ -97,6 +118,7 @@ export function createShipmentService({ authService, repository, id = randomUUID
       const result = await repository.markDelivered(shipmentId, clock().toISOString());
       if (result.status !== "delivered") throw new ShipmentError("invalid_state");
       await repository.recordEvent(createShipmentEvent({ id: id(), shipmentId, status: "DELIVERED", occurredAt: clock() }));
+      await notify("ORDER_DELIVERED", result.record);
       return result.record;
     },
 
@@ -131,6 +153,7 @@ export function createShipmentService({ authService, repository, id = randomUUID
       if (result.status !== mapping.status.toLowerCase()) throw new ShipmentError("invalid_state");
       await repository.recordEvent(createShipmentEvent({ id: id(), shipmentId, status: mapping.status, providerStatusRaw: providerStatus, occurredAt }));
       await repository.markWebhookApplied(eventId, clock().toISOString());
+      if (mapping.status === "DELIVERED") await notify("ORDER_DELIVERED", result.record);
       return { status: "applied", shipmentId, record: result.record };
     },
 
@@ -156,6 +179,7 @@ export function createShipmentService({ authService, repository, id = randomUUID
             if (result.status !== "not_deliverable" && result.status !== "not_returnable" && result.status !== mapping.status.toLowerCase()) throw new ShipmentError("invalid_state");
             if (result.status === mapping.status.toLowerCase()) {
               await repository.recordEvent(createShipmentEvent({ id: id(), shipmentId: event.shipmentId, status: mapping.status, providerStatusRaw: event.providerStatus, occurredAt: event.occurredAt ? new Date(event.occurredAt) : clock() }));
+              if (mapping.status === "DELIVERED") await notify("ORDER_DELIVERED", result.record);
             }
           }
           await repository.markWebhookApplied(event.id, clock().toISOString());

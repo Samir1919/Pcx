@@ -109,6 +109,17 @@ export function createPostgresOrderPaymentRepository({ pool }) {
       });
     },
 
+    // Public read for the composition root only (never exposed over HTTP):
+    // resolves the owning user of an order so the logistics module can notify
+    // the buyer without reaching into the commerce module's tables directly.
+    async findUserIdByOrder(orderId) {
+      const result = await pool.query(
+        `SELECT user_id FROM orders WHERE id = $1`,
+        [orderId]
+      );
+      return result.rows[0]?.user_id ?? null;
+    },
+
     async createPayment(record) {
       const result = await pool.query(
         `INSERT INTO payments(id, order_id, payment_direction, provider, provider_transaction_id, method, amount, status, initiated_at)
