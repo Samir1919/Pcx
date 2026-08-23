@@ -20,10 +20,16 @@ test("return request repository enforces one-refundable-per-item and settles onc
   const now = "2026-08-16T12:00:00.000Z";
   try {
     await pool.query("DELETE FROM return_requests WHERE order_item_id::text = $1", [orderItemId]);
+    // Foreign-key ordering: shipments/webhook events/events and order_items
+    // reference the order with RESTRICT, so clear them before the order.
+    await pool.query("DELETE FROM shipment_webhook_events WHERE shipment_id IN (SELECT id FROM shipments WHERE order_id::text = $1)", [orderId]);
+    await pool.query("DELETE FROM shipment_events WHERE shipment_id IN (SELECT id FROM shipments WHERE order_id::text = $1)", [orderId]);
+    await pool.query("DELETE FROM shipments WHERE order_id::text = $1", [orderId]);
     await pool.query("DELETE FROM order_items WHERE id::text = $1", [orderItemId]);
     await pool.query("DELETE FROM orders WHERE id::text = $1", [orderId]);
     await pool.query("DELETE FROM serial_identifiers WHERE inventory_item_id::text = $1", [inventoryItemId]);
     await pool.query("DELETE FROM inventory_items WHERE id::text = $1", [inventoryItemId]);
+    await pool.query("DELETE FROM user_roles WHERE user_id::text = $1", [customer]);
     await pool.query("DELETE FROM users WHERE email = 'return-customer@example.com'");
     await pool.query("INSERT INTO users(id,email,status) VALUES ($1,'return-customer@example.com','ACTIVE')", [customer]);
     await pool.query("INSERT INTO inventory_items(id, pcx_item_id, product_model_id, status, received_at, created_at, updated_at) VALUES ($1,'PCX-RETURN', $2, 'APPROVED', now(), now(), now())", [inventoryItemId, productModelId]);

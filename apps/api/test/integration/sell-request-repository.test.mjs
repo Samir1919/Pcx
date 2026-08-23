@@ -17,6 +17,7 @@ test("sell request repository persists draft, declaration, and owner-scoped subm
   try {
     await pool.query("DELETE FROM seller_declarations WHERE sell_request_id=$1", [requestId]);
     await pool.query("DELETE FROM sell_requests WHERE id=$1", [requestId]);
+    await pool.query("DELETE FROM user_roles WHERE user_id=$1", [userId]);
     await pool.query("DELETE FROM users WHERE id=$1", [userId]);
     await pool.query("INSERT INTO users(id,email,status) VALUES ($1,'seller@example.com','ACTIVE')", [userId]);
 

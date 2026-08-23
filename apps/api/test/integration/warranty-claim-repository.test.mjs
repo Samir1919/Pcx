@@ -23,6 +23,12 @@ test("warranty/claim repository persists warranty, claim, resolution, and settle
     await pool.query("DELETE FROM claim_resolutions WHERE claim_id::text = $1", [claimId]);
     await pool.query("DELETE FROM claims WHERE id::text = $1", [claimId]);
     await pool.query("DELETE FROM warranties WHERE id::text = $1", [warrantyId]);
+    // Foreign-key ordering: return_requests and shipments reference the order
+    // (or its items) with RESTRICT, so they must be cleared before the order.
+    await pool.query("DELETE FROM return_requests WHERE order_item_id::text = $1", [orderItemId]);
+    await pool.query("DELETE FROM shipment_webhook_events WHERE shipment_id IN (SELECT id FROM shipments WHERE order_id::text = $1)", [orderId]);
+    await pool.query("DELETE FROM shipment_events WHERE shipment_id IN (SELECT id FROM shipments WHERE order_id::text = $1)", [orderId]);
+    await pool.query("DELETE FROM shipments WHERE order_id::text = $1", [orderId]);
     await pool.query("DELETE FROM order_items WHERE id::text = $1", [orderItemId]);
     await pool.query("DELETE FROM orders WHERE id::text = $1", [orderId]);
     await pool.query("DELETE FROM serial_identifiers WHERE inventory_item_id::text = $1", [inventoryItemId]);

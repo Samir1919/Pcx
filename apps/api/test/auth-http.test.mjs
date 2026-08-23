@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { AuthenticationError } from "../src/modules/identity/auth-service.mjs";
-import { createRequestHandler } from "../src/server.mjs";
+
+// Secure-cookie expectation is the production trust boundary. Evaluate the
+// source with NODE_ENV=production so a local `development` environment never
+// makes this regression test pass/fail depending on where it runs.
+process.env.NODE_ENV = "production";
+const [{ AuthenticationError }, { createRequestHandler }] = await Promise.all([
+  import("../src/modules/identity/auth-service.mjs"),
+  import("../src/server.mjs")
+]);
 
 const origin = "https://pcx.example";
 const session = Object.freeze({
