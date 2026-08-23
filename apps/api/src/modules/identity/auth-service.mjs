@@ -3,6 +3,7 @@ import { createCustomerRegistrationCandidate } from "@pcx/domain";
 import { generateOpaqueCredential, hashOpaqueCredential, sessionExpiries } from "./credentials.mjs";
 import { assertPassword, hashPassword, verifyPassword } from "./password.mjs";
 import { requiresPrivilegedMfa, safeMfaChallenge, safeMfaUserId } from "./privileged-mfa.mjs";
+import { normalizeEmail, normalizePhone } from "./contact-normalization.mjs";
 
 const dummyPasswordHash = "$argon2id$v=19$m=19456,p=1,t=2$O2/E313oRvHGzD2bSIIZVw$bR3lzbWFjtRahsze5LJ/mLBbUrEPNerDV6PiojyYe6A";
 
@@ -44,8 +45,8 @@ export function createAuthService({
   // without colliding with its `credential` parameter (the MFA one-time code).
   const generateDeviceCredential = credential;
 
-  async function control(action, context) {
-    const outcome = await abuseControl.check({ action, ...safeContext(context) });
+  async function control(action, context, contact = null) {
+    const outcome = await abuseControl.check({ action, ...safeContext(context), contact });
     if (outcome?.allowed !== true) {
       await audit.record({ action, outcome: "rate_limited", subjectId: null, requestId: safeContext(context).requestId, occurredAt: clock().toISOString() });
       throw new AuthenticationError("rate_limited");
@@ -94,7 +95,20 @@ export function createAuthService({
     },
 
     async register({ email, phone, fullName, password }, context = {}) {
-      await control("register", context);
+      let normalizedContact = null;
+      if (email != null) {
+        const normalized = normalizeEmail(email);
+        if (!normalized.ok) throw new TypeError("email is invalid");
+        email = normalized.value;
+        normalizedContact = email;
+      }
+      if (phone != null) {
+        const normalized = normalizePhone(phone);
+        if (!normalized.ok) throw new TypeError("phone is invalid");
+        phone = normalized.value;
+        normalizedContact = normalizedContact ?? phone;
+      }
+      await control("register", context, normalizedContact);
       passwords.assert(password);
       const now = clock();
       const candidate = createCustomerRegistrationCandidate({ id: id(), email, phone, fullName, createdAt: now });
@@ -111,7 +125,13 @@ export function createAuthService({
     },
 
     async login({ contact, password }, context = {}, { trustedDeviceCredential = null } = {}) {
-      await control("login", context);
+      let normalizedContact = null;
+      if (typeof contact === "string" && contact.trim().length > 0) {
+        const email = normalizeEmail(contact);
+        const phone = (!email.ok) ? normalizePhone(contact) : { ok: false };
+        normalizedContact = email.ok ? email.value : (phone.ok ? phone.value : null);
+      }
+      await control("login", context, normalizedContact);
       if (typeof contact !== "string" || contact.trim().length === 0 || typeof password !== "string") {
         await record("login", "denied", context);
         throw new AuthenticationError("invalid_credentials");

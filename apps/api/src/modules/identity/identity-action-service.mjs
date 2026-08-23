@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { generateOpaqueCredential, hashOpaqueCredential } from "./credentials.mjs";
 import { assertPassword, hashPassword } from "./password.mjs";
+import { normalizeEmail, normalizePhone } from "./contact-normalization.mjs";
 
 export class IdentityActionError extends Error {
   constructor(code) { super(code); this.name = "IdentityActionError"; this.code = code; }
@@ -13,8 +14,8 @@ export function createIdentityActionService({ identityRepository, actionReposito
     if (!object || typeof object[method] !== "function") throw new TypeError(`${name}.${method} is required`);
   }
 
-  async function controlled(action, context) {
-    const result = await abuseControl.check({ action, ipHash: context?.ipHash ?? null, requestId: context?.requestId ?? "unavailable" });
+  async function controlled(action, context, contact = null) {
+    const result = await abuseControl.check({ action, ipHash: context?.ipHash ?? null, requestId: context?.requestId ?? "unavailable", contact });
     if (result?.allowed !== true) {
       await audit.record({ action, outcome: "rate_limited", subjectId: null, requestId: context?.requestId ?? "unavailable", occurredAt: clock().toISOString() });
       throw new IdentityActionError("rate_limited");
@@ -27,7 +28,13 @@ export function createIdentityActionService({ identityRepository, actionReposito
 
   async function request(purpose, contact, context) {
     const action = purpose === "CONTACT_VERIFICATION" ? "verify_contact_request" : "password_reset_request";
-    await controlled(action, context);
+    let normalizedContact = null;
+    if (typeof contact === "string" && contact.trim()) {
+      const email = normalizeEmail(contact);
+      const phone = (!email.ok) ? normalizePhone(contact) : { ok: false };
+      normalizedContact = email.ok ? email.value : (phone.ok ? phone.value : null);
+    }
+    await controlled(action, context, normalizedContact);
     const identity = typeof contact === "string" && contact.trim() ? await identityRepository.findPasswordIdentityByContact(contact.trim()) : null;
     const eligible = purpose === "CONTACT_VERIFICATION" ? identity?.status === "PENDING_VERIFICATION" : identity?.status === "ACTIVE";
     if (eligible) {
