@@ -313,6 +313,14 @@ function SellFlow() {
       }
       const created = await storefrontApi.createSellRequest(payload);
       const requestId = created.data?.id;
+      // Persist any fallback name/phone the seller typed so they don't have to
+      // re-enter it on every sell request (the server reuses identity values).
+      if (typeof identity.fullName !== "string" && fallbackName.trim()) {
+        try { await storefrontApi.updateProfile({ fullName: fallbackName.trim() }); } catch { /* best-effort */ }
+      }
+      if (typeof identity.phone !== "string" && fallbackPhone.trim()) {
+        try { await storefrontApi.updateProfile({ phone: fallbackPhone.trim() }); } catch { /* best-effort */ }
+      }
       if (requestId) {
         if (photos.length > 0) {
           setUploading(true);

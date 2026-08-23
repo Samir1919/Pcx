@@ -81,6 +81,8 @@ export const storefrontApi = Object.freeze({
   quoteRanges: (params) => request(`/api/v1/quote-ranges${query(params)}`),
 
   me: () => request("/api/v1/me"),
+  updateProfile: (fields) => request("/api/v1/me", { method: "PATCH", body: fields, headers: csrfHeaders() }),
+  changePassword: (currentPassword, newPassword) => request("/api/v1/me/password", { method: "POST", body: { currentPassword, newPassword }, headers: csrfHeaders() }),
   login: (contact, password) => request("/api/v1/auth/login", { method: "POST", body: { contact, password } }),
   register: (email, phone, fullName, password) => request("/api/v1/auth/register", { method: "POST", body: { email, phone, fullName, password } }),
   verifyContactCode: (contact, code) => request("/api/v1/auth/verify-contact-code", { method: "POST", body: { contact, code } }),

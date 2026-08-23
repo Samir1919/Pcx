@@ -118,7 +118,7 @@ export function createRequestHandler({ readiness = () => ({ ok: true }), catalog
     if (await handleIndicativePriceRequest(request, response, { indicativePriceService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleSellTaxonomyRequest(request, response, { sellTaxonomyService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleSiteFooterRequest(request, response, { siteFooterService, allowedOrigins, requestId: requestId(request) })) return;
-    if (await handleSelfRequest(request, response, { authService, requestId: requestId(request) })) return;
+    if (await handleSelfRequest(request, response, { authService, allowedOrigins, requestId: requestId(request) })) return;
 
     const publicCatalogPath = url.pathname === "/api/v1/categories"
       || url.pathname === "/api/v1/brands"

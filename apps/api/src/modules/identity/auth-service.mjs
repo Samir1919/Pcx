@@ -209,6 +209,44 @@ export function createAuthService({
       }
       await record("logout", "succeeded", context);
       return Object.freeze({ status: "logged_out" });
+    },
+
+    // Self-service profile update. Only fullName/phone are editable; email is
+    // part of the identity/verification boundary. Returns the fresh identity.
+    async updateProfile({ accessCredential, fullName, phone }, context = {}) {
+      const identity = await this.authenticateAccess({ accessCredential });
+      const now = clock();
+      const row = await repository.updateProfile(identity.userId, {
+        ...(fullName !== undefined ? { fullName: fullName == null ? null : fullName } : {}),
+        ...(phone !== undefined ? { phone: phone == null ? null : phone } : {})
+      }, now.toISOString());
+      await record("profile_update", "succeeded", context, identity.userId);
+      return Object.freeze({
+        userId: identity.userId,
+        email: row?.email ?? null,
+        phone: row?.phone ?? null,
+        fullName: row?.full_name ?? null,
+        status: identity.status,
+        contactVerified: identity.contactVerified === true,
+        roles: Object.freeze([...(identity.roles ?? [])])
+      });
+    },
+
+    // Self-service password change. Requires the current password; rotates the
+    // hash and revokes all prior sessions.
+    async changePassword({ accessCredential, currentPassword, newPassword }, context = {}) {
+      await control("password_change", context);
+      const identity = await this.authenticateAccess({ accessCredential });
+      const existing = await repository.findPasswordIdentityByContact(identity.email ?? identity.phone ?? "");
+      const valid = await passwords.verify(existing?.password_hash ?? dummyPasswordHash, currentPassword);
+      if (!valid) {
+        await record("password_change", "denied", context, identity.userId);
+        throw new AuthenticationError("invalid_credentials");
+      }
+      passwords.assert(newPassword);
+      await repository.updatePassword(identity.userId, await passwords.hash(newPassword), clock().toISOString());
+      await record("password_change", "succeeded", context, identity.userId);
+      return Object.freeze({ status: "changed" });
     }
   });
 }
