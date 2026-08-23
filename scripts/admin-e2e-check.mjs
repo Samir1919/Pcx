@@ -135,17 +135,23 @@ async function run() {
     record("catalog-edit-modal", false, e.message);
   }
 
-  // Inventory: open the Inspect modal for the first item.
+  // Inventory: open the Inspect modal and verify the inspection template is
+  // auto-detected from the item model's category (no manual UUID paste).
   try {
     await page.goto(`${BASE_ADMIN}/inventory`, { waitUntil: "networkidle", timeout: 30_000 });
     const inspectButton = page.getByRole("button", { name: "Inspect" }).first();
     if (await inspectButton.count()) {
       await inspectButton.click();
-      await page.waitForTimeout(400);
+      await page.waitForTimeout(800);
       const modal = page.getByRole("dialog");
       const visible = await modal.count();
       record("inventory-inspect-modal", visible > 0, visible > 0 ? "inspect modal opened" : "no dialog");
-      if (visible > 0) await page.getByRole("button", { name: "Close" }).first().click();
+      if (visible > 0) {
+        const select = page.getByLabel("Inspection template");
+        const selected = await select.count() > 0 ? await select.inputValue() : "";
+        record("inventory-inspect-template-autoselect", selected.length > 0, selected ? "template auto-selected" : "no template selected");
+        await page.getByRole("button", { name: "Close" }).first().click();
+      }
     } else {
       record("inventory-inspect-modal", false, "no Inspect button");
     }
