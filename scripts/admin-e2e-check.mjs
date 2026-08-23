@@ -194,6 +194,16 @@ async function run() {
     record("acquisition-offer-expiry-default", false, e.message);
   }
 
+  // Verification: confirm the version field is pre-filled (auto-incremented from
+  // the active templates for the first category).
+  try {
+    await page.goto(`${BASE_ADMIN}/verification`, { waitUntil: "networkidle", timeout: 30_000 });
+    const version = await page.getByLabel("Version").inputValue();
+    record("verification-version-default", version.length > 0, version ? `version pre-filled (${version})` : "no version");
+  } catch (e) {
+    record("verification-version-default", false, e.message);
+  }
+
   // Returns: verify the first actionable row button renders (demo returns are REQUESTED → Approve).
   try {
     await page.goto(`${BASE_ADMIN}/returns`, { waitUntil: "networkidle", timeout: 30_000 });
