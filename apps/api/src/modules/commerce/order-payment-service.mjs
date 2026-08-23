@@ -105,6 +105,10 @@ export function createOrderPaymentService({ authService, repository, id = random
         const created = await repository.createOrderWithItems(order, items);
         return Object.freeze({ ...created.order, items: Object.freeze(created.items) });
       } catch (error) {
+        // The repository atomically claims each sellable listing (PUBLISHED ->
+        // RESERVED); item_unavailable means another transaction already owns the
+        // physical item, so there is a double-sell conflict (spec §22).
+        if (error?.code === "item_unavailable") throw new OrderPaymentError("item_unavailable");
         if (error?.code === "23503") throw new OrderPaymentError("invalid_reference");
         throw error;
       }

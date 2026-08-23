@@ -54,6 +54,16 @@ test("payment confirm requires providerTransactionId and maps invalid state", as
   assert.equal(invalidState.status, 409);
 });
 
+test("order creation maps the double-sell guard to 409 ITEM_UNAVAILABLE", async () => {
+  const response = await invoke("/api/v1/orders", {
+    body: { items: [{ inventoryItemId: "i", productModelId: "m", pcxItemId: "p", productName: "n", unitPrice: 1 }] },
+    headers: csrf(),
+    orderPaymentService: service({ async createOrder() { throw new OrderPaymentError("item_unavailable"); } })
+  });
+  assert.equal(response.status, 409);
+  assert.equal(response.body.error.code, "ITEM_UNAVAILABLE");
+});
+
 test("order payment route rejects unknown methods and missing service", async () => {
   assert.equal((await invoke("/api/v1/orders", { method: "GET" })).status, 405);
   assert.equal((await invoke("/api/v1/orders", { body: {}, orderPaymentService: null })).status, 503);
