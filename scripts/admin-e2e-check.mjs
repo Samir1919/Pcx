@@ -153,6 +153,40 @@ async function run() {
     record("inventory-inspect-modal", false, e.message);
   }
 
+  // Acquisition: open a sell request detail and verify contextual prefill.
+  try {
+    await page.goto(`${BASE_ADMIN}/acquisition`, { waitUntil: "networkidle", timeout: 30_000 });
+    const viewButton = page.getByRole("button", { name: "View" }).first();
+    if (await viewButton.count()) {
+      await viewButton.click();
+      await page.waitForTimeout(400);
+      const prefill = await page.locator('input[name="sellRequestId"]').first().inputValue();
+      record("acquisition-contextual-prefill", prefill.length > 0, prefill ? `sell request id pre-filled (${prefill.slice(0, 8)}…)` : "no prefill");
+    } else {
+      record("acquisition-contextual-prefill", false, "no View button");
+    }
+  } catch (e) {
+    record("acquisition-contextual-prefill", false, e.message);
+  }
+
+  // Returns: verify the first actionable row button renders (demo returns are REQUESTED → Approve).
+  try {
+    await page.goto(`${BASE_ADMIN}/returns`, { waitUntil: "networkidle", timeout: 30_000 });
+    const approveButton = page.getByRole("button", { name: "Approve" }).first();
+    record("returns-row-action", await approveButton.count() > 0, (await approveButton.count()) > 0 ? "row action present" : "no row action");
+  } catch (e) {
+    record("returns-row-action", false, e.message);
+  }
+
+  // Warranty: verify the first actionable claim row renders a Resolve button.
+  try {
+    await page.goto(`${BASE_ADMIN}/warranty`, { waitUntil: "networkidle", timeout: 30_000 });
+    const resolveButton = page.getByRole("button", { name: "Resolve" }).first();
+    record("warranty-row-action", await resolveButton.count() > 0, (await resolveButton.count()) > 0 ? "row action present" : "no row action");
+  } catch (e) {
+    record("warranty-row-action", false, e.message);
+  }
+
   // Listings: open the Photos media modal for the first listing.
   try {
     await page.goto(`${BASE_ADMIN}/listings`, { waitUntil: "networkidle", timeout: 30_000 });

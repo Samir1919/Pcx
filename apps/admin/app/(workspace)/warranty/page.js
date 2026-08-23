@@ -1,10 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { warrantyApi } from "../../../lib/warranty-api.js";
 
 function Banner({ notice, onClose }) { if (!notice) return null; return <div className={`banner ${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}><span>{notice.message}</span><button type="button" onClick={onClose} aria-label="Dismiss message">×</button></div>; }
 function Field({ label, name, ...props }) { return <label><span>{label}</span><input name={name} {...props} /></label>; }
+
+const RESOLUTION_TYPES = ["REPAIR", "REPLACE", "REFUND", "REJECT"];
 
 async function run(action, setBusy, setNotice) {
   setBusy(true);
@@ -19,12 +22,57 @@ async function run(action, setBusy, setNotice) {
   }
 }
 
+function ResolveClaimDialog({ claim, busy, onClose, onConfirm }) {
+  const [resolutionType, setResolutionType] = useState("REPAIR");
+  const [notes, setNotes] = useState("");
+  const [costAmount, setCostAmount] = useState("");
+
+  function submit(event) {
+    event.preventDefault();
+    onConfirm(claim.id, {
+      resolutionType,
+      notes: notes.trim() || null,
+      costAmount: costAmount ? Number(costAmount) : null
+    });
+  }
+
+  return createPortal(
+    <div className="modalOverlay" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <form className="modalDialog" role="dialog" aria-modal="true" aria-labelledby="resolve-claim-title" onSubmit={submit}>
+        <button type="button" className="modalClose" aria-label="Close" onClick={onClose}>×</button>
+        <h2 id="resolve-claim-title">Resolve claim</h2>
+        <p>Claim <strong>{claim?.id ? `${claim.id.slice(0, 8)}…` : ""}</strong>. Resolution type is a manual decision; the server records the typed resolution.</p>
+        <label>
+          <span>Resolution type</span>
+          <select value={resolutionType} onChange={(e) => setResolutionType(e.target.value)}>
+            {RESOLUTION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </label>
+        <label>
+          <span>Notes</span>
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
+        </label>
+        <label>
+          <span>Cost amount</span>
+          <input type="number" min="0" step="0.01" value={costAmount} onChange={(e) => setCostAmount(e.target.value)} />
+        </label>
+        <div className="modalActions">
+          <button type="button" className="danger" onClick={onClose} disabled={busy}>Cancel</button>
+          <button type="submit" className="primary" disabled={busy}>{busy ? "Resolving…" : "Resolve claim"}</button>
+        </div>
+      </form>
+    </div>,
+    document.body
+  );
+}
+
 export default function WarrantyPage() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
   const [loading, setLoading] = useState(true);
   const [warranties, setWarranties] = useState([]);
   const [claims, setClaims] = useState([]);
+  const [resolveTarget, setResolveTarget] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -69,16 +117,9 @@ export default function WarrantyPage() {
     await load();
   }
 
-  async function resolveClaim(event) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    await run(() => warrantyApi.resolveClaim({
-      claimId: form.get("claimId"),
-      resolutionType: form.get("resolutionType"),
-      notes: form.get("notes") || null,
-      costAmount: form.get("costAmount") ? Number(form.get("costAmount")) : null
-    }), setBusy, setNotice);
-    event.currentTarget.reset();
+  async function resolveClaim(claimId, body) {
+    await run(() => warrantyApi.resolveClaim({ claimId, ...body }), setBusy, setNotice);
+    setResolveTarget(null);
     await load();
   }
 
@@ -88,7 +129,7 @@ export default function WarrantyPage() {
         <div>
           <p className="eyebrow">OPERATIONS / WARRANTY</p>
           <h1>Warranty & claims</h1>
-          <p>Create warranties and claims, and record typed resolutions. Status is server-owned.</p>
+          <p>Create warranties and claims, and resolve requested claims directly from the table. Status is server-owned.</p>
         </div>
         <button className="refresh" type="button" onClick={load} disabled={loading}>↻ Refresh</button>
       </header>
@@ -112,7 +153,7 @@ export default function WarrantyPage() {
                       <td>{w.orderItemId.slice(0, 8)}…</td>
                       <td>{w.inventoryItemId.slice(0, 8)}…</td>
                       <td><span className="pill">{w.status}</span></td>
-                      <td>{new Date(w.endsAt).toLocaleDateString()}</td>
+                      <td>{w.endsAt ? new Date(w.endsAt).toLocaleDateString() : "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -130,7 +171,7 @@ export default function WarrantyPage() {
           {loading ? <p className="state" role="status">Loading claims…</p> : claims.length === 0 ? <p className="state">No claims yet.</p> : (
             <div className="tableWrap">
               <table>
-                <thead><tr><th>Claim</th><th>Warranty</th><th>Reason</th><th>Status</th></tr></thead>
+                <thead><tr><th>Claim</th><th>Warranty</th><th>Reason</th><th>Status</th><th><span className="sr">Actions</span></th></tr></thead>
                 <tbody>
                   {claims.map((c) => (
                     <tr key={c.id}>
@@ -138,6 +179,13 @@ export default function WarrantyPage() {
                       <td>{c.warrantyId.slice(0, 8)}…</td>
                       <td>{c.reasonCode}</td>
                       <td><span className="pill">{c.status}</span></td>
+                      <td>
+                        {c.status === "REQUESTED" && (
+                          <div className="actions">
+                            <button type="button" disabled={busy} onClick={() => setResolveTarget(c)}>Resolve</button>
+                          </div>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -169,18 +217,15 @@ export default function WarrantyPage() {
             <button className="primary" disabled={busy}>Create claim</button>
           </form>
         </section>
-        <section className="panel formPanel">
-          <p className="eyebrow">RESOLUTION</p>
-          <h2>Resolve claim</h2>
-          <form onSubmit={resolveClaim}>
-            <Field label="Claim ID" name="claimId" required />
-            <label><span>Resolution type</span><select name="resolutionType" required><option>REPAIR</option><option>REPLACE</option><option>REFUND</option><option>REJECT</option></select></label>
-            <Field label="Notes" name="notes" />
-            <Field label="Cost amount" name="costAmount" type="number" min="0" step="0.01" />
-            <button className="primary" disabled={busy}>Resolve claim</button>
-          </form>
-        </section>
       </div>
+      {resolveTarget && (
+        <ResolveClaimDialog
+          claim={resolveTarget}
+          busy={busy}
+          onClose={() => setResolveTarget(null)}
+          onConfirm={resolveClaim}
+        />
+      )}
     </>
   );
 }
