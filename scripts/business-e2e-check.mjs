@@ -264,22 +264,34 @@ async function main() {
     rec("shipment-created-draft", !!shipmentId, shipmentId ? `shipment=${shipmentId.slice(0, 8)}…` : `http ${shipCreated.status()} ${JSON.stringify(shipJson).slice(0, 120)}`);
 
     if (shipmentId) {
-      await admin.locator('input[name="shipmentId"]').fill(shipmentId);
-      await admin.locator('input[name="recipientName"]').fill("Demo Customer");
-      await admin.locator('input[name="phone"]').fill("+8801700000002");
-      await admin.locator('input[name="line1"]').fill("House 12, Road 5");
-      await admin.locator('input[name="city"]').fill("Dhaka");
-      await admin.locator('input[name="postalCode"]').fill("1209");
-      await admin.getByRole("button", { name: "Mark shipped" }).click();
-      await admin.waitForTimeout(700);
-      let shipTable = await admin.locator("body").innerText().catch(() => "");
-      rec("shipment-marked-shipped", shipTable.includes("SHIPPED"), "");
+      // Mark shipped (scope to the "Mark shipped" form).
+      const shipForm = admin.locator("form").filter({ has: admin.getByRole("button", { name: "Mark shipped" }) });
+      const shipResp = admin.waitForResponse(
+        (r) => r.url().endsWith(`/api/v1/admin/shipments/${encodeURIComponent(shipmentId)}/ship`) && r.request().method() === "POST",
+        { timeout: 30_000 }
+      );
+      await shipForm.locator('input[name="shipmentId"]').fill(shipmentId);
+      await shipForm.locator('input[name="recipientName"]').fill("Demo Customer");
+      await shipForm.locator('input[name="phone"]').fill("+8801700000002");
+      await shipForm.locator('input[name="line1"]').fill("House 12, Road 5");
+      await shipForm.locator('input[name="city"]').fill("Dhaka");
+      await shipForm.locator('input[name="postalCode"]').fill("1209");
+      await shipForm.getByRole("button", { name: "Mark shipped" }).click();
+      const shipped = await shipResp;
+      const shippedJson = await shipped.json().catch(() => null);
+      rec("shipment-marked-shipped", shipped.status() === 200 && shippedJson?.data?.status === "SHIPPED", shippedJson?.data?.trackingId ? `tracking=${shippedJson.data.trackingId}` : `http ${shipped.status()}`);
 
-      await admin.locator('input[name="shipmentId"]').fill(shipmentId);
-      await admin.getByRole("button", { name: "Mark delivered" }).click();
-      await admin.waitForTimeout(700);
-      shipTable = await admin.locator("body").innerText().catch(() => "");
-      rec("shipment-marked-delivered", shipTable.includes("DELIVERED"), "");
+      // Mark delivered (scope to the "Mark delivered" form).
+      const deliverForm = admin.locator("form").filter({ has: admin.getByRole("button", { name: "Mark delivered" }) });
+      const deliverResp = admin.waitForResponse(
+        (r) => r.url().endsWith(`/api/v1/admin/shipments/${encodeURIComponent(shipmentId)}/deliver`) && r.request().method() === "POST",
+        { timeout: 30_000 }
+      );
+      await deliverForm.locator('input[name="shipmentId"]').fill(shipmentId);
+      await deliverForm.getByRole("button", { name: "Mark delivered" }).click();
+      const delivered = await deliverResp;
+      const deliveredJson = await delivered.json().catch(() => null);
+      rec("shipment-marked-delivered", delivered.status() === 200 && deliveredJson?.data?.status === "DELIVERED", `http ${delivered.status()}`);
     }
   }
 
