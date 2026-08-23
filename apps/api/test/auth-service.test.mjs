@@ -168,3 +168,45 @@ test("access authentication hashes credentials and returns a safe immutable iden
   assert.equal(received.length, 32);
   assert.deepEqual(identity, { userId: "u1", email: "buyer@example.com", phone: "01700000000", fullName: "PCX Buyer", status: "ACTIVE", contactVerified: true, roles: ["CUSTOMER"] });
 });
+
+test("updateProfile edits name/phone only and returns a fresh identity", async () => {
+  const updates = [];
+  const { service } = fixture({
+    repository: {
+      async findActiveIdentityByAccessHash() { return { userId: "u1", email: "buyer@example.com", phone: "01700000000", fullName: "Old Name", status: "ACTIVE", contactVerified: true, roles: ["CUSTOMER"] }; },
+      async updateProfile(userId, fields) { updates.push({ userId, fields }); return { id: userId, email: "buyer@example.com", phone: "01800000000", full_name: "New Name" }; }
+    }
+  });
+  const identity = await service.updateProfile({ accessCredential: "raw", fullName: "New Name", phone: "01800000000" });
+  assert.equal(identity.fullName, "New Name");
+  assert.equal(identity.phone, "01800000000");
+  assert.equal(identity.email, "buyer@example.com");
+  assert.deepEqual(updates[0].fields, { fullName: "New Name", phone: "01800000000" });
+});
+
+test("changePassword verifies current password, rotates hash, and revokes sessions", async () => {
+  const updates = [];
+  const { service, calls } = fixture({
+    repository: {
+      async findActiveIdentityByAccessHash() { return { userId: "u1", email: "buyer@example.com", phone: "01700000000", status: "ACTIVE", contactVerified: true, roles: ["CUSTOMER"] }; },
+      async findPasswordIdentityByContact() { return { id: "u1", password_hash: "hash", status: "ACTIVE" }; },
+      async updatePassword(userId, passwordHash) { updates.push({ userId, passwordHash }); }
+    }
+  });
+  const result = await service.changePassword({ accessCredential: "raw", currentPassword: "old", newPassword: "new-password-123" });
+  assert.deepEqual(result, { status: "changed" });
+  assert.equal(updates.length, 1);
+  assert.equal(updates[0].passwordHash, "$argon2id$hash");
+  assert.equal(calls.audits.find((a) => a.action === "password_change").outcome, "succeeded");
+});
+
+test("changePassword fails with an incorrect current password", async () => {
+  const { service } = fixture({
+    repository: {
+      async findActiveIdentityByAccessHash() { return { userId: "u1", email: "buyer@example.com", status: "ACTIVE", contactVerified: true, roles: ["CUSTOMER"] }; },
+      async findPasswordIdentityByContact() { return { id: "u1", password_hash: "hash", status: "ACTIVE" }; }
+    },
+    passwords: { assert() { }, async hash() { return "$argon2id$hash"; }, async verify() { return false; } }
+  });
+  await assert.rejects(service.changePassword({ accessCredential: "raw", currentPassword: "wrong", newPassword: "new-password-123" }), (error) => error.code === "invalid_credentials");
+});

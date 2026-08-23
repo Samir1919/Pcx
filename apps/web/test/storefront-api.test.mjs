@@ -45,6 +45,25 @@ test("storefront query builder omits empty filters and never sends client-owned 
   }
 });
 
+test("storefront profile endpoints hit the self-service write paths", async () => {
+  const priorFetch = global.fetch;
+  const calls = [];
+  global.fetch = async (url, options) => {
+    calls.push({ url, options });
+    return { ok: true, status: 200, async text() { return JSON.stringify({ data: {} }); } };
+  };
+  try {
+    await storefrontApi.updateProfile({ fullName: "New", phone: "018" });
+    await storefrontApi.changePassword("old", "new-password-123");
+    assert.deepEqual(calls.map((c) => c.url), ["/api/v1/me", "/api/v1/me/password"]);
+    assert.equal(calls[0].options.method, "PATCH");
+    assert.equal(calls[1].options.method, "POST");
+    assert.deepEqual(JSON.parse(calls[1].options.body), { currentPassword: "old", newPassword: "new-password-123" });
+  } finally {
+    global.fetch = priorFetch;
+  }
+});
+
 test("storefront seller endpoints hit owner-scoped sell-request paths", async () => {
   const priorFetch = global.fetch;
   const calls = [];
