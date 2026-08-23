@@ -7,6 +7,7 @@ import { createUserAdminService } from "./user-admin-service.mjs";
 import { createPostgresIdentityActionRepository } from "./postgres-identity-action-repository.mjs";
 import { createIdentityActionService } from "./identity-action-service.mjs";
 import { createDevContactVerifier } from "./dev-contact-verifier.mjs";
+import { createProviderMfa } from "./provider-mfa.mjs";
 import { createPostgresAddressRepository } from "./postgres-address-repository.mjs";
 import { createAddressService } from "./address-service.mjs";
 import { createPostgresCatalogRepository } from "../catalog/postgres-catalog-repository.mjs";
@@ -86,11 +87,21 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   const repository = createPostgresIdentityRepository({ pool });
   const control = abuseControl ?? createInMemoryAuthAbuseControl();
   const auditSink = audit ?? createPostgresAuthAudit({ pool });
+  // MFA resolution: an explicitly injected MFA (dev/test) always wins. When none
+  // is injected, privileged login uses the provider-based MFA, which depends on
+  // the contact delivery service built below (and the notification provider
+  // config, which itself depends on authService). A lazy holder avoids that
+  // construction cycle; the provider MFA is only instantiated on first use.
+  let providerMfa = null;
+  const effectiveMfa = mfa ?? Object.freeze({
+    beginChallenge: (input) => providerMfa.beginChallenge(input),
+    verifyChallenge: (input) => providerMfa.verifyChallenge(input)
+  });
   const authService = createAuthService({
     repository,
     abuseControl: control,
     audit: auditSink,
-    mfa
+    mfa: effectiveMfa
   });
   // Development-only demo code for customer contact verification, mirroring
   // the dev MFA adapter. Production omits it, so verify-by-code fails closed
@@ -105,6 +116,9 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   // fallback no-op from the caller is only used when the runtime is constructed
   // without a pool-backed delivery for tests.
   const contactDeliveryService = createContactDeliveryService({ providerConfig: notificationProviderConfigService });
+  if (!mfa) {
+    providerMfa = createProviderMfa({ identityRepository: repository, contactDeliveryService });
+  }
   const identityActionService = createIdentityActionService({
     identityRepository: repository,
     actionRepository: createPostgresIdentityActionRepository({ pool }),
