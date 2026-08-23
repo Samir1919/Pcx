@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@pcx/domain": "0.1.0",
     "pg": "^8.23.0"
   }
 }
