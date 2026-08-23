@@ -1,6 +1,8 @@
+- Status: G complete (storefront IntlPhoneInput + contact validation UI)
+- Latest commit: 8ada4ac
+
 # Task Backlog: Notification & Contact Delivery Follow-ups
 
-- Status: Ready (scheduled; not started)
 - Owner: pending
 - Related: `docs/handoffs/UNIFIED_CONTACT_NOTIFICATION.md`
 
@@ -8,11 +10,15 @@ Scheduled follow-up slices after the unified contact delivery + notification wor
 
 ## G — Storefront IntlPhoneInput + email validation UI
 
+- Status: Complete.
 - Scope: reusable `IntlPhoneInput` (all countries, default BD +880) and email
-  `type=email` validation on login/register/verify/account/sell/sell-requests.
-- Backend normalization/anti-spam already done (`contact-normalization.mjs`).
-- Acceptance: headed web check — default BD selected, country switch updates
-  dial code, invalid email/phone blocked client-side.
+  `type=email` validation on login/register/verify/account/sell; login/verify
+  now enforce a client-side `validateContact` check before submit.
+- Acceptance: default BD selected, country switch updates dial code, invalid
+  email/phone blocked client-side (verified by `web:check` + storefront e2e
+  `contact-validation`; 15/15 storefront e2e).
+- Verification: `npm run verify` pass (547 tests, 0 fail); `npm run web:check`
+  6/6; `node scripts/storefront-e2e-check.mjs` 15/15.
 - Deps: none.
 
 ## H — SHIPMENT_SHIPPED / ORDER_DELIVERED emit
