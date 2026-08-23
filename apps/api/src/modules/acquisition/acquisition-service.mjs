@@ -12,7 +12,7 @@ const acquisitionFields = new Set(["sellRequestId", "acceptedOfferId", "sellerUs
 
 export function createAcquisitionService({ authService, repository, id = randomUUID, clock = () => new Date() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  for (const method of ["createValuation", "createOffer", "acceptOffer", "rejectOffer", "findOwnerUserIdByOffer", "findOfferById", "createAcquisition", "findByOffer", "markPaid"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  for (const method of ["createValuation", "createOffer", "acceptOffer", "rejectOffer", "findOwnerUserIdByOffer", "findOfferById", "createAcquisition", "findByOffer", "markPaid", "findOwnerUserIdBySellRequest", "listOffersBySellRequest"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
 
   async function actor(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -96,6 +96,16 @@ export function createAcquisitionService({ authService, repository, id = randomU
       const record = await repository.rejectOffer(offerId);
       if (!record) throw new AcquisitionError("invalid_state");
       return record;
+    },
+
+    // Seller read: list offers attached to a sell request they own. The owner
+    // check is by sell request, so another customer can never read these.
+    async listOffersForCustomer(accessCredential, sellRequestId) {
+      const identity = await customerActor(accessCredential);
+      const ownerUserId = await repository.findOwnerUserIdBySellRequest(sellRequestId);
+      if (!ownerUserId) throw new AcquisitionError("not_found");
+      if (ownerUserId !== identity.userId) throw new AcquisitionError("forbidden");
+      return Object.freeze({ data: Object.freeze(await repository.listOffersBySellRequest(sellRequestId)) });
     },
 
     async createAcquisition(accessCredential, input) {

@@ -67,7 +67,8 @@ export default function StorefrontNav() {
           {merchant && navLink("/merchant", "Merchant")}
           {identity ? (
             <>
-              {navLink("/storefront", "Account")}
+              {navLink("/sell-requests", "Sell requests")}
+              {navLink("/account", "Account")}
               <button type="button" className="navLink" onClick={signOut} disabled={busy}>Sign out</button>
             </>
           ) : (
@@ -82,7 +83,7 @@ export default function StorefrontNav() {
         {/* Mobile: primary auth action + hamburger */}
         <div className="mobileActions">
           {identity ? (
-            <a className="authCta ghost" href="/storefront">Account</a>
+            <a className="authCta ghost" href="/account">Account</a>
           ) : (
             <a className="authCta" href="/login">Sign in</a>
           )}
@@ -126,7 +127,8 @@ export default function StorefrontNav() {
             <div className="navDrawerAuth">
               {identity ? (
                 <>
-                  <a className="drawerBtn primary" href="/storefront" onClick={() => setMenuOpen(false)}>Account</a>
+                  <a className="drawerLink" href="/sell-requests" onClick={() => setMenuOpen(false)}>Sell requests</a>
+                  <a className="drawerBtn primary" href="/account" onClick={() => setMenuOpen(false)}>Account</a>
                   <button type="button" className="drawerBtn secondary" onClick={signOut} disabled={busy}>Sign out</button>
                 </>
               ) : (

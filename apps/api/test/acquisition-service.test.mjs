@@ -16,6 +16,8 @@ function fixture(overrides = {}) {
     async createAcquisition(record, acceptedOffer) { calls.acquisitions.push({ record, acceptedOffer }); return record; },
     async findByOffer() { calls.foundAcq.push(); return null; },
     async markPaid(acquisitionId, now) { calls.paid.push({ acquisitionId, now }); return { status: "paid", record: { id: acquisitionId, paymentStatus: "PAID" } }; },
+    async findOwnerUserIdBySellRequest() { return "customer-1"; },
+    async listOffersBySellRequest() { return []; },
     ...overrides.repository
   };
   const service = createAcquisitionService({

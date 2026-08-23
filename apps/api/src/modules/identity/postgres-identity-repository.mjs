@@ -164,6 +164,38 @@ export function createPostgresIdentityRepository({ pool }) {
         [id, userId, credentialHash, expiresAt, createdAt]
       );
       return { id, userId };
+    },
+
+    // Self-service profile update. Full name and phone only; email is never
+    // changed here (it is part of the identity/verification boundary).
+    async updateProfile(userId, fields, now) {
+      if (typeof userId !== "string" || userId.length === 0) throw new TypeError("userId is required");
+      const sets = [];
+      const values = [userId];
+      const add = (value) => { values.push(value); return `$${values.length}`; };
+      if (fields.fullName !== undefined) { sets.push(`full_name = ${add(fields.fullName)}`); }
+      if (fields.phone !== undefined) { sets.push(`phone = ${add(fields.phone)}`); }
+      if (sets.length === 0) return null;
+      sets.push(`updated_at = ${add(now)}`);
+      const result = await pool.query(
+        `UPDATE users SET ${sets.join(", ")} WHERE id = $1 RETURNING id, email, phone, full_name, status, contact_verified`,
+        values
+      );
+      return result.rows[0] ?? null;
+    },
+
+    // Self-service password change: update the hash and revoke every session so
+    // a leaked credential (or all prior sessions) cannot stay live after the
+    // password is rotated.
+    async updatePassword(userId, passwordHash, now) {
+      if (typeof userId !== "string" || userId.length === 0) throw new TypeError("userId is required");
+      assertPasswordHash(passwordHash);
+      return transaction(pool, async (client) => {
+        await client.query("UPDATE users SET password_hash = $2, updated_at = $3 WHERE id = $1", [userId, passwordHash, now]);
+        await client.query("UPDATE refresh_families SET revoked_at = COALESCE(revoked_at, $2), revoke_reason = 'password_change' WHERE user_id = $1", [userId, now]);
+        await client.query("UPDATE access_sessions s SET revoked_at = COALESCE(s.revoked_at, $2) FROM refresh_families f WHERE s.refresh_family_id = f.id AND f.user_id = $1", [userId, now]);
+        return { userId };
+      });
     }
   });
 }

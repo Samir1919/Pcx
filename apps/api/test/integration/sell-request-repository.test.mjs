@@ -35,10 +35,16 @@ test("sell request repository persists draft, declaration, and owner-scoped subm
     assert.equal(await repository.findByOwner("7a000000-0000-4000-8000-000000000099", requestId), null);
     assert.equal((await repository.listByOwner(userId)).some((item) => item.id === requestId), true);
 
+    // Admin queue must exclude DRAFT: a seller's unfinished draft is private.
+    assert.equal((await repository.listAll()).some((item) => item.id === requestId), false);
+
     const submitted = await repository.submit(userId, requestId, now);
     assert.equal(submitted.status, "submitted");
     assert.equal(submitted.record.status, "SUBMITTED");
     assert.ok(submitted.record.submittedAt);
+
+    // Once SUBMITTED, the request becomes visible in the admin queue.
+    assert.equal((await repository.listAll()).some((item) => item.id === requestId), true);
 
     // Submitting again is rejected because the state is no longer DRAFT.
     assert.deepEqual(await repository.submit(userId, requestId, now), { status: "not_found" });

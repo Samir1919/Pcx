@@ -8,7 +8,6 @@ function Field({ label, name, ...props }) { return <label><span>{label}</span><i
 
 // Server-owned transition graph (mirrors SellRequestTransitions for UI actions).
 const TRANSITIONS = {
-  DRAFT: ["SUBMITTED", "CANCELLED"],
   SUBMITTED: ["REVIEWING", "CANCELLED"],
   REVIEWING: ["INFO_REQUIRED", "INSPECTION_REQUIRED", "REJECTED", "CANCELLED"],
   INFO_REQUIRED: ["REVIEWING"],
@@ -38,6 +37,8 @@ export default function AcquisitionPage() {
   const [notice, setNotice] = useState(null);
   const [loading, setLoading] = useState(true);
   const [sellRequests, setSellRequests] = useState([]);
+  const [detail, setDetail] = useState(null);
+  const [detailBusy, setDetailBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -121,6 +122,19 @@ export default function AcquisitionPage() {
     }
   }
 
+  async function openDetail(r) {
+    setDetailBusy(true);
+    setNotice(null);
+    try {
+      const payload = await acquisitionApi.sellRequest(r.id);
+      setDetail(payload.data);
+    } catch (error) {
+      setNotice({ kind: "error", message: error.message });
+    } finally {
+      setDetailBusy(false);
+    }
+  }
+
   return (
     <>
       <header>
@@ -159,6 +173,7 @@ export default function AcquisitionPage() {
                     <td>{r.submittedAt ? new Date(r.submittedAt).toLocaleString() : "—"}</td>
                     <td>
                       <div className="actions">
+                        <button type="button" disabled={detailBusy} onClick={() => openDetail(r)}>View</button>
                         {(TRANSITIONS[r.status] ?? []).map((target) => (
                           <button key={target} type="button" disabled={busy} onClick={() => transition(r, target)}>→ {target}</button>
                         ))}
@@ -171,6 +186,52 @@ export default function AcquisitionPage() {
           </div>
         )}
       </section>
+      {detail ? (
+        <section className="panel" style={{ marginTop: 18 }}>
+          <div className="panelTitle">
+            <div>
+              <p className="eyebrow">SELL REQUEST DETAIL</p>
+              <h2>{detail.publicRequestNo ?? detail.id.slice(0, 8)}</h2>
+            </div>
+            <button type="button" className="refresh" onClick={() => setDetail(null)}>Close</button>
+          </div>
+          <dl className="detailList">
+            <div><dt>Status</dt><dd><span className="pill">{detail.status}</span></dd></div>
+            <div><dt>Entry</dt><dd>{detail.sellEntry ?? "—"}</dd></div>
+            <div><dt>Contact</dt><dd>{detail.contactName ?? "—"}{detail.contactPhone ? ` · ${detail.contactPhone}` : ""}{detail.contactEmail ? ` · ${detail.contactEmail}` : ""}</dd></div>
+            <div><dt>Fulfilment</dt><dd>{detail.fulfilmentPreference ?? "—"}</dd></div>
+            <div><dt>Submitted</dt><dd>{detail.submittedAt ? new Date(detail.submittedAt).toLocaleString() : "—"}</dd></div>
+          </dl>
+          {detail.declaration ? (
+            <>
+              <p className="eyebrow" style={{ marginTop: 12 }}>SELLER DECLARATION</p>
+              <dl className="detailList">
+                <div><dt>Age</dt><dd>{detail.declaration.ageEstimate ?? "—"}</dd></div>
+                <div><dt>Warranty</dt><dd>{detail.declaration.warrantyRemaining ?? "—"}</dd></div>
+                <div><dt>Repair</dt><dd>{detail.declaration.repairDeclared ? (detail.declaration.repairNotes ?? "Yes") : "No"}</dd></div>
+                <div><dt>Box / Invoice</dt><dd>{detail.declaration.boxAvailable ? "Box" : ""}{detail.declaration.boxAvailable && detail.declaration.invoiceAvailable ? " · " : ""}{detail.declaration.invoiceAvailable ? "Invoice" : ""}{(!detail.declaration.boxAvailable && !detail.declaration.invoiceAvailable) ? "—" : ""}</dd></div>
+                <div><dt>Ownership</dt><dd>{detail.declaration.ownershipDeclared ? "Confirmed" : "—"}</dd></div>
+              </dl>
+            </>
+          ) : null}
+          {detail.buildComponents?.length ? (
+            <>
+              <p className="eyebrow" style={{ marginTop: 12 }}>BUILD COMPONENTS</p>
+              <div className="tableWrap">
+                <table>
+                  <thead><tr><th>Role</th><th>Model</th></tr></thead>
+                  <tbody>
+                    {detail.buildComponents.map((c) => (
+                      <tr key={c.role}><td>{c.role}</td><td>{c.productModelId}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : null}
+        </section>
+      ) : null}
+
       <div className="grid" style={{ marginTop: 18 }}>
         <section className="panel formPanel">
           <p className="eyebrow">VALUATION</p>

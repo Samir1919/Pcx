@@ -312,17 +312,33 @@ function SellFlow() {
         };
       }
       const created = await storefrontApi.createSellRequest(payload);
-      if (created.data?.id && photos.length > 0) {
-        setUploading(true);
-        try {
-          for (const file of photos) {
-            await storefrontApi.uploadSellRequestMedia(created.data.id, file);
-          }
-        } finally {
-          setUploading(false);
-        }
+      const requestId = created.data?.id;
+      // Persist any fallback name/phone the seller typed so they don't have to
+      // re-enter it on every sell request (the server reuses identity values).
+      if (typeof identity.fullName !== "string" && fallbackName.trim()) {
+        try { await storefrontApi.updateProfile({ fullName: fallbackName.trim() }); } catch { /* best-effort */ }
       }
-      setResult(created.data);
+      if (typeof identity.phone !== "string" && fallbackPhone.trim()) {
+        try { await storefrontApi.updateProfile({ phone: fallbackPhone.trim() }); } catch { /* best-effort */ }
+      }
+      if (requestId) {
+        if (photos.length > 0) {
+          setUploading(true);
+          try {
+            for (const file of photos) {
+              await storefrontApi.uploadSellRequestMedia(requestId, file);
+            }
+          } finally {
+            setUploading(false);
+          }
+        }
+        // "Submit sell request" now genuinely submits: DRAFT -> SUBMITTED so the
+        // request moves into the admin review queue (spec §12).
+        const submitted = await storefrontApi.submitSellRequest(requestId);
+        setResult(submitted.data ?? created.data);
+      } else {
+        setResult(created.data);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -344,8 +360,8 @@ function SellFlow() {
           <h1>Sell to PCX</h1>
           {result ? (
             <div className="card">
-              <h2>Request submitted</h2>
-              <p className="meta">Sell request <b>#{result.publicRequestNo ?? result.id}</b> is now a draft and ready to submit after your review.</p>
+              <h2>Request submitted to PCX</h2>
+              <p className="meta">Sell request <b>#{result.publicRequestNo ?? result.id}</b> has been submitted. PCX will now review it.</p>
               {result.estimatedRange && (
                 <div className="estimate">
                   <div className="eprice">{moneyRange({ lowValue: result.estimatedRange.low, highValue: result.estimatedRange.high })}</div>
