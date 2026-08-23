@@ -3,6 +3,7 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import StorefrontNav from "../StorefrontNav";
 import { storefrontApi } from "../../lib/storefront-api";
+import { validateContact } from "../../lib/contact-validation";
 
 function VerifyForm() {
   const router = useRouter();
@@ -16,6 +17,12 @@ function VerifyForm() {
     event.preventDefault();
     setBusy(true);
     setError(null);
+    const contactCheck = validateContact(contact);
+    if (!contactCheck.ok) {
+      setError(contactCheck.reason);
+      setBusy(false);
+      return;
+    }
     try {
       await storefrontApi.verifyContactCode(contact, code);
       router.replace("/login");
@@ -33,7 +40,7 @@ function VerifyForm() {
       <p className="meta">Enter the verification code sent to your email or phone.</p>
       {error ? <div className="banner error" role="alert"><span>{error}</span></div> : null}
       <form className="buyBox" onSubmit={submit}>
-        <label><span>Email or phone</span><input type="text" value={contact} onChange={(e) => setContact(e.target.value)} required autoComplete="username" /></label>
+        <label><span>Email or phone</span><input type="text" value={contact} onChange={(e) => setContact(e.target.value)} required autoComplete="username" placeholder="you@example.com or +8801XXXXXXXXX" /></label>
         <label><span>Verification code</span><input type="text" value={code} onChange={(e) => setCode(e.target.value)} required autoComplete="one-time-code" /></label>
         <button className="primary" type="submit" disabled={busy}>{busy ? "Verifying…" : "Verify"}</button>
       </form>

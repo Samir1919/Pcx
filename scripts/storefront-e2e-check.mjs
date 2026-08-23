@@ -155,6 +155,34 @@ async function run() {
     record("customer-login", !/Sign in/.test(bodyText) || /account|Account/.test(bodyText), "signed in");
   }
 
+  if (enabled("contact-validation")) {
+    // IntlPhoneInput + client-side contact validation (register + login).
+    await page.goto(`${BASE_WEB}/register`, { waitUntil: "networkidle" });
+
+    // Default country is Bangladesh (+880) and is selected in the control.
+    const countryToggle = page.locator(".phoneInputCountry");
+    const defaultDial = await countryToggle.innerText().catch(() => "");
+    record("intl-default-bd", /\+880/.test(defaultDial), defaultDial.trim());
+
+    // Search by dial prefix (unique to India's +91, unlike the "India" text
+    // which also matches British Indian Ocean Territory) then select it.
+    await countryToggle.click();
+    await page.locator(".phoneInputSearch").fill("91");
+    await page.locator(".phoneInputOption", { hasText: "+91" }).click();
+    const updatedDial = await countryToggle.innerText().catch(() => "");
+    record("intl-country-switch", /\+91/.test(updatedDial), updatedDial.trim());
+
+    // Invalid email on the login page (a text input) is caught by the custom
+    // validateContact rule and surfaced as an error banner.
+    await page.goto(`${BASE_WEB}/login`, { waitUntil: "networkidle" });
+    await page.getByLabel("Email or phone").fill("bad@domain");
+    await page.getByLabel("Password", { exact: true }).fill("whatever123");
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await page.waitForTimeout(400);
+    const loginBody = await page.locator("body").innerText({ timeout: 10_000 }).catch(() => "");
+    record("contact-invalid-email-blocked", /valid email/i.test(loginBody), "login shows email validation error");
+  }
+
   await browser.close();
   const failed = results.filter((r) => !r.ok);
   process.stdout.write(`\nstorefront-e2e: ${results.length - failed.length}/${results.length} passed\n`);

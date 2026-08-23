@@ -41,6 +41,19 @@ const CHECKS = [
     selectors: ["text=Sell to PCX"]
   },
   {
+    group: "web",
+    name: "register",
+    url: `${BASE_WEB}/register`,
+    // IntlPhoneInput defaults to Bangladesh (+880).
+    selectors: ["text=Register", "text=Phone (optional)", "text=+880"]
+  },
+  {
+    group: "web",
+    name: "login",
+    url: `${BASE_WEB}/login`,
+    selectors: ["text=Sign in", "text=Email or phone"]
+  },
+  {
     group: "admin",
     name: "acquisition",
     url: `${BASE_ADMIN}/acquisition`,
