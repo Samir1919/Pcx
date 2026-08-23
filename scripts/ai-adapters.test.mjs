@@ -109,6 +109,8 @@ test("deepseek executor keeps json_object and omits thinking when reasoning is o
   let body;
   const executor = createDeepSeekExecutor({
     apiKey: "k",
+    thinkingEnabled: false,
+    reasoningEffort: null,
     fetchImpl: async (_url, options) => {
       body = JSON.parse(options.body);
       return okResponse(JSON.stringify({ artifactPath: "apps/api/src/a.mjs" }));
