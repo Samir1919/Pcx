@@ -9,7 +9,7 @@ export class SellRequestError extends Error {
 
 const createFields = new Set(["categoryId", "productModelId", "contactName", "contactPhone", "contactEmail", "fulfilmentPreference", "selectedSpecs", "sellEntry", "buildComponents", "ageEstimate", "warrantyRemaining", "repairDeclared", "repairNotes", "boxAvailable", "invoiceAvailable", "ownershipDeclared"]);
 
-export function createSellRequestService({ authService, repository, indicativePriceService, id = randomUUID, clock = () => new Date() }) {
+export function createSellRequestService({ authService, repository, indicativePriceService, id = randomUUID, clock = () => new Date(), notificationEmitter = null }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
   for (const method of ["create", "submit", "findByOwner", "findById", "transition", "listByOwner", "listAll"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
 
@@ -126,6 +126,18 @@ export function createSellRequestService({ authService, repository, indicativePr
       }
       const result = await repository.submit(identity.userId, requestId, clock().toISOString());
       if (result.status !== "submitted") throw new SellRequestError("not_found");
+      if (notificationEmitter && typeof notificationEmitter.emit === "function") {
+        try {
+          await notificationEmitter.emit({
+            notificationType: "SELL_REQUEST_SUBMITTED",
+            userId: identity.userId,
+            channel: "EMAIL",
+            referenceType: "sell_request",
+            referenceId: result.record.id,
+            payloadSnapshot: { publicRequestNo: result.record.publicRequestNo }
+          });
+        } catch { /* best-effort; notification must never fail submission */ }
+      }
       return result.record;
     },
 

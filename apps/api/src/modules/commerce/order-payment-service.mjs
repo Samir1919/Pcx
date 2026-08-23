@@ -12,7 +12,7 @@ const itemFields = new Set(["inventoryItemId", "listingId", "productModelId", "p
 // both are derived server-side so the server owns the financial fact.
 const paymentFields = new Set(["orderId", "direction", "method", "amount"]);
 
-export function createOrderPaymentService({ authService, repository, id = randomUUID, clock = () => new Date(), gateway = createSandboxPaymentGateway(), paymentProviderConfigService, provider = PaymentProvider.BKASH }) {
+export function createOrderPaymentService({ authService, repository, id = randomUUID, clock = () => new Date(), gateway = createSandboxPaymentGateway(), paymentProviderConfigService, notificationEmitter = null, provider = PaymentProvider.BKASH }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
   for (const method of ["createOrderWithItems", "createPayment", "confirmPayment"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
   if (!gateway || typeof gateway.charge !== "function") throw new TypeError("gateway.charge is required");
@@ -103,6 +103,18 @@ export function createOrderPaymentService({ authService, repository, id = random
 
       try {
         const created = await repository.createOrderWithItems(order, items);
+        if (notificationEmitter && typeof notificationEmitter.emit === "function") {
+          try {
+            await notificationEmitter.emit({
+              notificationType: "ORDER_PLACED",
+              userId: identity.userId,
+              channel: "EMAIL",
+              referenceType: "order",
+              referenceId: created.order.id,
+              payloadSnapshot: { orderNo: created.order.orderNo, total: created.order.totalAmount }
+            });
+          } catch { /* best-effort; notification must never fail the order */ }
+        }
         return Object.freeze({ ...created.order, items: Object.freeze(created.items) });
       } catch (error) {
         // The repository atomically claims each sellable listing (PUBLISHED ->

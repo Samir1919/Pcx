@@ -2,6 +2,9 @@ import { createShipmentService } from "../../api/src/modules/logistics/shipment-
 import { createPostgresShipmentRepository } from "../../api/src/modules/logistics/postgres-shipment-repository.mjs";
 import { createNotificationService } from "../../api/src/modules/notification/notification-service.mjs";
 import { createPostgresNotificationRepository } from "../../api/src/modules/notification/postgres-notification-repository.mjs";
+import { createPostgresNotificationProviderConfigRepository } from "../../api/src/modules/notification/postgres-notification-provider-config-repository.mjs";
+import { createNotificationProviderConfigService } from "../../api/src/modules/notification/notification-provider-config-service.mjs";
+import { createConfiguredNotificationDispatchers } from "../../api/src/modules/notification/configured-notification-dispatchers.mjs";
 import { createReservationService } from "../../api/src/modules/commerce/reservation-service.mjs";
 import { createPostgresReservationRepository } from "../../api/src/modules/commerce/postgres-reservation-repository.mjs";
 import { createPostgresListingRepository } from "../../api/src/modules/listing/postgres-listing-repository.mjs";
@@ -42,10 +45,20 @@ export function createWorkerRuntime({
     webhookSecret: courierWebhookSecret,
     maxWebhookRetries
   });
+  // The worker resolves the active EMAIL/SMS provider config at dispatch time
+  // via getActiveCredentials (which never authenticates), while still honoring
+  // any explicitly injected dispatchers for tests.
+  const notificationProviderConfigService = createNotificationProviderConfigService({
+    authService: workerAuthService,
+    repository: createPostgresNotificationProviderConfigRepository({ pool })
+  });
+  const resolvedDispatchers = Object.keys(notificationDispatchers).length > 0
+    ? notificationDispatchers
+    : createConfiguredNotificationDispatchers({ providerConfig: notificationProviderConfigService });
   const notificationService = createNotificationService({
     authService: workerAuthService,
     repository: createPostgresNotificationRepository({ pool }),
-    dispatchers: notificationDispatchers
+    dispatchers: resolvedDispatchers
   });
   const reservationService = createReservationService({
     authService: workerAuthService,

@@ -51,6 +51,7 @@ import { createNotificationService } from "../notification/notification-service.
 import { createPostgresNotificationProviderConfigRepository } from "../notification/postgres-notification-provider-config-repository.mjs";
 import { createNotificationProviderConfigService } from "../notification/notification-provider-config-service.mjs";
 import { createContactDeliveryService } from "../notification/contact-delivery-service.mjs";
+import { createNotificationEmitter } from "../notification/notification-emitter.mjs";
 import { createPostgresAuditLogRepository } from "../audit/postgres-audit-log-repository.mjs";
 import { createAuditLogService } from "../audit/audit-log-service.mjs";
 import { createPostgresPaymentProviderConfigRepository } from "../payment/postgres-payment-provider-config-repository.mjs";
@@ -118,8 +119,11 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   const catalogCommandService = createCatalogCommandService({ authService, repository: createPostgresCatalogCommandRepository({ pool }) });
   const catalogSpecCommandService = createCatalogSpecCommandService({ authService, repository: createPostgresCatalogSpecCommandRepository({ pool }) });
   const indicativePriceService = createIndicativePriceService({ authService, repository: createPostgresIndicativePriceRepository({ pool }) });
-  const sellRequestService = createSellRequestService({ authService, repository: createPostgresSellRequestRepository({ pool }), indicativePriceService });
-  const acquisitionService = createAcquisitionService({ authService, repository: createPostgresAcquisitionRepository({ pool }) });
+  const notificationRepository = createPostgresNotificationRepository({ pool });
+  const emitterRepository = createPostgresNotificationRepository({ pool });
+  const notificationEmitter = createNotificationEmitter({ repository: emitterRepository });
+  const sellRequestService = createSellRequestService({ authService, repository: createPostgresSellRequestRepository({ pool }), indicativePriceService, notificationEmitter });
+  const acquisitionService = createAcquisitionService({ authService, repository: createPostgresAcquisitionRepository({ pool }), notificationEmitter });
   const inventoryRepository = createPostgresInventoryRepository({ pool });
   const inventoryService = createInventoryService({ authService, repository: inventoryRepository });
   const inspectionTemplateRepository = createPostgresInspectionTemplateRepository({ pool });
@@ -137,14 +141,14 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   const paymentProviderConfigService = createPaymentProviderConfigService({ authService, repository: paymentProviderConfigRepository });
   const sellTaxonomyService = createSellTaxonomyService({ authService, readRepository: createPostgresSellTaxonomyRepository({ pool }), commandRepository: createPostgresSellTaxonomyCommandRepository({ pool }) });
   const siteFooterService = createSiteFooterService({ authService, repository: createPostgresSiteFooterRepository({ pool }) });
-  const orderPaymentService = createOrderPaymentService({ authService, repository: createPostgresOrderPaymentRepository({ pool }), paymentProviderConfigService });
+  const orderPaymentService = createOrderPaymentService({ authService, repository: createPostgresOrderPaymentRepository({ pool }), paymentProviderConfigService, notificationEmitter });
 
   const shipmentService = createShipmentService({ authService, repository: createPostgresShipmentRepository({ pool }), webhookSecret: courierWebhookSecret });
 
   const returnRequestService = createReturnRequestService({ authService, repository: createPostgresReturnRequestRepository({ pool }) });
   const warrantyClaimService = createWarrantyClaimService({ authService, repository: createPostgresWarrantyClaimRepository({ pool }) });
   const operationsReportService = createOperationsReportService({ authService, repository: createPostgresOperationsReportRepository({ pool }) });
-  const notificationService = createNotificationService({ authService, repository: createPostgresNotificationRepository({ pool }) });
+  const notificationService = createNotificationService({ authService, repository: notificationRepository });
 
   return Object.freeze({
     authService,
