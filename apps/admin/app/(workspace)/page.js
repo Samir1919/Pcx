@@ -32,6 +32,13 @@ export default function OverviewPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Background refresh keeps the dashboard current without a manual click. The
+  // server remains the source of truth; this only re-reads the operations report.
+  useEffect(() => {
+    const timer = setInterval(() => { load(); }, 30_000);
+    return () => clearInterval(timer);
+  }, [load]);
+
   return (
     <>
       <header>

@@ -23,6 +23,13 @@ export default function AuditPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Append-only audit is read-only; polling keeps the view current without a
+  // manual click. The server is the single source of truth.
+  useEffect(() => {
+    const timer = setInterval(() => { load(); }, 30_000);
+    return () => clearInterval(timer);
+  }, [load]);
+
   return (
     <>
       <header>
