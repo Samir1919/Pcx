@@ -1,7 +1,7 @@
 # PCX Project Status
 
 - Updated: 2026-08-23
-- Current main evidence commit: `9492775` on branch `main` (shipment form contract fix + business e2e checks: admin "Mark shipped" country/weight fields aligned to server contract; new business-e2e and shipment-flow check scripts)
+- Current main evidence commit: `b52d0a3` on branch `main` (shipment form contract fix + business e2e checks + stale migration-test sync)
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: Stage 3 control-plane completion and next dependency-ready work
 - Current autonomy maturity: Stage 2 in progress; Stage 3 control plane complete for bounded local/CI parallel orchestration (ADR 0008)
@@ -70,7 +70,7 @@ This file is the central progress index. Approved specifications define what PCX
 - Dependency audit (`npm audit --omit=dev --audit-level=high`): 0 known vulnerabilities.
 - Backup/restore drill: seed rows recovered to a throwaway database.
 - Autonomous loop dry-run: `node scripts/autonomous-loop.mjs --dry-run --real-executor --no-persist-graph` completes spec/api/web with a surfaced cost/runtime report (Tasks 3, Passed 3, Cost 3); `--approval-required` blocks commit-creating tasks with `approval_required`; `--deepseek-executor` and `--openai-review` opt into AI-backed adapters.
-- Latest detailed evidence: `scripts/business-e2e-check.mjs` (merge `9492775`): real end-to-end business flows driven through the browser — sell (web create→submit→admin queue, always re-runnable) and self-provisioned buy (admin intake→listing→price→publish, then customer order). Also `scripts/shipment-flow-check.mjs` proves admin create→ship→deliver with server-authoritative tracking id (3/3). Fixed two real API↔UI mismatches in the admin shipment form: `packageType`/`weight` were server-required but UI-optional, and the courier-required `address.country` was never sent. Prior evidence: `FULLSTACK_A_TO_Z_VERIFY.md` (commit `6a5d7e5` / merge `8e72d12`) built `storefront-e2e` (12/12) + `admin-e2e` (18/18) and fixed `seed-demo` reservation idempotency.
+- Latest detailed evidence: `scripts/business-e2e-check.mjs` + `scripts/shipment-flow-check.mjs` (merge `9492775`): real end-to-end business flows driven through the browser — sell (web create→submit→admin queue) and self-provisioned buy (admin intake→listing→price→publish→customer order), plus admin create→ship→deliver with server-authoritative tracking id (3/3). Fixed two real API↔UI mismatches in the admin shipment form (`packageType`/`weight` server-required vs UI-optional; courier-required `address.country` missing). CI follow-up (merge `b52d0a3`): synced the stale `migrations.test.mjs` expected file/table list with the actual migration set so `verify:ci` passes (526/526 on a fresh DB). Prior: `FULLSTACK_A_TO_Z_VERIFY.md` built `storefront-e2e` (12/12) + `admin-e2e` (18/18) and fixed `seed-demo` reservation idempotency.
 
 
 
