@@ -20,6 +20,7 @@ test("catalog persistence enforces typed category alignment and deterministic pu
   const definitionB = "73000000-0000-0000-0000-000000000002";
   try {
     await pool.query("DELETE FROM model_spec_values WHERE product_model_id IN ($1,$2,$3)", [modelA, modelB, archived]);
+    await pool.query("DELETE FROM indicative_prices WHERE category_id IN ($1,$2) OR product_model_id IN ($3,$4,$5)", [categoryA, categoryB, modelA, modelB, archived]);
     await pool.query("DELETE FROM spec_definitions WHERE category_id IN ($1,$2)", [categoryA, categoryB]);
     await pool.query("DELETE FROM product_models WHERE id IN ($1,$2,$3)", [modelA, modelB, archived]);
     await pool.query("DELETE FROM brands WHERE id=$1", [brandId]);

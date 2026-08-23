@@ -20,6 +20,10 @@ test("order/payment repository persists order, snapshot items, and idempotent pa
   const now = "2026-08-16T12:00:00.000Z";
   try {
     await pool.query("DELETE FROM payments WHERE order_id::text = $1", [orderId]);
+    await pool.query("DELETE FROM shipment_webhook_events WHERE shipment_id IN (SELECT id FROM shipments WHERE order_id::text IN ($1,$2))", [orderId, "9e000000-0000-4000-8000-000000000010"]);
+    await pool.query("DELETE FROM shipment_events WHERE shipment_id IN (SELECT id FROM shipments WHERE order_id::text IN ($1,$2))", [orderId, "9e000000-0000-4000-8000-000000000010"]);
+    await pool.query("DELETE FROM shipments WHERE order_id::text IN ($1,$2)", [orderId, "9e000000-0000-4000-8000-000000000010"]);
+    await pool.query("DELETE FROM return_requests WHERE order_item_id::text IN (SELECT id::text FROM order_items WHERE order_id::text IN ($1,$2))", [orderId, "9e000000-0000-4000-8000-000000000010"]);
     await pool.query("DELETE FROM order_items WHERE order_id::text IN ($1,$2)", [orderId, "9e000000-0000-4000-8000-000000000010"]);
     await pool.query("DELETE FROM orders WHERE id::text IN ($1,$2)", [orderId, "9e000000-0000-4000-8000-000000000010"]);
     await pool.query("DELETE FROM listings WHERE inventory_item_id::text IN ($1,$2)", [itemA, itemB]);
