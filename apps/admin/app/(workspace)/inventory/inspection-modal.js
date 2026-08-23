@@ -2,14 +2,45 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { opsApi } from "../../../lib/ops-api";
+import { catalogApi } from "../../../lib/catalog-api";
 
 export default function InspectionModal({ item, onClose }) {
   const [templateId, setTemplateId] = useState("");
+  const [templates, setTemplates] = useState([]);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
   const [inspection, setInspection] = useState(null);
   const [results, setResults] = useState(null);
   const [answers, setAnswers] = useState({});
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
+
+  // Auto-detect the category-scoped inspection templates for this item's model
+  // so the technician never copies a raw template UUID. The template is only a
+  // convenience default; the server still validates the selected template and
+  // enforces the inspection lifecycle.
+  useEffect(() => {
+    let cancelled = false;
+    async function detectTemplates() {
+      setTemplatesLoading(true);
+      try {
+        const modelPayload = await catalogApi.model(item.productModelId);
+        const model = modelPayload.data;
+        const categoryId = model?.categoryId;
+        if (!categoryId) { setTemplates([]); return; }
+        const templatesPayload = await opsApi.templates(categoryId);
+        const list = templatesPayload.data ?? [];
+        if (cancelled) return;
+        setTemplates(list);
+        if (list.length > 0) setTemplateId((prev) => prev || list[0].id);
+      } catch {
+        if (!cancelled) setTemplates([]);
+      } finally {
+        if (!cancelled) setTemplatesLoading(false);
+      }
+    }
+    if (item?.productModelId) detectTemplates();
+    return () => { cancelled = true; };
+  }, [item?.productModelId]);
 
   async function start(event) {
     event.preventDefault();
@@ -106,9 +137,18 @@ export default function InspectionModal({ item, onClose }) {
 
         {!inspection ? (
           <form onSubmit={start}>
-            <p>Start a DRAFT inspection against a category-scoped template. The template must already exist under Verification.</p>
-            <label><span>Inspection template ID</span><input value={templateId} onChange={(e) => setTemplateId(e.target.value)} required /></label>
-            <button className="primary" disabled={busy}>{busy ? "Starting…" : "Start inspection"}</button>
+            <p>Start a DRAFT inspection against a category-scoped template. Templates are auto-detected from the item model.</p>
+            <label>
+              <span>Inspection template</span>
+              <select value={templateId} onChange={(e) => setTemplateId(e.target.value)} required disabled={templatesLoading}>
+                <option value="">{templatesLoading ? "Detecting…" : "Select a template"}</option>
+                {templates.map((t) => <option key={t.id} value={t.id}>{t.name} (v{t.version})</option>)}
+              </select>
+            </label>
+            {!templatesLoading && templates.length === 0 && (
+              <label><span>Or enter template ID</span><input value={templateId} onChange={(e) => setTemplateId(e.target.value)} required /></label>
+            )}
+            <button className="primary" disabled={busy || templatesLoading || !templateId}>{busy ? "Starting…" : "Start inspection"}</button>
           </form>
         ) : (
           <div>

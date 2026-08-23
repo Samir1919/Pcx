@@ -144,7 +144,7 @@ export default function ListingsPage() {
         title: "Publish listing",
         description: "Publishing requires a canonical public slug. Only lowercase letters, numbers, and dashes are allowed.",
         label: "Public slug",
-        initialValue: listing.publicSlug ?? "",
+        initialValue: listing.publicSlug ?? slug(listing.modelName ?? ""),
         inputMode: "text",
         submitLabel: "Publish",
         parse: parseSlug
