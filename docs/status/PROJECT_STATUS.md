@@ -1,7 +1,7 @@
 # PCX Project Status
 
 - Updated: 2026-08-23
-- Current main evidence commit: `c680817` on branch `main` (unified contact delivery + notification provider config + event-driven emit + anti-spam)
+- Current main evidence commit: `cadb0dc` on branch `main` (production Docker build fixes + compose context)
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: Stage 3 control-plane completion and next dependency-ready work
 - Current autonomy maturity: Stage 2 in progress; Stage 3 control plane complete for bounded local/CI parallel orchestration (ADR 0008)
@@ -73,6 +73,7 @@ This file is the central progress index. Approved specifications define what PCX
 - Latest: merge `1c0bb4b` completed the Sell-to-PCX seller/admin UX (A→D): real web submit (DRAFT→SUBMITTED), admin queue excludes DRAFT + admin detail view, seller "My sell requests"/offer Accept-Decline, and self-service profile edit + password change with sell-form name/phone autosave (534 tests / 0 fail; headed business-e2e 11/11). Prior: merge `fe84344` enforced the double-sell guard; `9492775` added `business-e2e`/`shipment-flow` checks; `b52d0a3` synced the stale migrations test; `FULLSTACK_A_TO_Z_VERIFY.md` built `storefront-e2e`/`admin-e2e`.
 - Admin manual-to-automation slices (commits `33eb30f`…`25979e4`, docs commit `3bef1eb`): returns/warranty/shipment row actions + acquisition contextual prefill; offer-expiry and warranty-window defaults; inspection-template autoselect + listing slug prefill; overview/audit 30s polling; verification template version auto-increment. Headed `admin-e2e` grown from 21→25 steps, all pass; `npm run verify` pass (534 tests / 0 fail).
 - Unified contact delivery + notification (commit `c680817`): contact normalization + per-contact abuse control; EMAIL/SMS provider config + dispatchers (Resend/bdBulksms); synchronous verify/reset delivery; event emitter + idempotent outbox + lifecycle emits + worker configured dispatch; admin Providers tab. Headed `admin-e2e` 26/26; `npm run verify` pass (543 tests / 517 pass / 0 fail / 26 skipped). Storefront IntlPhoneInput deferred (recorded in handoff).
+- Production Docker (commit `cadb0dc`): fix compose build contexts to repo root; remove stale package refs from all Dockerfiles; fix `/verify` useSearchParams Suspense prerender. Verified `docker compose config` (staging+prod) and `docker compose build` of api/worker/web/admin images (no deploy). Real secrets/domain/deploy remain human hard stops.
 
 
 
