@@ -39,6 +39,7 @@ export default function AcquisitionPage() {
   const [sellRequests, setSellRequests] = useState([]);
   const [detail, setDetail] = useState(null);
   const [detailBusy, setDetailBusy] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -123,6 +124,7 @@ export default function AcquisitionPage() {
   }
 
   async function openDetail(r) {
+    setSelectedRequest(r);
     setDetailBusy(true);
     setNotice(null);
     try {
@@ -237,7 +239,7 @@ export default function AcquisitionPage() {
           <p className="eyebrow">VALUATION</p>
           <h2>Create valuation</h2>
           <form onSubmit={createValuation}>
-            <Field label="Sell request ID" name="sellRequestId" required />
+            <Field label="Sell request ID" name="sellRequestId" defaultValue={selectedRequest?.id ?? ""} required />
             <label><span>Valuation type</span><select name="valuationType" required><option>PRELIMINARY</option><option>POST_INSPECTION</option><option>MANUAL</option></select></label>
             <Field label="Low value" name="lowValue" type="number" min="0" />
             <Field label="High value" name="highValue" type="number" min="0" />
@@ -249,7 +251,7 @@ export default function AcquisitionPage() {
           <p className="eyebrow">OFFER</p>
           <h2>Create offer</h2>
           <form onSubmit={createOffer}>
-            <Field label="Sell request ID" name="sellRequestId" required />
+            <Field label="Sell request ID" name="sellRequestId" defaultValue={selectedRequest?.id ?? ""} required />
             <Field label="Valuation ID (optional)" name="valuationId" />
             <Field label="Amount" name="amount" type="number" min="0" step="0.01" required />
             <Field label="Expires at (ISO)" name="expiresAt" required />
@@ -268,7 +270,7 @@ export default function AcquisitionPage() {
           <p className="eyebrow">ACQUISITION</p>
           <h2>Create acquisition</h2>
           <form onSubmit={createAcquisition}>
-            <Field label="Sell request ID" name="sellRequestId" required />
+            <Field label="Sell request ID" name="sellRequestId" defaultValue={selectedRequest?.id ?? ""} required />
             <Field label="Accepted offer ID" name="acceptedOfferId" required />
             <Field label="Seller user ID" name="sellerUserId" required />
             <label><span>Source type</span><select name="sourceType" required><option>SELL_TO_PCX</option><option>DIRECT_PURCHASE</option><option>TRADE_IN</option><option>CORPORATE</option><option>OTHER</option></select></label>
