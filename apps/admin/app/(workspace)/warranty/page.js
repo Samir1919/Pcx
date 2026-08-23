@@ -7,6 +7,16 @@ import { warrantyApi } from "../../../lib/warranty-api.js";
 function Banner({ notice, onClose }) { if (!notice) return null; return <div className={`banner ${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}><span>{notice.message}</span><button type="button" onClick={onClose} aria-label="Dismiss message">×</button></div>; }
 function Field({ label, name, ...props }) { return <label><span>{label}</span><input name={name} {...props} /></label>; }
 
+// UI convenience defaults for the warranty window. The server remains
+// authoritative for warranty eligibility and never accepts a client-authored
+// expiration as business truth. One year is a safe, reversible default; the
+// operator can still adjust both datetimes before creating.
+function defaultWarrantyWindow() {
+  const starts = new Date();
+  const ends = new Date(starts.getTime() + 365 * 24 * 60 * 60 * 1000);
+  return { startsAt: starts.toISOString().slice(0, 16), endsAt: ends.toISOString().slice(0, 16) };
+}
+
 const RESOLUTION_TYPES = ["REPAIR", "REPLACE", "REFUND", "REJECT"];
 
 async function run(action, setBusy, setNotice) {
@@ -201,8 +211,8 @@ export default function WarrantyPage() {
           <form onSubmit={createWarranty}>
             <Field label="Order item ID" name="orderItemId" required />
             <Field label="Inventory item ID" name="inventoryItemId" required />
-            <Field label="Starts at" name="startsAt" type="datetime-local" required />
-            <Field label="Ends at" name="endsAt" type="datetime-local" required />
+            <Field label="Starts at" name="startsAt" type="datetime-local" defaultValue={defaultWarrantyWindow().startsAt} required />
+            <Field label="Ends at" name="endsAt" type="datetime-local" defaultValue={defaultWarrantyWindow().endsAt} required />
             <button className="primary" disabled={busy}>Create warranty</button>
           </form>
         </section>

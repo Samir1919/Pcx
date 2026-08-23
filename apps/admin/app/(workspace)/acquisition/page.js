@@ -6,6 +6,13 @@ import { acquisitionApi } from "../../../lib/acquisition-api.js";
 function Banner({ notice, onClose }) { if (!notice) return null; return <div className={`banner ${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}><span>{notice.message}</span><button type="button" onClick={onClose} aria-label="Dismiss message">×</button></div>; }
 function Field({ label, name, ...props }) { return <label><span>{label}</span><input name={name} {...props} /></label>; }
 
+// UI convenience default for the offer expiry. The server remains authoritative:
+// it validates the transition graph and never lets the client author status,
+// price, or final offer amounts. Seven days is a safe, reversible default.
+function defaultOfferExpiry() {
+  return new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+}
+
 // Server-owned transition graph (mirrors SellRequestTransitions for UI actions).
 const TRANSITIONS = {
   SUBMITTED: ["REVIEWING", "CANCELLED"],
@@ -254,7 +261,7 @@ export default function AcquisitionPage() {
             <Field label="Sell request ID" name="sellRequestId" defaultValue={selectedRequest?.id ?? ""} required />
             <Field label="Valuation ID (optional)" name="valuationId" />
             <Field label="Amount" name="amount" type="number" min="0" step="0.01" required />
-            <Field label="Expires at (ISO)" name="expiresAt" required />
+            <Field label="Expires at (ISO)" name="expiresAt" defaultValue={defaultOfferExpiry()} required />
             <button className="primary" disabled={busy}>Create offer</button>
           </form>
         </section>

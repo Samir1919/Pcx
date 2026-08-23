@@ -169,6 +169,25 @@ async function run() {
     record("acquisition-contextual-prefill", false, e.message);
   }
 
+  // Warranty: verify the create-warranty window defaults are pre-filled.
+  try {
+    await page.goto(`${BASE_ADMIN}/warranty`, { waitUntil: "networkidle", timeout: 30_000 });
+    const startsAt = await page.locator('input[name="startsAt"]').first().inputValue();
+    const endsAt = await page.locator('input[name="endsAt"]').first().inputValue();
+    record("warranty-window-default", startsAt.length > 0 && endsAt.length > 0, startsAt && endsAt ? "window defaulted" : "no default");
+  } catch (e) {
+    record("warranty-window-default", false, e.message);
+  }
+
+  // Acquisition: verify the offer expiry default is pre-filled.
+  try {
+    await page.goto(`${BASE_ADMIN}/acquisition`, { waitUntil: "networkidle", timeout: 30_000 });
+    const expiresAt = await page.locator('input[name="expiresAt"]').first().inputValue();
+    record("acquisition-offer-expiry-default", expiresAt.length > 0, expiresAt ? "expiry defaulted" : "no default");
+  } catch (e) {
+    record("acquisition-offer-expiry-default", false, e.message);
+  }
+
   // Returns: verify the first actionable row button renders (demo returns are REQUESTED → Approve).
   try {
     await page.goto(`${BASE_ADMIN}/returns`, { waitUntil: "networkidle", timeout: 30_000 });
