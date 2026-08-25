@@ -145,6 +145,7 @@ export default function SellRequestModal({ request, onClose, onChanged }) {
             <dl className="detailList">
               <div><dt>Status</dt><dd><span className="pill">{detail.status}</span></dd></div>
               <div><dt>Entry</dt><dd>{detail.sellEntry ?? "—"}</dd></div>
+              <div><dt>Product model</dt><dd>{detail.productModelName ?? detail.productModelId ?? "—"}</dd></div>
               <div><dt>Name</dt><dd>{detail.contactName ?? "—"}</dd></div>
               <div><dt>Phone</dt><dd>{detail.contactPhone ?? "—"}</dd></div>
               <div><dt>Email</dt><dd>{detail.contactEmail ?? "—"}</dd></div>
