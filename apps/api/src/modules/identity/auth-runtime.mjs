@@ -174,7 +174,7 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   const notificationRepository = createPostgresNotificationRepository({ pool });
   const emitterRepository = createPostgresNotificationRepository({ pool });
   const notificationEmitter = createNotificationEmitter({ repository: emitterRepository });
-  const sellRequestService = createSellRequestService({ authService, repository: createPostgresSellRequestRepository({ pool }), indicativePriceService, notificationEmitter });
+  const sellRequestService = createSellRequestService({ authService, repository: createPostgresSellRequestRepository({ pool }), indicativePriceService, catalogService, notificationEmitter });
   const acquisitionService = createAcquisitionService({ authService, repository: createPostgresAcquisitionRepository({ pool }), notificationEmitter });
   const inventoryRepository = createPostgresInventoryRepository({ pool });
   const inventoryService = createInventoryService({ authService, repository: inventoryRepository });

@@ -6,7 +6,9 @@ import { MAX_UPLOAD_BYTES } from "./local-media-storage.mjs";
 
 function send(response, status, body, headers = {}) {
   response.writeHead(status, headers);
-  response.end(body == null ? undefined : body);
+  if (body == null) { response.end(); return; }
+  if (typeof body === "string" || Buffer.isBuffer(body) || body instanceof Uint8Array) { response.end(body); return; }
+  response.end(JSON.stringify(body));
 }
 function failure(code, message, requestId) { return { error: { code, message, requestId } }; }
 

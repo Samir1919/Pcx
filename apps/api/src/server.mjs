@@ -97,6 +97,10 @@ export function createRequestHandler({ readiness = () => ({ ok: true }), catalog
     if (await handleCatalogSpecCommandRequest(request, response, { catalogSpecCommandService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleCatalogCommandRequest(request, response, { catalogCommandService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleAddressRequest(request, response, { addressService, allowedOrigins, requestId: requestId(request) })) return;
+    // Media must run before the resource handlers that own the same prefixes
+    // (sell-requests, inspections, admin/listings) so `/…/:id/media` reaches the
+    // media module instead of being 404'd by the resource handler's suffix guard.
+    if (await handleMediaRequest(request, response, { mediaService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleSellRequestRequest(request, response, { sellRequestService, acquisitionService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleAcquisitionRequest(request, response, { acquisitionService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleInventoryRequest(request, response, { inventoryService, allowedOrigins, requestId: requestId(request) })) return;
@@ -105,7 +109,6 @@ export function createRequestHandler({ readiness = () => ({ ok: true }), catalog
     if (await handleListingRequest(request, response, { listingService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleReservationRequest(request, response, { reservationService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleCartRequest(request, response, { cartService, allowedOrigins, requestId: requestId(request) })) return;
-    if (await handleMediaRequest(request, response, { mediaService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleOrderPaymentRequest(request, response, { orderPaymentService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleShipmentRequest(request, response, { shipmentService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleCourierWebhookRequest(request, response, { shipmentService, requestId: requestId(request) })) return;

@@ -69,7 +69,7 @@ export default function AcquisitionPage() {
                         ? r.buildComponents.map((c) => <span key={c.role} className="pill" style={{ marginRight: 4 }}>{c.role}</span>)
                         : "—"}
                     </td>
-                    <td>{r.productModelId ? `${r.productModelId.slice(0, 8)}…` : "—"}</td>
+                    <td>{r.productModelName ?? (r.productModelId ? `${r.productModelId.slice(0, 8)}…` : "—")}</td>
                     <td><span className="pill">{r.status}</span></td>
                     <td>{r.submittedAt ? new Date(r.submittedAt).toLocaleString() : "—"}</td>
                     <td>
