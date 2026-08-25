@@ -18,6 +18,7 @@
  *   PCX_HEADED=1 node scripts/business-e2e-check.mjs     # visible window
  */
 import { chromium } from "playwright";
+import { writeEvidence } from "./browser-verify-evidence.mjs";
 
 const headed = process.env.PCX_HEADED === "1";
 const WEB = process.env.PCX_WEB_ORIGIN ?? "http://localhost:3000";
@@ -304,6 +305,20 @@ async function main() {
 
   await browser.close();
   const failed = results.filter((r) => !r.ok);
+
+  if (process.argv.includes("--evidence")) {
+    await writeEvidence({
+      scope: "Sell-to-PCX submission and buy + fulfilment lifecycle",
+      headed,
+      tool: "scripts/business-e2e-check.mjs",
+      result: failed.length === 0 ? "passed" : "failed",
+      businessFlow: {
+        subject: "Sell-to-PCX and buy + fulfilment end-to-end",
+        steps: results.map((r) => r.name)
+      }
+    });
+  }
+
   process.stdout.write(`\nbusiness-e2e: ${results.length - failed.length}/${results.length} passed\n`);
   if (failed.length) {
     for (const r of failed) process.stderr.write(`  ✖ ${r.name}: ${r.detail}\n`);

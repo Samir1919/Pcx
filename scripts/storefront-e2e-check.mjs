@@ -14,6 +14,7 @@
  * (npm run seed:demo). Development verification aid only; never run in prod.
  */
 import { chromium } from "playwright";
+import { writeEvidence } from "./browser-verify-evidence.mjs";
 
 const BASE_WEB = process.env.PCX_WEB_ORIGIN ?? "http://localhost:3000";
 const CUSTOMER = { contact: "demo-customer@example.com", pass: "DemoCustomer1!" };
@@ -185,6 +186,20 @@ async function run() {
 
   await browser.close();
   const failed = results.filter((r) => !r.ok);
+
+  if (process.argv.includes("--evidence")) {
+    await writeEvidence({
+      scope: "Customer storefront pages and click-through flows",
+      headed,
+      tool: "scripts/storefront-e2e-check.mjs",
+      result: failed.length === 0 ? "passed" : "failed",
+      businessFlow: {
+        subject: "Storefront browse, passport, sell, and auth flows",
+        steps: results.map((r) => r.name)
+      }
+    });
+  }
+
   process.stdout.write(`\nstorefront-e2e: ${results.length - failed.length}/${results.length} passed\n`);
   if (failed.length) {
     for (const r of failed) process.stderr.write(`  ✖ ${r.name}: ${r.detail}\n`);

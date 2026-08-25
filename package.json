@@ -42,7 +42,8 @@
     "admin:e2e": "node scripts/admin-e2e-check.mjs",
     "merge-gate": "node scripts/merge-gate.mjs",
     "merge-check": "node scripts/merge-gate.mjs",
-    "verify": "npm run verify:e0 && npm run lint && npm run typecheck && npm test && npm run build && npm run security",
+    "ui-guard": "node scripts/browser-verify-guard.mjs",
+    "verify": "npm run verify:e0 && npm run lint && npm run typecheck && npm test && npm run build && npm run security && npm run ui-guard",
     "verify:ci": "npm run verify && npm run test:integration && npm run smoke"
   },
   "devDependencies": {

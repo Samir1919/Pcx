@@ -11,6 +11,7 @@
  * (npm run seed:demo). Development verification aid only; never run in prod.
  */
 import { chromium } from "playwright";
+import { writeEvidence } from "./browser-verify-evidence.mjs";
 
 const BASE_ADMIN = process.env.PCX_ADMIN_ORIGIN ?? "http://localhost:3001";
 const ADMIN = { contact: "demo-admin@example.com", pass: "DemoAdmin123!", mfa: "123456" };
@@ -257,6 +258,20 @@ async function run() {
 
   await browser.close();
   const failed = results.filter((r) => !r.ok);
+
+  if (process.argv.includes("--evidence")) {
+    await writeEvidence({
+      scope: "Admin operational workspaces and interactive workflows",
+      headed,
+      tool: "scripts/admin-e2e-check.mjs",
+      result: failed.length === 0 ? "passed" : "failed",
+      businessFlow: {
+        subject: "Admin workspace click-through verification",
+        steps: results.map((r) => r.name)
+      }
+    });
+  }
+
   process.stdout.write(`\nadmin-e2e: ${results.length - failed.length}/${results.length} passed\n`);
   if (failed.length) {
     for (const r of failed) process.stderr.write(`  ✖ ${r.name}: ${r.detail}\n`);
