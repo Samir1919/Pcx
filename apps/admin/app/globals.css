@@ -657,6 +657,14 @@ textarea:focus {
   padding: 28px 28px 26px
 }
 
+.modalDialog.wide {
+  max-width: 760px;
+  max-height: min(88vh, 900px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column
+}
+
 .modalDialog h2 {
   margin: 0 0 10px;
   padding-right: 40px
