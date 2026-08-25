@@ -1,8 +1,8 @@
 # Agent Handoff: Enforceable headed-browser verification guard
 
-- Status: Complete (pending commit/merge)
-- Branch: `agent/browser-verify-guard`
-- Latest commit: (to be created)
+- Status: Complete
+- Branch: `agent/browser-verify-guard` (merged into `main`, then `origin/main`)
+- Latest commit: `76c6d73`
 - Date: 2026-08-25
 
 ## Outcome
