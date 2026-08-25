@@ -80,24 +80,27 @@ export default function SellRequestModal({ request, onClose, onChanged }) {
 
   async function createOffer(event) {
     event.preventDefault();
+    const formElement = event.currentTarget;
     const form = formBody(event);
     await run(() => acquisitionApi.createOffer({
       sellRequestId: form.get("sellRequestId"),
       amount: Number(form.get("amount")),
       expiresAt: form.get("expiresAt")
     }));
-    event.currentTarget.reset();
+    formElement.reset();
   }
 
   async function acceptOffer(event) {
     event.preventDefault();
+    const formElement = event.currentTarget;
     const form = formBody(event);
     await run(() => acquisitionApi.acceptOffer(form.get("offerId")));
-    event.currentTarget.reset();
+    formElement.reset();
   }
 
   async function createAcquisition(event) {
     event.preventDefault();
+    const formElement = event.currentTarget;
     const form = formBody(event);
     await run(() => acquisitionApi.createAcquisition({
       sellRequestId: form.get("sellRequestId"),
@@ -106,14 +109,15 @@ export default function SellRequestModal({ request, onClose, onChanged }) {
       sourceType: form.get("sourceType"),
       idempotencyKey: form.get("idempotencyKey")
     }));
-    event.currentTarget.reset();
+    formElement.reset();
   }
 
   async function markPaid(event) {
     event.preventDefault();
+    const formElement = event.currentTarget;
     const form = formBody(event);
     await run(() => acquisitionApi.markAcquisitionPaid(form.get("acquisitionId")));
-    event.currentTarget.reset();
+    formElement.reset();
   }
 
   async function transition(toStatus) {
@@ -141,7 +145,9 @@ export default function SellRequestModal({ request, onClose, onChanged }) {
             <dl className="detailList">
               <div><dt>Status</dt><dd><span className="pill">{detail.status}</span></dd></div>
               <div><dt>Entry</dt><dd>{detail.sellEntry ?? "—"}</dd></div>
-              <div><dt>Contact</dt><dd>{detail.contactName ?? "—"}{detail.contactPhone ? ` · ${detail.contactPhone}` : ""}{detail.contactEmail ? ` · ${detail.contactEmail}` : ""}</dd></div>
+              <div><dt>Name</dt><dd>{detail.contactName ?? "—"}</dd></div>
+              <div><dt>Phone</dt><dd>{detail.contactPhone ?? "—"}</dd></div>
+              <div><dt>Email</dt><dd>{detail.contactEmail ?? "—"}</dd></div>
               <div><dt>Fulfilment</dt><dd>{detail.fulfilmentPreference ?? "—"}</dd></div>
               <div><dt>Submitted</dt><dd>{detail.submittedAt ? new Date(detail.submittedAt).toLocaleString() : "—"}</dd></div>
             </dl>
@@ -175,7 +181,7 @@ export default function SellRequestModal({ request, onClose, onChanged }) {
                     <thead><tr><th>Role</th><th>Model</th></tr></thead>
                     <tbody>
                       {detail.buildComponents.map((c) => (
-                        <tr key={c.role}><td>{c.role}</td><td>{c.productModelId}</td></tr>
+                        <tr key={c.role}><td>{c.role}</td><td>{c.productModelName ?? c.productModelId}</td></tr>
                       ))}
                     </tbody>
                   </table>

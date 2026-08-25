@@ -9,7 +9,7 @@ export class SellRequestError extends Error {
 
 const createFields = new Set(["categoryId", "productModelId", "contactName", "contactPhone", "contactEmail", "fulfilmentPreference", "selectedSpecs", "sellEntry", "buildComponents", "ageEstimate", "warrantyRemaining", "repairDeclared", "repairNotes", "boxAvailable", "invoiceAvailable", "ownershipDeclared"]);
 
-export function createSellRequestService({ authService, repository, indicativePriceService, id = randomUUID, clock = () => new Date(), notificationEmitter = null }) {
+export function createSellRequestService({ authService, repository, indicativePriceService, catalogService = null, id = randomUUID, clock = () => new Date(), notificationEmitter = null }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
   for (const method of ["create", "submit", "findByOwner", "findById", "transition", "listByOwner", "listAll"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
 
@@ -22,6 +22,29 @@ export function createSellRequestService({ authService, repository, indicativePr
   function allowed(input) {
     for (const key of Object.keys(input ?? {})) if (!createFields.has(key)) throw new SellRequestError("invalid_input");
     return input ?? {};
+  }
+
+  // Resolve catalog model names for the part/build selections so the admin
+  // detail/queue can show a human-readable model instead of a raw UUID. This
+  // goes through the catalog module's public read (never a raw cross-module
+  // query) and is best-effort so a missing/inactive model degrades to the id.
+  async function withModelNames(record) {
+    if (!catalogService || typeof catalogService.getProductModel !== "function") return record;
+    const nameFor = async (modelId) => {
+      if (!modelId) return null;
+      try {
+        const model = await catalogService.getProductModel(modelId);
+        return model?.name ?? null;
+      } catch {
+        return null;
+      }
+    };
+    const productModelName = await nameFor(record.productModelId);
+    const buildComponents = await Promise.all((record.buildComponents ?? []).map(async (component) => {
+      const name = await nameFor(component?.productModelId);
+      return Object.freeze({ ...component, productModelName: name });
+    }));
+    return Object.freeze({ ...record, productModelName, buildComponents: Object.freeze(buildComponents) });
   }
 
   return Object.freeze({
@@ -95,7 +118,9 @@ export function createSellRequestService({ authService, repository, indicativePr
     async listAdmin(accessCredential) {
       const identity = await authService.authenticateAccess({ accessCredential });
       if (!hasPermission(identity, Permission.PRICING_MANAGE) && !hasPermission(identity, Permission.ACQUISITION_PAYMENT_MANAGE)) throw new SellRequestError("forbidden");
-      return Object.freeze({ data: Object.freeze(await repository.listAll()) });
+      const records = await repository.listAll();
+      const resolved = await Promise.all(records.map((record) => withModelNames(record)));
+      return Object.freeze({ data: Object.freeze(resolved) });
     },
 
     async get(accessCredential, requestId) {
@@ -112,7 +137,7 @@ export function createSellRequestService({ authService, repository, indicativePr
       if (!hasPermission(identity, Permission.PRICING_MANAGE) && !hasPermission(identity, Permission.ACQUISITION_PAYMENT_MANAGE)) throw new SellRequestError("forbidden");
       const record = await repository.findById(requestId);
       if (!record) throw new SellRequestError("not_found");
-      return record;
+      return withModelNames(record);
     },
 
     async submit(accessCredential, requestId) {

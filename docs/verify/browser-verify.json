@@ -1,39 +1,23 @@
 {
-  "scope": "Admin operational workspaces and interactive workflows",
+  "scope": "Admin acquisition detail/queue (contact fields, build-component model names, offer create) and storefront sell-flow photo upload",
   "headed": true,
-  "tool": "scripts/admin-e2e-check.mjs",
+  "tool": "Playwright MCP (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "Admin workspace click-through verification",
+    "subject": "Sell-to-PCX photo upload + admin acquisition detail review",
     "steps": [
-      "login",
-      "/",
-      "/catalog",
-      "/inventory",
-      "/listings",
-      "/acquisition",
-      "/shipment",
-      "/returns",
-      "/warranty",
-      "/notifications",
-      "/verification",
-      "/payments",
-      "/users",
-      "/footer",
-      "/audit",
-      "catalog-edit-modal",
-      "inventory-inspect-modal",
-      "inventory-inspect-template-autoselect",
-      "acquisition-detail-renders",
-      "acquisition-contextual-prefill",
-      "acquisition-offer-expiry-default",
-      "warranty-window-default",
-      "notifications-provider-tabs",
-      "verification-version-default",
-      "returns-row-action",
-      "warranty-row-action",
-      "listings-photos-modal"
+      "admin sign-in (email/password + dev MFA 123456)",
+      "open /acquisition admin queue",
+      "open a sell-request detail modal (SR-000040)",
+      "verify contact shown as separate Name/Phone/Email fields",
+      "verify queue Model column shows a human-readable model name (GeForce RTX 3060 12GB)",
+      "create an offer (amount 25000) -> 201, no client TypeError",
+      "storefront sign-in as demo-seller",
+      "walk /sell PC_PARTS -> GPU -> model -> request step",
+      "select a photo and submit (SR-000040) -> photo persisted (image/png, PRIVATE/PHOTO)"
     ]
   },
-  "ranAt": "2026-08-25T16:26:18.383Z"
+  "notes": "Fixes: media route shadowing + JSON-stringify in media-http; admin modal event.currentTarget reset; contact split; model-name resolution via catalog read.",
+  "ranAt": "2026-08-25T18:12:00.000Z"
 }
+

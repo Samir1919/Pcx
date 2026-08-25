@@ -13,4 +13,5 @@ work/
 .worktrees/
 .continue/
 .playwright-mcp/
+apps/api/uploads/
 

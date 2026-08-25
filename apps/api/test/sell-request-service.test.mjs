@@ -37,6 +37,7 @@ function fixture(overrides = {}) {
     authService: { async authenticateAccess() { return { userId: "owner-1", status: "ACTIVE", roles: ["CUSTOMER"] }; }, ...overrides.authService },
     repository,
     indicativePriceService: overrides.indicativePriceService ?? { async quote() { return { data: { range: null } }; } },
+    catalogService: overrides.catalogService ?? null,
     id: (() => { let n = 0; return () => `id-${++n}`; })(),
     clock: () => new Date("2026-08-16T00:00:00.000Z")
   });
@@ -204,6 +205,39 @@ test("admin transition follows the canonical graph", async () => {
 
   // DRAFT -> ACCEPTED is invalid.
   await assert.rejects(adminService.transition("access", "missing", "ACCEPTED"), (error) => error.code === "not_found");
+});
+
+test("getAdmin resolves model names via the catalog read and degrades to the id", async () => {
+  const admin = fixture({
+    authService: { async authenticateAccess() { return { userId: "admin-1", status: "ACTIVE", roles: ["ADMIN"] }; } },
+    repository: {
+      async findById() {
+        return {
+          id: "existing",
+          userId: "user-1",
+          status: SellRequestStatus.REVIEWING,
+          productModelId: "model-a",
+          buildComponents: [
+            { role: "cpu", productModelId: "model-cpu" },
+            { role: "ram", productModelId: "missing-model" }
+          ]
+        };
+      }
+    },
+    catalogService: {
+      async getProductModel(id) {
+        if (id === "model-a") return { name: "Top Model" };
+        if (id === "model-cpu") return { name: "CPU Model" };
+        return null;
+      }
+    }
+  });
+  const record = await admin.service.getAdmin("access", "existing");
+  assert.equal(record.productModelName, "Top Model");
+  assert.equal(record.buildComponents[0].productModelName, "CPU Model");
+  // A missing/inactive model degrades to the raw id, never throws.
+  assert.equal(record.buildComponents[1].productModelName, null);
+  assert.equal(record.buildComponents[1].productModelId, "missing-model");
 });
 
 test("admin getAdmin reads any request and is permission-gated", async () => {
