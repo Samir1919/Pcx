@@ -45,6 +45,7 @@ export default function SellRequestModal({ request, onClose, onChanged }) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
   const [media, setMedia] = useState([]);
+  const [zoom, setZoom] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -132,9 +133,11 @@ export default function SellRequestModal({ request, onClose, onChanged }) {
     await run(() => acquisitionApi.transitionSellRequest(detail.id, toStatus));
   }
 
-  return createPortal(
-    <div className="modalOverlay" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <div className="modalDialog wide" role="dialog" aria-modal="true" aria-labelledby="sell-request-detail-title">
+  return (
+    <>
+      {createPortal(
+        <div className="modalOverlay" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+          <div className="modalDialog wide" role="dialog" aria-modal="true" aria-labelledby="sell-request-detail-title">
         <button type="button" className="modalClose" aria-label="Close" onClick={onClose}>×</button>
 
         <p className="eyebrow">SELL REQUEST DETAIL</p>
@@ -187,7 +190,7 @@ export default function SellRequestModal({ request, onClose, onChanged }) {
                 <p className="eyebrow" style={{ marginTop: 16 }}>ITEM PHOTOS</p>
                 <div className="mediaGrid">
                   {media.map((m) => (
-                    <img key={m.id} src={acquisitionApi.mediaUrl(m.id)} alt={`Photo ${m.id}`} />
+                    <img key={m.id} src={acquisitionApi.mediaUrl(m.id)} alt={`Photo ${m.id}`} onClick={() => setZoom(m.id)} style={{ cursor: "zoom-in" }} />
                   ))}
                 </div>
               </>
@@ -258,8 +261,17 @@ export default function SellRequestModal({ request, onClose, onChanged }) {
             </div>
           </>
         )}
-      </div>
-    </div>,
-    document.body
+          </div>
+        </div>,
+        document.body
+      )}
+      {zoom ? createPortal(
+        <div className="lightboxOverlay" onClick={() => setZoom(null)} role="dialog" aria-modal="true" aria-label="Photo preview">
+          <img src={acquisitionApi.mediaUrl(zoom)} alt="Full-size photo" onClick={(event) => event.stopPropagation()} />
+          <button type="button" className="lightboxClose" aria-label="Close photo" onClick={() => setZoom(null)}>×</button>
+        </div>,
+        document.body
+      ) : null}
+    </>
   );
 }
