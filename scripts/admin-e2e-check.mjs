@@ -159,37 +159,27 @@ async function run() {
     record("inventory-inspect-modal", false, e.message);
   }
 
-  // Acquisition: open a sell request detail and verify the detail section
-  // actually renders its content (not just the contextual prefill). This closes
-  // the gap where a detail fetch/404 or an empty projection would still pass the
-  // prefill-only check below.
+  // Acquisition: open a sell request detail inside the modal and verify that the
+  // detail content, contextual prefill, and the in-modal action forms all render.
   try {
     await page.goto(`${BASE_ADMIN}/acquisition`, { waitUntil: "networkidle", timeout: 30_000 });
     const viewButton = page.getByRole("button", { name: "View", exact: true }).first();
     if (await viewButton.count()) {
       await viewButton.click();
-      const detailHeading = page.getByText("SELL REQUEST DETAIL", { exact: true });
-      await detailHeading.waitFor({ state: "visible", timeout: 10_000 });
-      // Wait for the section to actually land in the viewport (smooth scroll may
-      // animate after the DOM commit), then confirm its content. A "View" click
-      // that quietly renders below the fold is the exact regression we catch.
-      await page.waitForFunction(() => {
-        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-        let node;
-        while ((node = walker.nextNode())) {
-          if (node.textContent.trim() === "SELL REQUEST DETAIL") {
-            const rect = node.parentElement.getBoundingClientRect();
-            return rect.top >= 0 && rect.top < window.innerHeight;
-          }
-        }
-        return false;
-      }, { timeout: 5000 });
-      const prefill = await page.locator('input[name="sellRequestId"]').first().inputValue();
-      const detailText = await page.locator("body").innerText();
-      record("acquisition-detail-renders",
-        /STATUS/.test(detailText) && /ENTRY/.test(detailText),
-        "detail section scrolled into viewport with status/entry");
+      const dialog = page.getByRole("dialog");
+      await dialog.waitFor({ state: "visible", timeout: 10_000 });
+      // Wait for the detail fetch to finish (the modal briefly shows "Loading
+      // sell request…" while the GET resolves), then read the rendered content.
+      await dialog.locator("dt", { hasText: "Status" }).first().waitFor({ state: "visible", timeout: 10_000 });
+      const detailText = await dialog.innerText();
+      const hasDetail = /SELL REQUEST DETAIL/i.test(detailText) && /Status/i.test(detailText) && /Entry/i.test(detailText);
+      const hasForms = /Create valuation/i.test(detailText) && /Create offer/i.test(detailText) && /Create acquisition/i.test(detailText) && /Mark acquisition paid/i.test(detailText);
+      record("acquisition-detail-renders", hasDetail && hasForms, hasDetail && hasForms ? "detail modal opened with status/entry + action forms" : "detail modal content missing");
+      const prefill = await dialog.locator('input[name="sellRequestId"]').first().inputValue();
       record("acquisition-contextual-prefill", prefill.length > 0, prefill ? `sell request id pre-filled (${prefill.slice(0, 8)}…)` : "no prefill");
+      const expiresAt = await dialog.locator('input[name="expiresAt"]').first().inputValue();
+      record("acquisition-offer-expiry-default", expiresAt.length > 0, expiresAt ? "expiry defaulted" : "no default");
+      await dialog.getByRole("button", { name: "Close" }).first().click();
     } else {
       record("acquisition-detail-renders", false, "no View button");
       record("acquisition-contextual-prefill", false, "no View button");
@@ -206,15 +196,6 @@ async function run() {
     record("warranty-window-default", startsAt.length > 0 && endsAt.length > 0, startsAt && endsAt ? "window defaulted" : "no default");
   } catch (e) {
     record("warranty-window-default", false, e.message);
-  }
-
-  // Acquisition: verify the offer expiry default is pre-filled.
-  try {
-    await page.goto(`${BASE_ADMIN}/acquisition`, { waitUntil: "networkidle", timeout: 30_000 });
-    const expiresAt = await page.locator('input[name="expiresAt"]').first().inputValue();
-    record("acquisition-offer-expiry-default", expiresAt.length > 0, expiresAt ? "expiry defaulted" : "no default");
-  } catch (e) {
-    record("acquisition-offer-expiry-default", false, e.message);
   }
 
   // Notifications: provider panel renders Email/SMS tabs and masks credentials.
