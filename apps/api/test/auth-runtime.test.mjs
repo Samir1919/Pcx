@@ -36,6 +36,20 @@ test("trusted origins are exact normalized HTTP(S) origins", () => {
   }
 });
 
+test("relaxed origins accept any host on a configured port but stay exact otherwise", () => {
+  const strict = parseAllowedOrigins("http://localhost:3000,http://localhost:3001");
+  assert.equal(strict.has("http://localhost:3000"), true);
+  assert.equal(strict.has("http://192.168.1.50:3000"), false);
+  assert.equal(strict.has("http://evil.example:3000"), false);
+
+  const relaxed = parseAllowedOrigins("http://localhost:3000,http://localhost:3001").relaxToConfiguredPorts();
+  assert.equal(relaxed.has("http://192.168.1.50:3000"), true);
+  assert.equal(relaxed.has("http://192.168.1.50:3001"), true);
+  assert.equal(relaxed.has("http://192.168.1.50:4000"), false);
+  assert.equal(relaxed.has("ftp://192.168.1.50:3000"), false);
+  assert.equal(relaxed.has("http://192.168.1.50:3000/path"), false);
+});
+
 test("runtime composition requires PostgreSQL and trusted origins", () => {
   assert.throws(() => createAuthRuntime(), /PostgreSQL pool/);
   const pool = { async query() { }, async connect() { } };

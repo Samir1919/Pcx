@@ -65,15 +65,48 @@ import { createSellTaxonomyService } from "../catalog/sell-taxonomy-service.mjs"
 import { createPostgresSiteFooterRepository } from "../footer/postgres-site-footer-repository.mjs";
 import { createSiteFooterService } from "../footer/site-footer-service.mjs";
 
+const httpsSchemes = new Set(["http:", "https:"]);
+
+function wellFormedOrigin(candidate) {
+  if (typeof candidate !== "string") return null;
+  let url;
+  try { url = new URL(candidate); } catch { return null; }
+  if (!httpsSchemes.has(url.protocol) || url.username || url.password || url.pathname !== "/" || url.search || url.hash || url.origin !== candidate) return null;
+  return url;
+}
+
+// A Set subclass that keeps exact-origin semantics by default and can opt into a
+// development-only relaxation: accept any well-formed HTTP(S) origin whose port
+// matches a configured origin's port. This lets a developer reach the local
+// stack from another device over a dynamic (WiFi) LAN IP (e.g.
+// http://192.168.1.50:3001) without re-hardcoding the IP each time the DHCP
+// lease changes. Production and staging never enable this flag.
+class AllowedOrigins extends Set {
+  #ported = false;
+
+  relaxToConfiguredPorts() {
+    this.#ported = true;
+    return this;
+  }
+
+  has(origin) {
+    if (super.has(origin)) return true;
+    if (!this.#ported) return false;
+    const url = wellFormedOrigin(origin);
+    if (!url || url.port === "") return false;
+    for (const allowed of this) {
+      if (new URL(allowed).port === url.port) return true;
+    }
+    return false;
+  }
+}
+
 export function parseAllowedOrigins(value) {
   if (typeof value !== "string") throw new TypeError("allowed origins are required");
-  const origins = new Set();
+  const origins = new AllowedOrigins();
   for (const candidate of value.split(",").map((item) => item.trim()).filter(Boolean)) {
-    let url;
-    try { url = new URL(candidate); } catch { throw new TypeError("allowed origin is invalid"); }
-    if (!new Set(["http:", "https:"]).has(url.protocol) || url.username || url.password || url.pathname !== "/" || url.search || url.hash || url.origin !== candidate) {
-      throw new TypeError("allowed origin must be an exact HTTP(S) origin");
-    }
+    const url = wellFormedOrigin(candidate);
+    if (!url) throw new TypeError("allowed origin must be an exact HTTP(S) origin");
     origins.add(url.origin);
   }
   if (origins.size === 0) throw new TypeError("at least one allowed origin is required");
@@ -84,6 +117,11 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   if (!pool || typeof pool.query !== "function" || typeof pool.connect !== "function") throw new TypeError("PostgreSQL pool is required");
   if (!delivery || typeof delivery.send !== "function") throw new TypeError("identity action delivery.send is required");
   const origins = parseAllowedOrigins(allowedOrigins instanceof Set ? [...allowedOrigins].join(",") : allowedOrigins);
+  // Development-only: allow any host on the configured app ports so the local
+  // stack is reachable over a dynamic WiFi/LAN IP without hardcoding it. The
+  // double-submit CSRF token still protects every write. Production and staging
+  // keep the exact allow-list.
+  if (process.env.NODE_ENV === "development") origins.relaxToConfiguredPorts();
   const repository = createPostgresIdentityRepository({ pool });
   const control = abuseControl ?? createInMemoryAuthAbuseControl();
   const auditSink = audit ?? createPostgresAuthAudit({ pool });
