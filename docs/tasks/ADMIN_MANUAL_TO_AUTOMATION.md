@@ -114,15 +114,14 @@ Tabs: Categories, Brands, Product models, Attributes, Sell flow, Quotes.
     as the enforcement point.
 - Detail view (declaration, build components): read-only. **[AUTO]** could inline
   the next allowed transition into the detail panel.
-- Manual free-form forms: Create valuation, Create offer, Accept offer, Create
+- Manual free-form forms: Create offer, Accept offer, Create
   acquisition, Mark paid — **every one requires pasting raw UUIDs**.
   - **[AUTO]** Convert these to contextual row/detail actions with pre-filled IDs
-    (sellRequestId, valuationId, offerId, acquisitionId). This is the single
+    (sellRequestId, offerId, acquisitionId). This is the single
     largest manual-effort reduction in the admin app.
-  - **[AUTO]** Pre-fill valuation low/high/recommended from the indicative price
-    range; pre-fill offer amount from the valuation `recommendedValue`; pre-fill
-    `expiresAt` (now + default window).
-  - **[MANUAL]** Agreed price, valuation amounts, and offer acceptance are business
+  - **[AUTO]** Pre-fill offer amount from the indicative price range (as guidance);
+    pre-fill `expiresAt` (now + default window).
+  - **[MANUAL]** Agreed price and offer acceptance are business
     decisions; server must remain authoritative for price/status. Final offer is
     *not* the estimated range. Mark-paid/accept-offer are financial and idempotent
     actions — keep human-gated.
@@ -212,7 +211,7 @@ Tabs: Categories, Brands, Product models, Attributes, Sell flow, Quotes.
 
 - Physical inspection result entry (Pass/Fail) and evidence capture.
 - Supervisor approve/reject, especially reasoned critical-fail override.
-- Price, totals, valuation, agreed offer amount, role, status, grade, warranty
+- Price, totals, agreed offer amount, role, status, grade, warranty
   eligibility: server-authoritative, human privileged (client never authoritative).
 - "Mark acquisition paid" and "Settle refund": idempotent financial ops, privileged.
 - Real payment credentials / provider activation / destination changes: hard stop.

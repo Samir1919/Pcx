@@ -41,7 +41,7 @@ export default function AcquisitionPage() {
         <div>
           <p className="eyebrow">OPERATIONS / ACQUISITION</p>
           <h1>Acquisition</h1>
-          <p>Valuation, offer, acceptance, acquisition, and payment are all available from each sell request's detail view. Agreed price and status are always server-owned. Indicative quote ranges are configured in Catalog → Quotes.</p>
+          <p>Offer, acceptance, acquisition, and payment are all available from each sell request's detail view. Agreed price and status are always server-owned. Indicative quote ranges are configured in Catalog → Quotes.</p>
         </div>
         <button className="refresh" type="button" onClick={load} disabled={loading}>↻ Refresh</button>
       </header>

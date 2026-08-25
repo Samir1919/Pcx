@@ -77,19 +77,19 @@ export function validateEvidence(evidence) {
   return problems.length ? `invalid evidence: ${problems.join("; ")}` : null;
 }
 
-function runGuard({ collect, read }) {
+async function runGuard({ collect, read }) {
   const changedUi = classifyUiFiles(collect());
   if (changedUi.length === 0) {
     return { ok: true, changed: [], problem: null };
   }
-  const problem = validateEvidence(read());
+  const problem = validateEvidence(await read());
   return { ok: !problem, changed: changedUi, problem };
 }
 
 // Only execute the gate when run as a script, never on import (so the pure
 // helpers above stay unit-testable).
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const { ok, changed, problem } = runGuard({
+  const { ok, changed, problem } = await runGuard({
     collect: () => collectChangedFiles({ runStatus: () => git(["status", "--short", "--untracked-files=all"]) }),
     read: () => readEvidence()
   });

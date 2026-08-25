@@ -8,24 +8,27 @@ test("acquisition writes use correct paths and never send server-owned agreed pr
   const calls = [];
   global.fetch = async (...args) => { calls.push(args); return { ok: true, status: 201, async json() { return { data: {} }; } }; };
   try {
-    await acquisitionApi.createValuation({ sellRequestId: "sr-1", valuationType: "PRELIMINARY" });
-    await acquisitionApi.createOffer({ sellRequestId: "sr-1", amount: 5000 });
+    await acquisitionApi.createOffer({ sellRequestId: "sr-1", amount: 5000, expiresAt: "2026-08-17T00:00:00.000Z" });
     await acquisitionApi.acceptOffer("offer-1");
     await acquisitionApi.createAcquisition({ sellRequestId: "sr-1", acceptedOfferId: "offer-1", sourceType: "SELL_TO_PCX", idempotencyKey: "k1" });
     await acquisitionApi.markAcquisitionPaid("acq-1");
 
-    assert.equal(calls[0][0], "/api/v1/admin/valuations");
-    assert.equal(calls[1][0], "/api/v1/admin/offers");
-    assert.equal(calls[2][0], "/api/v1/admin/offers/offer-1/accept");
-    assert.equal(calls[3][0], "/api/v1/admin/acquisitions");
-    assert.equal(calls[4][0], "/api/v1/admin/acquisitions/acq-1/pay");
+    assert.equal(calls[0][0], "/api/v1/admin/offers");
+    assert.equal(calls[1][0], "/api/v1/admin/offers/offer-1/accept");
+    assert.equal(calls[2][0], "/api/v1/admin/acquisitions");
+    assert.equal(calls[3][0], "/api/v1/admin/acquisitions/acq-1/pay");
 
     for (const [, options] of calls) {
       assert.equal(options.credentials, "include");
       assert.equal(options.headers["x-csrf-token"], "secure");
     }
 
-    const acquisitionBody = JSON.parse(calls[3][1].body);
+    const offerBody = JSON.parse(calls[0][1].body);
+    assert.equal(offerBody.sellRequestId, "sr-1");
+    assert.equal(offerBody.amount, 5000);
+    assert.equal(offerBody.status, undefined);
+
+    const acquisitionBody = JSON.parse(calls[2][1].body);
     assert.equal(acquisitionBody.agreedPrice, undefined);
     assert.equal(acquisitionBody.status, undefined);
     assert.equal(acquisitionBody.idempotencyKey, "k1");

@@ -1,0 +1,39 @@
+{
+  "scope": "Admin operational workspaces and interactive workflows",
+  "headed": true,
+  "tool": "scripts/admin-e2e-check.mjs",
+  "result": "passed",
+  "businessFlow": {
+    "subject": "Admin workspace click-through verification",
+    "steps": [
+      "login",
+      "/",
+      "/catalog",
+      "/inventory",
+      "/listings",
+      "/acquisition",
+      "/shipment",
+      "/returns",
+      "/warranty",
+      "/notifications",
+      "/verification",
+      "/payments",
+      "/users",
+      "/footer",
+      "/audit",
+      "catalog-edit-modal",
+      "inventory-inspect-modal",
+      "inventory-inspect-template-autoselect",
+      "acquisition-detail-renders",
+      "acquisition-contextual-prefill",
+      "acquisition-offer-expiry-default",
+      "warranty-window-default",
+      "notifications-provider-tabs",
+      "verification-version-default",
+      "returns-row-action",
+      "warranty-row-action",
+      "listings-photos-modal"
+    ]
+  },
+  "ranAt": "2026-08-25T16:26:18.383Z"
+}

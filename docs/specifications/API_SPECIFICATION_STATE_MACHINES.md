@@ -91,7 +91,6 @@ GET /admin/sell-requests/:id
 POST /admin/sell-requests/:id/request-info
 POST /admin/sell-requests/:id/request-inspection
 POST /admin/sell-requests/:id/reject
-POST /admin/sell-requests/:id/valuations
 POST /admin/sell-requests/:id/offers
 POST /sell-requests/:id/offers/:offerId/accept
 POST /sell-requests/:id/offers/:offerId/reject

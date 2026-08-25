@@ -29,7 +29,6 @@ ProductModel 1→N ModelSpecValue
 ProductModel N↔N CompatibilityRule (future)
 
 User 1→N SellRequest
-SellRequest 1→N Valuation
 SellRequest 1→N Offer
 Accepted Offer 1→1 Acquisition
 Acquisition 1→1 or 1→N InventoryItem depending intake design
@@ -164,21 +163,9 @@ sell_request_id FK
 media_id FK media
 purpose
 
-valuations
-id PK
-sell_request_id FK
-valuation_type: PRELIMINARY / POST_INSPECTION / MANUAL
-low_value nullable
-high_value nullable
-recommended_value nullable
-inputs_snapshot JSONB
-created_by nullable FK users
-created_at
-
 offers
 id PK
 sell_request_id FK
-valuation_id nullable
 amount
 status: ACTIVE / ACCEPTED / REJECTED / EXPIRED / WITHDRAWN
 expires_at
@@ -681,7 +668,7 @@ catalog → version/update while order snapshot stays immutable
 
 ## 21. ERD SUMMARY MAP
 USER
- ├─ SELL_REQUEST ─ VALUATION ─ OFFER ─ ACQUISITION
+ ├─ SELL_REQUEST ─ OFFER ─ ACQUISITION
  │                                      │
  │                                      ↓
  └─ ORDER                         INVENTORY_ITEM ← PRODUCT_MODEL

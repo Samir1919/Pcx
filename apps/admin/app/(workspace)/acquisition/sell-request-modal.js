@@ -78,26 +78,11 @@ export default function SellRequestModal({ request, onClose, onChanged }) {
     return new FormData(event.currentTarget);
   }
 
-  async function createValuation(event) {
-    event.preventDefault();
-    const form = formBody(event);
-    await run(() => acquisitionApi.createValuation({
-      sellRequestId: form.get("sellRequestId"),
-      valuationType: form.get("valuationType"),
-      lowValue: Number(form.get("lowValue")) || null,
-      highValue: Number(form.get("highValue")) || null,
-      recommendedValue: Number(form.get("recommendedValue")) || null,
-      inputsSnapshot: {}
-    }));
-    event.currentTarget.reset();
-  }
-
   async function createOffer(event) {
     event.preventDefault();
     const form = formBody(event);
     await run(() => acquisitionApi.createOffer({
       sellRequestId: form.get("sellRequestId"),
-      valuationId: form.get("valuationId") || null,
       amount: Number(form.get("amount")),
       expiresAt: form.get("expiresAt")
     }));
@@ -200,24 +185,10 @@ export default function SellRequestModal({ request, onClose, onChanged }) {
 
             <div className="grid" style={{ marginTop: 20, gridTemplateColumns: "1fr" }}>
               <section className="panel formPanel">
-                <p className="eyebrow">VALUATION</p>
-                <h2>Create valuation</h2>
-                <form onSubmit={createValuation}>
-                  <Field label="Sell request ID" name="sellRequestId" defaultValue={detail.id} readOnly required />
-                  <label><span>Valuation type</span><select name="valuationType" required><option>PRELIMINARY</option><option>POST_INSPECTION</option><option>MANUAL</option></select></label>
-                  <Field label="Low value" name="lowValue" type="number" min="0" />
-                  <Field label="High value" name="highValue" type="number" min="0" />
-                  <Field label="Recommended value" name="recommendedValue" type="number" min="0" />
-                  <button className="primary" disabled={busy}>Create valuation</button>
-                </form>
-              </section>
-
-              <section className="panel formPanel">
                 <p className="eyebrow">OFFER</p>
                 <h2>Create offer</h2>
                 <form onSubmit={createOffer}>
                   <Field label="Sell request ID" name="sellRequestId" defaultValue={detail.id} readOnly required />
-                  <Field label="Valuation ID (optional)" name="valuationId" />
                   <Field label="Amount" name="amount" type="number" min="0" step="0.01" required />
                   <Field label="Expires at (ISO)" name="expiresAt" defaultValue={defaultOfferExpiry()} required />
                   <button className="primary" disabled={busy}>Create offer</button>

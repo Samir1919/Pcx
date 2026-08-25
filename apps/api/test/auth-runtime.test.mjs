@@ -71,7 +71,7 @@ test("runtime composition requires PostgreSQL and trusted origins", () => {
   assert.equal(typeof runtime.catalogService.listProductModels, "function");
   assert.equal(typeof runtime.catalogCommandService.createProductModel, "function");
   assert.equal(typeof runtime.sellRequestService.create, "function");
-  assert.equal(typeof runtime.acquisitionService.createValuation, "function");
+  assert.equal(typeof runtime.acquisitionService.createOffer, "function");
   assert.equal(typeof runtime.inventoryService.intake, "function");
   assert.equal(typeof runtime.listingService.createDraft, "function");
   assert.equal(typeof runtime.reservationService.create, "function");

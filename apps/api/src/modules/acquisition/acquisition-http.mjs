@@ -68,7 +68,6 @@ function map(error) {
 
 function match(url) {
   const patterns = [
-    [/^\/api\/v1\/admin\/valuations$/, "createValuation"],
     [/^\/api\/v1\/admin\/offers$/, "createOffer"],
     [/^\/api\/v1\/admin\/offers\/([^/]+)\/accept$/, "acceptOffer"],
     [/^\/api\/v1\/offers\/([^/]+)\/accept$/, "acceptOfferCustomer"],
@@ -99,8 +98,7 @@ export async function handleAcquisitionRequest(request, response, { acquisitionS
     requireWriteSecurity(request, allowedOrigins, cookies);
     const body = route.id ? {} : await jsonBody(request);
     let result;
-    if (route.op === "createValuation") result = await acquisitionService.createValuation(cookies.pcx_access, body);
-    else if (route.op === "createOffer") result = await acquisitionService.createOffer(cookies.pcx_access, body);
+    if (route.op === "createOffer") result = await acquisitionService.createOffer(cookies.pcx_access, body);
     else if (route.op === "acceptOffer") result = await acquisitionService.acceptOffer(cookies.pcx_access, id(route.id));
     else if (route.op === "acceptOfferCustomer") result = await acquisitionService.acceptOfferForCustomer(cookies.pcx_access, id(route.id));
     else if (route.op === "rejectOfferCustomer") result = await acquisitionService.rejectOfferForCustomer(cookies.pcx_access, id(route.id));
