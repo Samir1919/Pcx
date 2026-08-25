@@ -57,6 +57,7 @@ const STEP_SPEC = "spec";
 const STEP_DECISION = "decision";
 const STEP_REQUEST = "request";
 const VALID_STEPS = new Set([STEP_SPEC, STEP_DECISION, STEP_REQUEST]);
+const MAX_PHOTOS = 8;
 
 function moneyRange(range) {
   if (!range || range.lowValue == null || range.highValue == null) return null;
@@ -536,9 +537,10 @@ function SellFlow() {
             <label className="check"><input type="checkbox" checked readOnly /><span>I confirm I own this item</span></label>
 
             <div className="entryHeading"><h2>Item photos</h2></div>
-            <label className="check"><span>Add photos (JPEG, PNG, WebP)</span>
-              <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(e) => setPhotos(Array.from(e.target.files ?? []))} />
+            <label className="check"><span>Add photos (JPEG, PNG, WebP — up to {MAX_PHOTOS})</span>
+              <input type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={photos.length >= MAX_PHOTOS} onChange={(e) => setPhotos(Array.from(e.target.files ?? []).slice(0, MAX_PHOTOS))} />
             </label>
+            <p className="meta">{photos.length}/{MAX_PHOTOS} photos selected</p>
             {photos.length > 0 && (
               <div className="mediaGrid">
                 {photos.map((file, i) => (
