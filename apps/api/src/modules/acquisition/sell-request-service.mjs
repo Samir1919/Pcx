@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { advanceSellRequest, createSellRequest, createSellerDeclaration, submitSellRequest } from "@pcx/domain";
-import { UserStatus } from "@pcx/domain";
+import { UserStatus, Role } from "@pcx/domain";
 import { hasPermission, Permission } from "@pcx/domain";
 
 export class SellRequestError extends Error {
@@ -13,9 +13,13 @@ export function createSellRequestService({ authService, repository, indicativePr
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
   for (const method of ["create", "submit", "findByOwner", "findById", "transition", "listByOwner", "listAll"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
 
+  // Seller-scoped actor: only an active customer may create/submit/list/read
+  // their own sell requests. This mirrors the media module's `customer()` check
+  // so a non-customer (e.g. an admin) can't create a request they are then
+  // unable to complete (media upload rejects non-customers with "forbidden").
   async function actor(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
-    if (identity.status !== UserStatus.ACTIVE) throw new SellRequestError("forbidden");
+    if (identity.status !== UserStatus.ACTIVE || !Array.isArray(identity.roles) || !identity.roles.includes(Role.CUSTOMER)) throw new SellRequestError("forbidden");
     return identity;
   }
 

@@ -195,6 +195,22 @@ test("create rejects non-scalar selected spec values", async () => {
   );
 });
 
+test("create rejects non-customer actors so they can't start a request they cannot complete", async () => {
+  const admin = fixture({
+    authService: { async authenticateAccess() { return { userId: "admin-1", status: "ACTIVE", roles: ["ADMIN"] }; } }
+  });
+  await assert.rejects(
+    admin.service.create("access", {
+      categoryId: "gpu",
+      contactName: "Admin",
+      contactPhone: "01700000000",
+      fulfilmentPreference: FulfilmentPreference.COURIER,
+      ownershipDeclared: true
+    }),
+    (error) => error instanceof SellRequestError && error.code === "forbidden"
+  );
+});
+
 test("admin transition follows the canonical graph", async () => {
   const adminService = fixture({
     authService: { async authenticateAccess() { return { userId: "admin-1", status: "ACTIVE", roles: ["ADMIN"] }; } }
