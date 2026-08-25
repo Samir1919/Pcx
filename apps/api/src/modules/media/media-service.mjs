@@ -5,6 +5,10 @@ export class MediaError extends Error {
   constructor(code) { super(code); this.name = "MediaError"; this.code = code; }
 }
 
+// Industry-standard cap: a seller may attach at most this many photos to a
+// single sell request (enough to show condition from every angle).
+export const MAX_IMAGES_PER_RESOURCE = 8;
+
 export function createMediaService({ authService, repository, storage, id = randomUUID }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
   if (!repository || typeof repository.create !== "function") throw new TypeError("repository.create is required");
@@ -50,6 +54,8 @@ export function createMediaService({ authService, repository, storage, id = rand
       const ownerUserId = await repository.findSellRequestOwner(sellRequestId);
       if (!ownerUserId) throw new MediaError("not_found");
       if (ownerUserId !== identity.userId) throw new MediaError("forbidden");
+      const existing = await repository.listSellRequestMedia(sellRequestId);
+      if (existing.length >= MAX_IMAGES_PER_RESOURCE) throw new MediaError("limit_reached");
       const media = await persist(buffer, { visibility: "PRIVATE", purpose, uploadedBy: identity.userId });
       await repository.linkSellRequest(id(), sellRequestId, media.id, purpose);
       return Object.freeze(media);
@@ -97,7 +103,7 @@ export function createMediaService({ authService, repository, storage, id = rand
       return Object.freeze(await repository.listListingMedia(listingId));
     },
 
-    async read(accessCredential, mediaId) {
+    async read(accessCredential, mediaId, { thumb = false } = {}) {
       const media = await repository.findById(mediaId);
       if (!media) throw new MediaError("not_found");
       if (media.visibility === "PRIVATE") {
@@ -107,7 +113,10 @@ export function createMediaService({ authService, repository, storage, id = rand
           || hasPermission(identity, Permission.PRICING_READ);
         if (!allowed) throw new MediaError("forbidden");
       }
-      return { media, buffer: await storage.read(media.storageKey, { visibility: media.visibility }) };
+      const buffer = thumb
+        ? await storage.readThumb(media.storageKey, { visibility: media.visibility })
+        : await storage.read(media.storageKey, { visibility: media.visibility });
+      return { media, buffer };
     }
   });
 }

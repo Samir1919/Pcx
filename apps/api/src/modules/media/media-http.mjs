@@ -57,6 +57,7 @@ function map(error) {
     if (error.code === "origin_denied") return [403, "ORIGIN_DENIED", "Request origin is not allowed"];
     if (error.code === "csrf_invalid") return [403, "CSRF_INVALID", "CSRF validation failed"];
     if (error.code === "forbidden") return [403, "MEDIA_FORBIDDEN", "Media operation is not allowed"];
+    if (error.code === "limit_reached") return [422, "IMAGE_LIMIT_REACHED", "Maximum 8 photos per item"];
     if (error.code === "unsupported_type" || error.code === "invalid_input") return [422, "INVALID_UPLOAD", "Upload type or size is not allowed"];
     if (error.code === "not_found") return [404, "MEDIA_NOT_FOUND", "Media not found"];
     return [500, "INTERNAL_ERROR", "Unexpected server error"];
@@ -113,12 +114,13 @@ export async function handleMediaRequest(request, response, { mediaService, allo
     return true;
   }
 
-  // Public read of a media object by id.
+  // Public read of a media object by id (add ?size=thumb for the grid preview).
   if (readMatch && method === "GET") {
     try {
       const mediaId = id(readMatch[1]);
       if (!mediaId) { send(response, 404, failure("MEDIA_NOT_FOUND", "Media not found", requestId)); return true; }
-      const { media, buffer } = await mediaService.read(cookies.pcx_access, mediaId);
+      const thumb = url.searchParams.get("size") === "thumb";
+      const { media, buffer } = await mediaService.read(cookies.pcx_access, mediaId, { thumb });
       send(response, 200, buffer, { "content-type": media.mimeType, "cache-control": "public, max-age=31536000, immutable" });
     } catch (error) {
       const [status, code, message] = map(error);

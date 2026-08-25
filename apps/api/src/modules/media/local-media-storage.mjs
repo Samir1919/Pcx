@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile, readFile } from "node:fs/promises";
 import path from "node:path";
+import sharp from "sharp";
 
 // Media lives on local disk (or a later TrueNAS NFS mount pointed at by
 // MEDIA_ROOT). Only the server generates storage keys; client filenames and
@@ -15,7 +16,15 @@ export const ALLOWED_MIME_TYPES = Object.freeze(new Set([
   "image/webp"
 ]));
 
-export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024; // 5 MiB per image
+// Industry-standard upload policy:
+//  - Input accepts large phone photos (up to 15 MiB) so sellers are never
+//    rejected for a high-res original.
+//  - On save the image is resized (longest edge 1600px) and re-encoded to WebP,
+//    then guaranteed to fit within MAX_SAVED_BYTES (2 MiB).
+export const MAX_UPLOAD_BYTES = 15 * 1024 * 1024; // 15 MiB per upload
+const MAX_SAVED_BYTES = 2 * 1024 * 1024; // 2 MiB per saved image
+const MAX_DIMENSION = 1600; // longest edge, industry standard
+const THUMB_DIMENSION = 400; // grid thumbnail
 
 export class MediaStorageError extends Error {
   constructor(code) { super(code); this.name = "MediaStorageError"; this.code = code; }
@@ -30,6 +39,24 @@ function assertKey(storageKey) {
   return storageKey;
 }
 
+// Resize the longest edge to MAX_DIMENSION and re-encode to WebP, lowering the
+// quality stepwise until the result fits within MAX_SAVED_BYTES.
+async function compressToWebP(buffer) {
+  let quality = 82;
+  while (quality >= 50) {
+    const out = await sharp(buffer)
+      .resize(MAX_DIMENSION, MAX_DIMENSION, { fit: "inside", withoutEnlargement: true })
+      .webp({ quality })
+      .toBuffer();
+    if (out.length <= MAX_SAVED_BYTES) return out;
+    quality -= 8;
+  }
+  return sharp(buffer)
+    .resize(1024, 1024, { fit: "inside", withoutEnlargement: true })
+    .webp({ quality: 50 })
+    .toBuffer();
+}
+
 export function createLocalMediaStorage({ root = DEFAULT_MEDIA_ROOT } = {}) {
   if (typeof root !== "string" || root.trim().length === 0) throw new TypeError("media root is required");
 
@@ -40,11 +67,26 @@ export function createLocalMediaStorage({ root = DEFAULT_MEDIA_ROOT } = {}) {
       // Detect MIME from magic bytes: JPEG, PNG, WebP signatures.
       const mimeType = detectImageMime(buffer);
       if (!ALLOWED_MIME_TYPES.has(mimeType)) throw new MediaStorageError("unsupported_type");
+
+      let compressed;
+      let thumbnail;
+      try {
+        compressed = await compressToWebP(buffer);
+        thumbnail = await sharp(compressed)
+          .resize(THUMB_DIMENSION, THUMB_DIMENSION, { fit: "inside", withoutEnlargement: true })
+          .webp({ quality: 75 })
+          .toBuffer();
+      } catch {
+        // A file with valid magic bytes but an undecodable body is corrupt.
+        throw new MediaStorageError("invalid_input");
+      }
+
       const key = randomUUID();
       const dir = path.join(root, visibility === "PRIVATE" ? "private" : "public");
       await mkdir(dir, { recursive: true });
-      await writeFile(path.join(dir, key), buffer, { flag: "wx" });
-      return { storageKey: key, mimeType, sizeBytes: buffer.length };
+      await writeFile(path.join(dir, key), compressed, { flag: "wx" });
+      await writeFile(path.join(dir, `${key}_thumb`), thumbnail, { flag: "wx" });
+      return { storageKey: key, mimeType: "image/webp", sizeBytes: compressed.length };
     },
 
     async read(storageKey, { visibility }) {
@@ -54,6 +96,21 @@ export function createLocalMediaStorage({ root = DEFAULT_MEDIA_ROOT } = {}) {
         return await readFile(path.join(dir, key));
       } catch {
         throw new MediaStorageError("not_found");
+      }
+    },
+
+    async readThumb(storageKey, { visibility }) {
+      const key = assertKey(storageKey);
+      const dir = path.join(root, visibility === "PRIVATE" ? "private" : "public");
+      try {
+        return await readFile(path.join(dir, `${key}_thumb`));
+      } catch {
+        // Legacy uploads predate thumbnails; fall back to the full-size image.
+        try {
+          return await readFile(path.join(dir, key));
+        } catch {
+          throw new MediaStorageError("not_found");
+        }
       }
     },
 

@@ -190,7 +190,7 @@ export default function SellRequestModal({ request, onClose, onChanged }) {
                 <p className="eyebrow" style={{ marginTop: 16 }}>ITEM PHOTOS</p>
                 <div className="mediaGrid">
                   {media.map((m) => (
-                    <img key={m.id} src={acquisitionApi.mediaUrl(m.id)} alt={`Photo ${m.id}`} onClick={() => setZoom(m.id)} style={{ cursor: "zoom-in" }} />
+                    <img key={m.id} src={`${acquisitionApi.mediaUrl(m.id)}?size=thumb`} alt={`Photo ${m.id}`} onClick={() => setZoom(m.id)} style={{ cursor: "zoom-in" }} />
                   ))}
                 </div>
               </>

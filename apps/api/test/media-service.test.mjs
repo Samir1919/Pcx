@@ -6,17 +6,20 @@ import path from "node:path";
 import { createLocalMediaStorage, MediaStorageError } from "../src/modules/media/local-media-storage.mjs";
 import { createMediaService } from "../src/modules/media/media-service.mjs";
 
-const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.from("jpegdata")]);
+const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
 
-test("local storage saves only allow-listed images with server-generated key", async () => {
+test("local storage compresses to WebP, ≤2 MiB, and writes a thumbnail", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "pcx-media-"));
   const storage = createLocalMediaStorage({ root });
   try {
-    const saved = await storage.save(JPEG, { visibility: "PUBLIC" });
+    const saved = await storage.save(PNG, { visibility: "PUBLIC" });
     assert.match(saved.storageKey, /^[0-9a-f-]{36}$/);
-    assert.equal(saved.mimeType, "image/jpeg");
+    assert.equal(saved.mimeType, "image/webp");
+    assert.ok(saved.sizeBytes <= 2 * 1024 * 1024);
     const readBack = await storage.read(saved.storageKey, { visibility: "PUBLIC" });
-    assert.deepEqual(readBack, JPEG);
+    assert.ok(Buffer.isBuffer(readBack) && readBack.length > 0);
+    const thumb = await storage.readThumb(saved.storageKey, { visibility: "PUBLIC" });
+    assert.ok(Buffer.isBuffer(thumb) && thumb.length > 0);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -63,6 +66,31 @@ test("media service lists sell-request media for admin and denies non-admin", as
     await rm(root, { recursive: true, force: true });
   }
 });
+test("media service rejects a 9th photo with limit_reached", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "pcx-media-"));
+  const storage = createLocalMediaStorage({ root });
+  const repository = {
+    async create(record) { return record; },
+    async findById(id) { return { id, storageKey: "key", mimeType: "image/webp", sizeBytes: 10, visibility: "PRIVATE" }; },
+    async findSellRequestOwner(id) { return id === "sr1" ? "customer-1" : null; },
+    async linkSellRequest() { },
+    async linkInspection() { },
+    async linkListing() { },
+    async listSellRequestMedia() { return new Array(8).fill({ id: "m" }); },
+    async listListingMedia() { return []; }
+  };
+  const service = createMediaService({
+    authService: { async authenticateAccess() { return { userId: "customer-1", status: "ACTIVE", roles: ["CUSTOMER"] }; } },
+    repository,
+    storage
+  });
+  try {
+    await assert.rejects(service.addSellRequestMedia("access", "sr1", PNG, "PHOTO"), (e) => e.code === "limit_reached");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("media service enforces seller ownership on upload and private read", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "pcx-media-"));
   const storage = createLocalMediaStorage({ root });
@@ -82,9 +110,9 @@ test("media service enforces seller ownership on upload and private read", async
     storage
   });
   try {
-    const media = await service.addSellRequestMedia("access", "sr1", JPEG, "PHOTO");
+    const media = await service.addSellRequestMedia("access", "sr1", PNG, "PHOTO");
     assert.equal(media.visibility, "PRIVATE");
-    await assert.rejects(service.addSellRequestMedia("access", "sr2", JPEG, "PHOTO"), (e) => e.code === "not_found");
+    await assert.rejects(service.addSellRequestMedia("access", "sr2", PNG, "PHOTO"), (e) => e.code === "not_found");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

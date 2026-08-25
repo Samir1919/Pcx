@@ -16,6 +16,8 @@
       "verify a non-staff session (customer) on /admin redirects to /login instead of a blank screen",
       "verify the acquisition detail modal shows the uploaded ITEM PHOTOS (single/multi image) via /api/v1/media/:id",
       "verify clicking a photo thumbnail opens a full-size lightbox preview and the close button dismisses it",
+      "verify the sell form limits to 8 photos and shows an X/8 counter",
+      "verify an upload is compressed to WebP ≤2 MiB with a generated thumbnail (2000x1500 JPEG -> 3.5KB WebP + 298B thumb)",
       "storefront sign-in as demo-seller",
       "walk /sell PC_PARTS -> GPU -> model -> request step",
       "select a photo and submit (SR-000040) -> photo persisted (image/png, PRIVATE/PHOTO)"
