@@ -1,13 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createAcquisitionService, AcquisitionError } from "../src/modules/acquisition/acquisition-service.mjs";
-import { OfferStatus, ValuationType } from "@pcx/domain";
+import { OfferStatus } from "@pcx/domain";
 
 function fixture(overrides = {}) {
-  const calls = { valuations: [], offers: [], accepts: [], rejections: [], owners: [], acquisitions: [], foundOffers: [], foundAcq: [], paid: [] };
-  const offer = { id: "o1", sellRequestId: "sr1", valuationId: "v1", amount: 7000, status: OfferStatus.ACCEPTED, expiresAt: "2026-08-17T00:00:00.000Z" };
+  const calls = { offers: [], accepts: [], rejections: [], owners: [], acquisitions: [], foundOffers: [], foundAcq: [], paid: [] };
+  const offer = { id: "o1", sellRequestId: "sr1", amount: 7000, status: OfferStatus.ACCEPTED, expiresAt: "2026-08-17T00:00:00.000Z" };
   const repository = {
-    async createValuation(record) { calls.valuations.push(record); return record; },
     async createOffer(record) { calls.offers.push(record); return record; },
     async acceptOffer(offerId, now) { calls.accepts.push({ offerId, now }); return { status: "accepted", record: { ...offer, id: offerId, status: OfferStatus.ACCEPTED } }; },
     async rejectOffer(offerId) { calls.rejections.push(offerId); return { ...offer, id: offerId, status: OfferStatus.REJECTED }; },
@@ -36,15 +35,21 @@ function customerFixture(overrides = {}) {
   });
 }
 
-test("valuation and offer are server-owned with actor identity", async () => {
+test("offer is server-owned with actor identity", async () => {
   const { service, calls } = fixture();
-  const valuation = await service.createValuation("access", { sellRequestId: "sr1", valuationType: ValuationType.PRELIMINARY, lowValue: 1000, highValue: 2000 });
-  assert.equal(valuation.createdBy, "admin-1");
-  const offer = await service.createOffer("access", { sellRequestId: "sr1", valuationId: "v1", amount: 1500, expiresAt: "2026-08-17T00:00:00.000Z" });
+  const offer = await service.createOffer("access", { sellRequestId: "sr1", amount: 1500, expiresAt: "2026-08-17T00:00:00.000Z" });
   assert.equal(offer.createdBy, "admin-1");
   assert.equal(offer.status, OfferStatus.ACTIVE);
-  assert.equal(calls.valuations.length, 1);
+  assert.equal(offer.sellRequestId, "sr1");
+  assert.equal(offer.amount, 1500);
   assert.equal(calls.offers.length, 1);
+  assert.equal(calls.offers[0].amount, 1500);
+});
+
+test("offer rejects a client-supplied status and unknown fields", async () => {
+  const { service } = fixture();
+  await assert.rejects(service.createOffer("access", { sellRequestId: "sr1", amount: 1500, expiresAt: "2026-08-17T00:00:00.000Z", status: "ACCEPTED" }), (error) => error.code === "invalid_input");
+  await assert.rejects(service.createOffer("access", { sellRequestId: "sr1", amount: 0, expiresAt: "2026-08-17T00:00:00.000Z" }), (error) => error.code === "invalid_input");
 });
 
 test("seller can accept or reject their own offer with ownership enforcement", async () => {
@@ -90,7 +95,7 @@ test("acquisition rejects unknown fields, non-admin, and non-accepted offer", as
   await assert.rejects(notAccepted.service.createAcquisition("access", { sellRequestId: "sr", acceptedOfferId: "o1", sellerUserId: "u", idempotencyKey: "k" }), (error) => error.code === "invalid_state");
 
   const denied = fixture({ authService: { async authenticateAccess() { return { userId: "u", status: "ACTIVE", roles: ["CUSTOMER"] }; } } });
-  await assert.rejects(denied.service.createValuation("access", { sellRequestId: "sr", valuationType: "MANUAL" }), (error) => error.code === "forbidden");
+  await assert.rejects(denied.service.createOffer("access", { sellRequestId: "sr", amount: 1, expiresAt: "2026-08-17T00:00:00.000Z" }), (error) => error.code === "forbidden");
 });
 
 test("markAcquisitionPaid is permission-gated and rejects non-payable state", async () => {

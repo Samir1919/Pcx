@@ -1,9 +1,3 @@
-export const ValuationType = Object.freeze({
-  PRELIMINARY: "PRELIMINARY",
-  POST_INSPECTION: "POST_INSPECTION",
-  MANUAL: "MANUAL"
-});
-
 export const OfferStatus = Object.freeze({
   ACTIVE: "ACTIVE",
   ACCEPTED: "ACCEPTED",
@@ -25,19 +19,12 @@ export const AcquisitionPaymentStatus = Object.freeze({
   PAID: "PAID"
 });
 
-const valuationTypes = new Set(Object.values(ValuationType));
-const offerStatuses = new Set(Object.values(OfferStatus));
 const sourceTypes = new Set(Object.values(AcquisitionSourceType));
 const paymentStatuses = new Set(Object.values(AcquisitionPaymentStatus));
 
 function requiredString(value, name) {
   if (typeof value !== "string" || value.trim().length === 0) throw new TypeError(`${name} is required`);
   return value.trim();
-}
-
-function optionalString(value, name) {
-  if (value == null || value === "") return null;
-  return requiredString(value, name);
 }
 
 function timestamp(value, name) {
@@ -51,53 +38,16 @@ function money(value, name) {
   return value;
 }
 
-function optionalMoney(value, name) {
-  if (value == null) return null;
-  return money(value, name);
-}
-
 function optionalTimestamp(value, name) {
   if (value == null) return null;
   return timestamp(value, name);
 }
 
-// A valuation is an estimate, never a final offer. It has an explicit low/high
-// range and an optional recommended value, and it is immutable once created.
-export function createValuation({
-  id,
-  sellRequestId,
-  valuationType,
-  lowValue = null,
-  highValue = null,
-  recommendedValue = null,
-  inputsSnapshot = null,
-  createdBy,
-  createdAt = new Date()
-}) {
-  if (!valuationTypes.has(valuationType)) throw new TypeError("valuation type is invalid");
-  if (lowValue != null && highValue != null && lowValue > highValue) throw new TypeError("valuation low must not exceed high");
-  if (recommendedValue != null && ((lowValue != null && recommendedValue < lowValue) || (highValue != null && recommendedValue > highValue))) {
-    throw new TypeError("recommended value must fall within the valuation range");
-  }
-  return Object.freeze({
-    id: requiredString(id, "id"),
-    sellRequestId: requiredString(sellRequestId, "sellRequestId"),
-    valuationType,
-    lowValue: optionalMoney(lowValue, "lowValue"),
-    highValue: optionalMoney(highValue, "highValue"),
-    recommendedValue: optionalMoney(recommendedValue, "recommendedValue"),
-    inputsSnapshot: inputsSnapshot == null ? null : Object.freeze(JSON.parse(JSON.stringify(inputsSnapshot))),
-    createdBy: requiredString(createdBy, "createdBy"),
-    createdAt: timestamp(createdAt, "createdAt")
-  });
-}
-
-// An offer is a final, server-owned figure created from a valuation. The client
-// never supplies status or amount; acceptance is recorded server-side only.
+// An offer is a final, server-owned figure created directly for a sell request.
+// The client never supplies status or amount; acceptance is recorded server-side.
 export function createOffer({
   id,
   sellRequestId,
-  valuationId,
   amount,
   createdBy,
   expiresAt,
@@ -106,7 +56,6 @@ export function createOffer({
   return Object.freeze({
     id: requiredString(id, "id"),
     sellRequestId: requiredString(sellRequestId, "sellRequestId"),
-    valuationId: requiredString(valuationId, "valuationId"),
     amount: money(amount, "amount"),
     status: OfferStatus.ACTIVE,
     createdBy: requiredString(createdBy, "createdBy"),
@@ -180,4 +129,3 @@ export function markAcquisitionPaid(acquisition, { paidAt = new Date() } = {}) {
     paidAt: timestamp(paidAt, "paidAt")
   });
 }
-

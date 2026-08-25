@@ -13,25 +13,10 @@ async function transaction(pool, operation) {
   }
 }
 
-function valuation(row) {
-  return Object.freeze({
-    id: row.id,
-    sellRequestId: row.sell_request_id,
-    valuationType: row.valuation_type,
-    lowValue: row.low_value == null ? null : Number(row.low_value),
-    highValue: row.high_value == null ? null : Number(row.high_value),
-    recommendedValue: row.recommended_value == null ? null : Number(row.recommended_value),
-    inputsSnapshot: row.inputs_snapshot,
-    createdBy: row.created_by,
-    createdAt: new Date(row.created_at).toISOString()
-  });
-}
-
 function offer(row) {
   return Object.freeze({
     id: row.id,
     sellRequestId: row.sell_request_id,
-    valuationId: row.valuation_id,
     amount: Number(row.amount),
     status: row.status,
     expiresAt: new Date(row.expires_at).toISOString(),
@@ -56,26 +41,18 @@ function acquisition(row) {
   });
 }
 
+const offerColumns = "id, sell_request_id, amount, status, expires_at, accepted_at, created_by, created_at";
+
 export function createPostgresAcquisitionRepository({ pool }) {
   if (!pool || typeof pool.query !== "function" || typeof pool.connect !== "function") throw new TypeError("PostgreSQL pool is required");
 
   return Object.freeze({
-    async createValuation(record) {
-      const result = await pool.query(
-        `INSERT INTO valuations(id, sell_request_id, valuation_type, low_value, high_value, recommended_value, inputs_snapshot, created_by, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9)
-         RETURNING id, sell_request_id, valuation_type, low_value, high_value, recommended_value, inputs_snapshot, created_by, created_at`,
-        [record.id, record.sellRequestId, record.valuationType, record.lowValue, record.highValue, record.recommendedValue, record.inputsSnapshot == null ? null : JSON.stringify(record.inputsSnapshot), record.createdBy, record.createdAt]
-      );
-      return valuation(result.rows[0]);
-    },
-
     async createOffer(record) {
       const result = await pool.query(
-        `INSERT INTO offers(id, sell_request_id, valuation_id, amount, status, expires_at, created_by, created_at)
-         VALUES ($1, $2, $3, $4, 'ACTIVE', $5, $6, $7)
-         RETURNING id, sell_request_id, valuation_id, amount, status, expires_at, accepted_at, created_by, created_at`,
-        [record.id, record.sellRequestId, record.valuationId, record.amount, record.expiresAt, record.createdBy, record.createdAt]
+        `INSERT INTO offers(id, sell_request_id, amount, status, expires_at, created_by, created_at)
+         VALUES ($1, $2, $3, 'ACTIVE', $4, $5, $6)
+         RETURNING ${offerColumns}`,
+        [record.id, record.sellRequestId, record.amount, record.expiresAt, record.createdBy, record.createdAt]
       );
       return offer(result.rows[0]);
     },
@@ -85,7 +62,7 @@ export function createPostgresAcquisitionRepository({ pool }) {
         const updated = await client.query(
           `UPDATE offers SET status = 'ACCEPTED', accepted_at = $2
            WHERE id = $1 AND status = 'ACTIVE' AND expires_at > $2
-           RETURNING id, sell_request_id, valuation_id, amount, status, expires_at, accepted_at, created_by, created_at`,
+           RETURNING ${offerColumns}`,
           [offerId, now]
         );
         if (updated.rowCount !== 1) return { status: "not_acceptable" };
@@ -97,7 +74,7 @@ export function createPostgresAcquisitionRepository({ pool }) {
       const updated = await pool.query(
         `UPDATE offers SET status = 'REJECTED'
          WHERE id = $1 AND status = 'ACTIVE'
-         RETURNING id, sell_request_id, valuation_id, amount, status, expires_at, accepted_at, created_by, created_at`,
+         RETURNING ${offerColumns}`,
         [offerId]
       );
       return updated.rowCount === 1 ? offer(updated.rows[0]) : null;
@@ -117,7 +94,7 @@ export function createPostgresAcquisitionRepository({ pool }) {
     },
 
     async findOfferById(offerId) {
-      const result = await pool.query("SELECT id, sell_request_id, valuation_id, amount, status, expires_at, accepted_at, created_by, created_at FROM offers WHERE id::text = $1", [offerId]);
+      const result = await pool.query(`SELECT ${offerColumns} FROM offers WHERE id::text = $1`, [offerId]);
       return result.rows[0] ? offer(result.rows[0]) : null;
     },
 
@@ -133,7 +110,7 @@ export function createPostgresAcquisitionRepository({ pool }) {
 
     async listOffersBySellRequest(sellRequestId) {
       const result = await pool.query(
-        "SELECT id, sell_request_id, valuation_id, amount, status, expires_at, accepted_at, created_by, created_at FROM offers WHERE sell_request_id::text = $1 ORDER BY created_at DESC",
+        `SELECT ${offerColumns} FROM offers WHERE sell_request_id::text = $1 ORDER BY created_at DESC`,
         [sellRequestId]
       );
       return result.rows.map(offer);

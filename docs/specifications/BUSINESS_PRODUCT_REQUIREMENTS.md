@@ -320,7 +320,7 @@ Operations/Admin:
 IDENTITY: users, roles, permissions, addresses, customer_profiles.
 CATALOG: categories, brands, product_models, model_specs, spec_definitions.
 INVENTORY: inventory_items, serial_identifiers, warehouses, stock_movements, item_costs.
-ACQUISITION: sell_requests, seller_declarations, valuations, offers, purchases.
+ACQUISITION: sell_requests, seller_declarations, offers, purchases.
 VERIFICATION: inspection_templates, inspection_template_items, inspections, test_results, health_scores, inspection_media.
 LISTING: listings, listing_prices, listing_media.
 COMMERCE: carts, orders, order_items, payments, refunds.
@@ -373,7 +373,7 @@ Auth | Catalog | Acquisition | Inventory | Verification | Listing | Pricing | Co
 • RBAC: Customer, Support, Technician, Supervisor, Inventory, Finance, Admin.
 • Password/OTP/auth secrets never logged.
 • Full serial restricted to authorized roles.
-• Rate limiting on authentication/valuation endpoints.
+• Rate limiting on authentication endpoints.
 • Audit critical changes.
 • Payment webhook signature verification.
 • Media upload type/size validation.

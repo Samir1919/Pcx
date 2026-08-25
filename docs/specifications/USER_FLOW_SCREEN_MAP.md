@@ -424,7 +424,6 @@ Sell Requests Queue
 → Schedule/intake
 → Create or link physical intake
 → Inspection result
-→ Valuation
 → Final offer
 → Seller decision
 → Acquisition payment
@@ -668,7 +667,6 @@ InventoryItem
 SerialIdentifier
 SellRequest
 SellerDeclaration
-Valuation
 Offer
 Acquisition
 Inspection

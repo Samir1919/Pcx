@@ -78,7 +78,6 @@ const DEMO = {
   price3060: "90100000-0000-0000-0000-000000000001",
   priceMacbook: "90100000-0000-0000-0000-000000000002",
   reservation: "91000000-0000-0000-0000-000000000001",
-  valuation: "92000000-0000-0000-0000-000000000001",
   offer: "93000000-0000-0000-0000-000000000001",
   acquisition: "94000000-0000-0000-0000-000000000001",
   order: "95000000-0000-0000-0000-000000000001",
@@ -284,18 +283,12 @@ const seed = async () => {
       [DEMO.reservation, DEMO.invTower, DEMO.customer]
     );
 
-    // --- acquisition flow (valuation -> accepted offer -> paid acquisition) ---
+    // --- acquisition flow (offer -> accepted offer -> paid acquisition) ---
     await client.query(
-      `INSERT INTO valuations(id, sell_request_id, valuation_type, low_value, high_value, recommended_value, inputs_snapshot, created_by, created_at)
-       SELECT $1, $2, 'POST_INSPECTION', 22000, 26000, 24000, '{}'::jsonb, $3, now()
-       WHERE NOT EXISTS (SELECT 1 FROM valuations WHERE id = $1)`,
-      [DEMO.valuation, DEMO.sellSubmitted, DEMO.admin]
-    );
-    await client.query(
-      `INSERT INTO offers(id, sell_request_id, valuation_id, amount, status, expires_at, accepted_at, created_by, created_at)
-       SELECT $1, $2, $3, 24000, 'ACCEPTED', now() + interval '7 days', now(), $4, now()
+      `INSERT INTO offers(id, sell_request_id, amount, status, expires_at, accepted_at, created_by, created_at)
+       SELECT $1, $2, 24000, 'ACCEPTED', now() + interval '7 days', now(), $3, now()
        WHERE NOT EXISTS (SELECT 1 FROM offers WHERE id = $1)`,
-      [DEMO.offer, DEMO.sellSubmitted, DEMO.valuation, DEMO.admin]
+      [DEMO.offer, DEMO.sellSubmitted, DEMO.admin]
     );
     await client.query(
       `INSERT INTO acquisitions(id, sell_request_id, accepted_offer_id, seller_user_id, source_type, agreed_price, payment_status, ownership_confirmed_at, acquired_at, idempotency_key)

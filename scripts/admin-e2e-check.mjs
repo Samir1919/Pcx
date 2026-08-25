@@ -174,7 +174,7 @@ async function run() {
       await dialog.locator("dt", { hasText: "Status" }).first().waitFor({ state: "visible", timeout: 10_000 });
       const detailText = await dialog.innerText();
       const hasDetail = /SELL REQUEST DETAIL/i.test(detailText) && /Status/i.test(detailText) && /Entry/i.test(detailText);
-      const hasForms = /Create valuation/i.test(detailText) && /Create offer/i.test(detailText) && /Create acquisition/i.test(detailText) && /Mark acquisition paid/i.test(detailText);
+      const hasForms = /Create offer/i.test(detailText) && /Create acquisition/i.test(detailText) && /Mark acquisition paid/i.test(detailText);
       record("acquisition-detail-renders", hasDetail && hasForms, hasDetail && hasForms ? "detail modal opened with status/entry + action forms" : "detail modal content missing");
       const prefill = await dialog.locator('input[name="sellRequestId"]').first().inputValue();
       record("acquisition-contextual-prefill", prefill.length > 0, prefill ? `sell request id pre-filled (${prefill.slice(0, 8)}…)` : "no prefill");

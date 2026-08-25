@@ -1,18 +1,17 @@
 import { randomUUID } from "node:crypto";
-import { createOffer, createValuation, createAcquisition, markAcquisitionPaid } from "@pcx/domain";
+import { createOffer, createAcquisition, markAcquisitionPaid } from "@pcx/domain";
 import { hasPermission, Permission, Role } from "@pcx/domain";
 
 export class AcquisitionError extends Error {
   constructor(code) { super(code); this.name = "AcquisitionError"; this.code = code; }
 }
 
-const valuationFields = new Set(["sellRequestId", "valuationType", "lowValue", "highValue", "recommendedValue", "inputsSnapshot"]);
-const offerFields = new Set(["sellRequestId", "valuationId", "amount", "expiresAt"]);
+const offerFields = new Set(["sellRequestId", "amount", "expiresAt"]);
 const acquisitionFields = new Set(["sellRequestId", "acceptedOfferId", "sellerUserId", "sourceType", "idempotencyKey"]);
 
 export function createAcquisitionService({ authService, repository, id = randomUUID, clock = () => new Date(), notificationEmitter = null }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  for (const method of ["createValuation", "createOffer", "acceptOffer", "rejectOffer", "findOwnerUserIdByOffer", "findOfferById", "createAcquisition", "findByOffer", "markPaid", "findOwnerUserIdBySellRequest", "listOffersBySellRequest"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  for (const method of ["createOffer", "acceptOffer", "rejectOffer", "findOwnerUserIdByOffer", "findOfferById", "createAcquisition", "findByOffer", "markPaid", "findOwnerUserIdBySellRequest", "listOffersBySellRequest"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
 
   async function actor(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -40,23 +39,6 @@ export function createAcquisitionService({ authService, repository, id = randomU
   }
 
   return Object.freeze({
-    async createValuation(accessCredential, input) {
-      const identity = await actor(accessCredential);
-      const fields = exact(input, valuationFields);
-      let record;
-      try {
-        record = createValuation({ id: id(), ...fields, createdBy: identity.userId, createdAt: clock() });
-      } catch {
-        throw new AcquisitionError("invalid_input");
-      }
-      try {
-        return Object.freeze(await repository.createValuation(record));
-      } catch (error) {
-        if (error?.code === "23503") throw new AcquisitionError("invalid_reference");
-        throw error;
-      }
-    },
-
     async createOffer(accessCredential, input) {
       const identity = await actor(accessCredential);
       const fields = exact(input, offerFields);

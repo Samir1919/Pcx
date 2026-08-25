@@ -7,7 +7,6 @@ const origin = "https://pcx.example";
 
 function service(overrides = {}) {
   return {
-    async createValuation() { return { id: "v1" }; },
     async createOffer() { return { id: "o1", status: "ACTIVE" }; },
     async acceptOffer() { return { id: "o1", status: "ACCEPTED" }; },
     async createAcquisition() { return { id: "a1", agreedPrice: 7000 }; },
@@ -38,17 +37,16 @@ async function invoke(path, { method = "POST", body, headers = {}, acquisitionSe
 function csrf() { return { cookie: "pcx_csrf=token", "x-csrf-token": "token" }; }
 
 test("acquisition endpoints require CSRF and return 201", async () => {
-  const noCsrf = await invoke("/api/v1/admin/valuations", { body: { sellRequestId: "sr1", valuationType: "MANUAL" } });
+  const noCsrf = await invoke("/api/v1/admin/offers", { body: { sellRequestId: "sr1", amount: 100, expiresAt: "2026-08-17T00:00:00.000Z" } });
   assert.equal(noCsrf.status, 403);
 
-  assert.equal((await invoke("/api/v1/admin/valuations", { body: { sellRequestId: "sr1", valuationType: "MANUAL" }, headers: csrf() })).status, 201);
-  assert.equal((await invoke("/api/v1/admin/offers", { body: { sellRequestId: "sr1", valuationId: "v1", amount: 100, expiresAt: "2026-08-17T00:00:00.000Z" }, headers: csrf() })).status, 201);
+  assert.equal((await invoke("/api/v1/admin/offers", { body: { sellRequestId: "sr1", amount: 100, expiresAt: "2026-08-17T00:00:00.000Z" }, headers: csrf() })).status, 201);
   assert.equal((await invoke("/api/v1/admin/offers/o1/accept", { headers: csrf() })).status, 201);
   assert.equal((await invoke("/api/v1/admin/acquisitions", { body: { sellRequestId: "sr1", acceptedOfferId: "o1", sellerUserId: "u1", idempotencyKey: "idem-1" }, headers: csrf() })).status, 201);
 });
 
 test("acquisition maps forbidden, conflict, and invalid state", async () => {
-  const forbidden = await invoke("/api/v1/admin/valuations", { body: { sellRequestId: "s", valuationType: "MANUAL" }, headers: csrf(), acquisitionService: service({ async createValuation() { throw new AcquisitionError("forbidden"); } }) });
+  const forbidden = await invoke("/api/v1/admin/offers", { body: { sellRequestId: "s", amount: 100, expiresAt: "2026-08-17T00:00:00.000Z" }, headers: csrf(), acquisitionService: service({ async createOffer() { throw new AcquisitionError("forbidden"); } }) });
   assert.equal(forbidden.status, 403);
 
   const conflict = await invoke("/api/v1/admin/acquisitions", { body: { sellRequestId: "s", acceptedOfferId: "o", sellerUserId: "u", idempotencyKey: "k" }, headers: csrf(), acquisitionService: service({ async createAcquisition() { throw new AcquisitionError("conflict"); } }) });
@@ -71,6 +69,6 @@ test("acquisition payment route requires CSRF and returns 201", async () => {
 });
 
 test("acquisition route rejects GET and missing service", async () => {
-  assert.equal((await invoke("/api/v1/admin/valuations", { method: "GET" })).status, 405);
-  assert.equal((await invoke("/api/v1/admin/valuations", { method: "POST", body: {}, acquisitionService: null })).status, 503);
+  assert.equal((await invoke("/api/v1/admin/offers", { method: "GET" })).status, 405);
+  assert.equal((await invoke("/api/v1/admin/offers", { method: "POST", body: {}, acquisitionService: null })).status, 503);
 });
