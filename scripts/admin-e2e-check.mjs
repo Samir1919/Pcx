@@ -159,20 +159,29 @@ async function run() {
     record("inventory-inspect-modal", false, e.message);
   }
 
-  // Acquisition: open a sell request detail and verify contextual prefill.
+  // Acquisition: open a sell request detail and verify the detail section
+  // actually renders its content (not just the contextual prefill). This closes
+  // the gap where a detail fetch/404 or an empty projection would still pass the
+  // prefill-only check below.
   try {
     await page.goto(`${BASE_ADMIN}/acquisition`, { waitUntil: "networkidle", timeout: 30_000 });
-    const viewButton = page.getByRole("button", { name: "View" }).first();
+    const viewButton = page.getByRole("button", { name: "View", exact: true }).first();
     if (await viewButton.count()) {
       await viewButton.click();
-      await page.waitForTimeout(400);
+      await page.waitForFunction(
+        () => document.body && document.body.innerText.includes("SELL REQUEST DETAIL"),
+        { timeout: 10_000 }
+      );
       const prefill = await page.locator('input[name="sellRequestId"]').first().inputValue();
+      const detailText = await page.locator("body").innerText();
+      record("acquisition-detail-renders", /SELL REQUEST DETAIL/.test(detailText) && /STATUS/.test(detailText) && /ENTRY/.test(detailText), "detail section rendered with status/entry");
       record("acquisition-contextual-prefill", prefill.length > 0, prefill ? `sell request id pre-filled (${prefill.slice(0, 8)}…)` : "no prefill");
     } else {
+      record("acquisition-detail-renders", false, "no View button");
       record("acquisition-contextual-prefill", false, "no View button");
     }
   } catch (e) {
-    record("acquisition-contextual-prefill", false, e.message);
+    record("acquisition-detail-renders", false, e.message);
   }
 
   // Warranty: verify the create-warranty window defaults are pre-filled.
