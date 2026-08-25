@@ -14,6 +14,7 @@
       "create an offer (amount 25000) -> 201, no client TypeError",
       "verify non-customer (admin) is rejected at sell-request create with 'Sell request operation is not allowed' (no longer 'Media operation is not allowed')",
       "verify a non-staff session (customer) on /admin redirects to /login instead of a blank screen",
+      "verify the acquisition detail modal shows the uploaded ITEM PHOTOS (single/multi image) via /api/v1/media/:id",
       "storefront sign-in as demo-seller",
       "walk /sell PC_PARTS -> GPU -> model -> request step",
       "select a photo and submit (SR-000040) -> photo persisted (image/png, PRIVATE/PHOTO)"

@@ -32,6 +32,37 @@ test("local storage rejects non-image content", async () => {
   }
 });
 
+test("media service lists sell-request media for admin and denies non-admin", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "pcx-media-"));
+  const storage = createLocalMediaStorage({ root });
+  const repository = {
+    async create(record) { return record; },
+    async findById(id) { return { id, storageKey: "key", mimeType: "image/jpeg", sizeBytes: 10, visibility: "PRIVATE" }; },
+    async findSellRequestOwner(id) { return id === "sr1" ? "customer-1" : null; },
+    async linkSellRequest() { },
+    async linkInspection() { },
+    async linkListing() { },
+    async listSellRequestMedia() { return [{ id: "m1" }]; },
+    async listListingMedia() { return []; }
+  };
+  try {
+    const admin = createMediaService({
+      authService: { async authenticateAccess() { return { userId: "admin-1", status: "ACTIVE", roles: ["ADMIN"] }; } },
+      repository,
+      storage
+    });
+    assert.deepEqual(await admin.listSellRequestMediaForAdmin("access", "sr1"), [{ id: "m1" }]);
+
+    const customer = createMediaService({
+      authService: { async authenticateAccess() { return { userId: "customer-1", status: "ACTIVE", roles: ["CUSTOMER"] }; } },
+      repository,
+      storage
+    });
+    await assert.rejects(customer.listSellRequestMediaForAdmin("access", "sr1"), (e) => e.code === "forbidden");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 test("media service enforces seller ownership on upload and private read", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "pcx-media-"));
   const storage = createLocalMediaStorage({ root });

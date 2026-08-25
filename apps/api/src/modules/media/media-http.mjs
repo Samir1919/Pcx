@@ -75,12 +75,26 @@ export async function handleMediaRequest(request, response, { mediaService, allo
   const listMatch = url.pathname.match(/^\/api\/v1\/sell-requests\/([^/]+)\/media$/)
     || url.pathname.match(/^\/api\/v1\/inspections\/([^/]+)\/media$/)
     || url.pathname.match(/^\/api\/v1\/admin\/listings\/([^/]+)\/media$/);
+  const adminSellMediaListMatch = url.pathname.match(/^\/api\/v1\/admin\/sell-requests\/([^/]+)\/media$/);
 
-  if (!uploadMatch && !readMatch && !listMatch) return false;
+  if (!uploadMatch && !readMatch && !listMatch && !adminSellMediaListMatch) return false;
   if (!mediaService) { send(response, 503, failure("MEDIA_UNAVAILABLE", "Media is temporarily unavailable", requestId)); return true; }
 
   const method = request.method ?? "GET";
   const cookies = parsedCookies(request);
+
+  // Admin (non-owner) list of a sell request's photos for the acquisition view.
+  if (adminSellMediaListMatch && method === "GET") {
+    const resourceId = id(adminSellMediaListMatch[1]);
+    if (!resourceId) { send(response, 404, failure("MEDIA_NOT_FOUND", "Media not found", requestId)); return true; }
+    try {
+      send(response, 200, { data: await mediaService.listSellRequestMediaForAdmin(cookies.pcx_access, resourceId) });
+    } catch (error) {
+      const [status, code, message] = map(error);
+      send(response, status, failure(code, message, requestId));
+    }
+    return true;
+  }
 
   // List media for a resource (GET on the same paths).
   if (listMatch && method === "GET" && !readMatch) {

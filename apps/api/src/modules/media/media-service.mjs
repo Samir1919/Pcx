@@ -79,6 +79,13 @@ export function createMediaService({ authService, repository, storage, id = rand
       return Object.freeze(await repository.listSellRequestMedia(sellRequestId));
     },
 
+    // Admin (non-owner) read of a sell request's attached photos, gated by the
+    // pricing permission so the acquisition detail view can render them.
+    async listSellRequestMediaForAdmin(accessCredential, sellRequestId) {
+      await admin(accessCredential);
+      return Object.freeze(await repository.listSellRequestMedia(sellRequestId));
+    },
+
     async listInspectionMedia(accessCredential, inspectionId) {
       await technician(accessCredential);
       return Object.freeze(await repository.listInspectionMedia(inspectionId));
