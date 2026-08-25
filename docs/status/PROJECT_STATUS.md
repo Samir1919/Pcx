@@ -1,7 +1,7 @@
 # PCX Project Status
 
 - Updated: 2026-08-25
-- Current main evidence commit: `25b57ad` (internal valuation concept removed, merged into `origin/main`)
+- Current main evidence commit: `9cfd732` (fix sell media upload + admin acquisition detail, merged into `origin/main`)
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: Stage 3 control-plane completion and next dependency-ready work
 - Current autonomy maturity: Stage 2 in progress; Stage 3 control plane complete for bounded local/CI parallel orchestration (ADR 0008)
@@ -79,6 +79,7 @@ This file is the central progress index. Approved specifications define what PCX
 - Provider-based MFA (commit `51312c0`): new `provider-mfa.mjs` (6-digit OTP via `ContactDeliveryService` MFA purpose, in-memory challenge, one-time use) wired as the default MFA in `auth-runtime` (lazy holder breaks the authService↔providerConfig cycle); `auth-service` maps a `beginChallenge` failure to `mfa_unavailable` (fail closed). `npm run verify` pass (560 tests / 533 pass / 0 fail / 27 skipped); integration suite 27/27.
 - Staging compose smoke (commit `b0af85f`): `infra/docker-compose.staging.yml` now runs a full production-like stack (infra + migrate/api/worker/web/admin + Caddy proxy on isolated ports 8082/8083) under a separate `pcx-staging` project; new `npm run staging:smoke` builds, waits for API readiness, probes the web/admin proxies, then tears down. PASS with synthetic credentials (no deploy).
 - Remove internal valuation concept (commit `25b57ad`): `valuations` entity dropped so offers are created directly from a sell request (`sellRequestId` + `amount` + `expiresAt`), shortening admin acquisition to offer → acquisition. Idempotent destructive migration `0035_remove_valuation.sql`; domain/service/repository/HTTP/admin-UI/seed/tests updated; specs (DATABASE_ERD, API spec, BPR, User Flow Screen Map) updated; ADR 0012 records the user-approved hard stop (destructive migration + source-of-truth change). `npm run verify` pass (569 tests / 542 pass / 0 fail / 27 skipped); integration suite 27/27; ui-guard accepted headed evidence.
+- Fix sell media upload + admin acquisition detail (commit `9cfd732`): sell-flow photo upload was silently 404'ing because `handleMediaRequest` ran after the sell-request/listing handlers (their suffix guard swallowed `/…/:id/media`); reordered the media handler first and fixed `media-http` `send()` to JSON-stringify non-buffer bodies (error/JSON responses crashed `response.end`). Admin acquisition detail/queue now resolve catalog model names via an injected `catalogService` read (never a raw cross-module query), show contact as separate Name/Phone/Email, and no longer throw a client `TypeError` when creating an offer (`event.currentTarget.reset()` captured before `await`). `npm run verify` pass (570 tests / 543 pass / 0 fail / 27 skipped); headed Playwright MCP end-to-end verified photo upload + offer creation.
 
 
 
