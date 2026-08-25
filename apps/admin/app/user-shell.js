@@ -167,10 +167,13 @@ export default function UserShell({ children }) {
 
   // Central auth gate: never render privileged chrome/content before identity
   // resolution, and redirect unauthenticated or non-staff visitors (customers,
-  // merchants) to /login instead of per-page 401 banners.
+  // merchants) to /login instead of per-page 401 banners or a blank screen.
+  // Because the access cookie is shared across the localhost ports, a customer
+  // signed in on the storefront is "signed in" here too — so the gate must also
+  // redirect when the identity is not an active staff role.
   useEffect(() => {
-    if (!loading && !identity) router.replace("/login");
-  }, [loading, identity, router]);
+    if (!loading && (!identity || !adminAllowed)) router.replace("/login");
+  }, [loading, identity, adminAllowed, router]);
 
   // Close the mobile drawer whenever the route changes.
   useEffect(() => {

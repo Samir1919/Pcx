@@ -1,10 +1,10 @@
 {
-  "scope": "Admin acquisition detail/queue (contact fields, build-component model names, offer create) and storefront sell-flow photo upload",
+  "scope": "Admin auth gate redirect (non-staff -> /login), acquisition detail/queue (contact fields, build-component model names, offer create), and storefront sell-flow photo upload",
   "headed": true,
   "tool": "Playwright MCP (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "Sell-to-PCX photo upload + admin acquisition detail review",
+    "subject": "Admin auth redirect + sell photo upload + acquisition detail review",
     "steps": [
       "admin sign-in (email/password + dev MFA 123456)",
       "open /acquisition admin queue",
@@ -13,6 +13,7 @@
       "verify queue Model column shows a human-readable model name (GeForce RTX 3060 12GB)",
       "create an offer (amount 25000) -> 201, no client TypeError",
       "verify non-customer (admin) is rejected at sell-request create with 'Sell request operation is not allowed' (no longer 'Media operation is not allowed')",
+      "verify a non-staff session (customer) on /admin redirects to /login instead of a blank screen",
       "storefront sign-in as demo-seller",
       "walk /sell PC_PARTS -> GPU -> model -> request step",
       "select a photo and submit (SR-000040) -> photo persisted (image/png, PRIVATE/PHOTO)"
