@@ -44,13 +44,21 @@ export default function SellRequestModal({ request, onClose, onChanged }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
+  const [media, setMedia] = useState([]);
 
   const load = useCallback(async () => {
     try {
       const payload = await acquisitionApi.sellRequest(request.id);
       setDetail(payload.data);
+      try {
+        const mediaPayload = await acquisitionApi.listMedia(request.id);
+        setMedia(mediaPayload.data ?? []);
+      } catch {
+        setMedia([]);
+      }
     } catch (error) {
       setDetail(null);
+      setMedia([]);
       setNotice({ kind: "error", message: error.message });
     } finally {
       setLoading(false);
@@ -173,6 +181,17 @@ export default function SellRequestModal({ request, onClose, onChanged }) {
                 </dl>
               </>
             ) : null}
+
+            {media.length > 0 && (
+              <>
+                <p className="eyebrow" style={{ marginTop: 16 }}>ITEM PHOTOS</p>
+                <div className="mediaGrid">
+                  {media.map((m) => (
+                    <img key={m.id} src={acquisitionApi.mediaUrl(m.id)} alt={`Photo ${m.id}`} />
+                  ))}
+                </div>
+              </>
+            )}
 
             {detail.buildComponents?.length ? (
               <>
