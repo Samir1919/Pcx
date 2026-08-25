@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { acquisitionApi } from "../../../lib/acquisition-api.js";
 
 function Banner({ notice, onClose }) { if (!notice) return null; return <div className={`banner ${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}><span>{notice.message}</span><button type="button" onClick={onClose} aria-label="Dismiss message">×</button></div>; }
@@ -47,6 +47,7 @@ export default function AcquisitionPage() {
   const [detail, setDetail] = useState(null);
   const [detailBusy, setDetailBusy] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const detailRef = useRef(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -144,6 +145,14 @@ export default function AcquisitionPage() {
     }
   }
 
+  // The detail section renders below the (tall) admin queue table, so a "View"
+  // click looks like a no-op unless it is scrolled into view once it commits.
+  useEffect(() => {
+    if (detail) {
+      detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [detail]);
+
   return (
     <>
       <header>
@@ -196,7 +205,7 @@ export default function AcquisitionPage() {
         )}
       </section>
       {detail ? (
-        <section className="panel" style={{ marginTop: 18 }}>
+        <section className="panel" style={{ marginTop: 18 }} ref={detailRef}>
           <div className="panelTitle">
             <div>
               <p className="eyebrow">SELL REQUEST DETAIL</p>

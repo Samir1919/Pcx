@@ -168,13 +168,27 @@ async function run() {
     const viewButton = page.getByRole("button", { name: "View", exact: true }).first();
     if (await viewButton.count()) {
       await viewButton.click();
-      await page.waitForFunction(
-        () => document.body && document.body.innerText.includes("SELL REQUEST DETAIL"),
-        { timeout: 10_000 }
-      );
+      const detailHeading = page.getByText("SELL REQUEST DETAIL", { exact: true });
+      await detailHeading.waitFor({ state: "visible", timeout: 10_000 });
+      // Wait for the section to actually land in the viewport (smooth scroll may
+      // animate after the DOM commit), then confirm its content. A "View" click
+      // that quietly renders below the fold is the exact regression we catch.
+      await page.waitForFunction(() => {
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode())) {
+          if (node.textContent.trim() === "SELL REQUEST DETAIL") {
+            const rect = node.parentElement.getBoundingClientRect();
+            return rect.top >= 0 && rect.top < window.innerHeight;
+          }
+        }
+        return false;
+      }, { timeout: 5000 });
       const prefill = await page.locator('input[name="sellRequestId"]').first().inputValue();
       const detailText = await page.locator("body").innerText();
-      record("acquisition-detail-renders", /SELL REQUEST DETAIL/.test(detailText) && /STATUS/.test(detailText) && /ENTRY/.test(detailText), "detail section rendered with status/entry");
+      record("acquisition-detail-renders",
+        /STATUS/.test(detailText) && /ENTRY/.test(detailText),
+        "detail section scrolled into viewport with status/entry");
       record("acquisition-contextual-prefill", prefill.length > 0, prefill ? `sell request id pre-filled (${prefill.slice(0, 8)}…)` : "no prefill");
     } else {
       record("acquisition-detail-renders", false, "no View button");
