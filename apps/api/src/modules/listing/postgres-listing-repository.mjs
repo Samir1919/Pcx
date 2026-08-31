@@ -125,10 +125,14 @@ export function createPostgresListingRepository({ pool }) {
       const result = await pool.query(
         `SELECT l.id, l.inventory_item_id, l.status, l.public_slug, l.published_at, l.created_at,
                 ii.pcx_item_id, pm.id AS model_id, pm.name AS model_name,
+                b.name AS brand_name, c.name AS category_name,
+                ii.condition_grade, ii.current_health_score,
                 lp.price
          FROM listings l
          JOIN inventory_items ii ON ii.id = l.inventory_item_id
          JOIN product_models pm ON pm.id = ii.product_model_id
+         LEFT JOIN brands b ON b.id = pm.brand_id
+         LEFT JOIN categories c ON c.id = pm.category_id
          LEFT JOIN LATERAL (
            SELECT price FROM listing_prices WHERE listing_id = l.id AND valid_to IS NULL ORDER BY valid_from DESC LIMIT 1
          ) lp ON true

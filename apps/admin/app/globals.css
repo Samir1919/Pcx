@@ -429,6 +429,12 @@ td small {
   text-transform: uppercase;
 }
 
+.pill.ok { background: var(--mint); color: var(--green); }
+.pill.warn { background: #f6ecd0; color: #8a6d1a; }
+.pill.bad { background: #f6ddd9; color: var(--red); }
+.pill.info { background: #d8e9f6; color: #1d5b8a; }
+.pill.muted { background: #e7ebe8; color: var(--muted); }
+
 .state {
   padding: 50px 24px;
   text-align: center;

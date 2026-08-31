@@ -1,20 +1,18 @@
 {
-  "scope": "Seller photo pick-and-promote onto listing + storefront/passport image rendering",
+  "scope": "Admin inventory + listings human-readable tables/detail (name, brand-category, condition, labeled status, formatted price, serial/cost)",
   "headed": true,
   "tool": "scripts/admin-e2e-check.mjs",
   "result": "passed",
   "businessFlow": {
-    "subject": "Admin promotes a seller's private photo to a public listing photo, then it renders on the storefront card and passport",
+    "subject": "Inventory and listings pages show readable product/condition/status instead of raw UUIDs",
     "steps": [
       "admin-login",
+      "open-inventory",
+      "inventory-table-readable",
+      "inventory-detail-readable",
       "open-listings",
-      "open-photos-modal",
-      "seller-photos-shown",
-      "promote-photo",
-      "photo-marked-added",
-      "storefront-card-shows-image",
-      "passport-shows-gallery"
+      "listings-table-readable"
     ]
   },
-  "ranAt": "2026-08-31T12:50:00.000Z"
+  "ranAt": "2026-08-31T13:10:00.000Z"
 }

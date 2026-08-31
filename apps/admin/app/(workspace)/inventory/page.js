@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { opsApi } from "../../../lib/ops-api";
 import { listingApi } from "../../../lib/listing-api.js";
+import { statusLabel, statusTone, gradeLabel, gradeTone, formatPrice } from "../../../lib/ui-format";
 import InspectionModal from "./inspection-modal";
 
 function ItemDetailModal({ item, onClose }) {
@@ -14,11 +15,15 @@ function ItemDetailModal({ item, onClose }) {
         <h2 id="inventory-detail-title">Inventory item</h2>
         <p>Server-owned status and identity. Cost and serial value stay private to licensed reviewers.</p>
         <dl className="detailList">
+          <div><dt>Product</dt><dd><strong>{item.productName ?? "—"}</strong>{item.modelCode ? <small>{item.modelCode}</small> : null}</dd></div>
+          <div><dt>Brand · Category</dt><dd>{item.brandName ?? "—"} · {item.categoryName ?? "—"}</dd></div>
           <div><dt>PCX ID</dt><dd>{item.pcxItemId ?? "—"}</dd></div>
-          <div><dt>Item ID</dt><dd>{item.id}</dd></div>
-          <div><dt>Product model</dt><dd>{item.productModelId}</dd></div>
-          <div><dt>Status</dt><dd><span className="pill">{item.status}</span></dd></div>
+          <div><dt>Status</dt><dd><span className={`pill ${statusTone(item.status)}`}>{statusLabel(item.status)}</span></dd></div>
+          <div><dt>Condition</dt><dd><span className={`pill ${gradeTone(item.conditionGrade)}`}>{gradeLabel(item.conditionGrade)}</span>{item.currentHealthScore != null ? ` · health ${item.currentHealthScore}/100` : ""}</dd></div>
+          <div><dt>Serial</dt><dd>{item.serialValue ?? "—"}</dd></div>
+          <div><dt>Acquisition cost</dt><dd>{item.acquisitionCost != null ? formatPrice(item.acquisitionCost) : "—"}</dd></div>
           <div><dt>Received</dt><dd>{new Date(item.receivedAt).toLocaleString()}</dd></div>
+          {item.approvedAt ? <div><dt>Approved</dt><dd>{new Date(item.approvedAt).toLocaleString()}</dd></div> : null}
         </dl>
         <div className="modalActions">
           <button type="button" className="primary" onClick={onClose}>Close</button>
@@ -115,13 +120,14 @@ export default function InventoryPage() {
         {loading ? <p className="state" role="status">Loading inventory…</p> : items.length === 0 ? <p className="state">No inventory items found.</p> : (
           <div className="tableWrap">
             <table>
-              <thead><tr><th>PCX ID</th><th>Model</th><th>Status</th><th>Received</th><th><span className="sr">Actions</span></th></tr></thead>
+              <thead><tr><th>Product</th><th>PCX ID</th><th>Condition</th><th>Status</th><th>Received</th><th><span className="sr">Actions</span></th></tr></thead>
               <tbody>
                 {items.map((item) => (
                   <tr key={item.id}>
-                    <td><strong>{item.pcxItemId ?? "—"}</strong><small>{item.id.slice(0, 8)}…</small></td>
-                    <td>{item.productModelId.slice(0, 8)}…</td>
-                    <td><span className="pill">{item.status}</span></td>
+                    <td><strong>{item.productName ?? "—"}</strong><small>{item.brandName ?? "Unknown brand"} · {item.categoryName ?? "Unknown category"}</small></td>
+                    <td><strong>{item.pcxItemId ?? "—"}</strong></td>
+                    <td><span className={`pill ${gradeTone(item.conditionGrade)}`}>{gradeLabel(item.conditionGrade)}</span>{item.currentHealthScore != null ? <small>{item.currentHealthScore}/100</small> : null}</td>
+                    <td><span className={`pill ${statusTone(item.status)}`}>{statusLabel(item.status)}</span></td>
                     <td>{new Date(item.receivedAt).toLocaleString()}</td>
                     <td>
                       <div className="actions">

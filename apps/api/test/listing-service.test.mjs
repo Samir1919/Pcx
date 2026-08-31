@@ -10,7 +10,7 @@ function fixture(overrides = {}) {
     async publish(id, slug, now) { calls.publishes.push({ id, slug, now }); return { status: "published", record: { id, publicSlug: slug, status: ListingStatus.PUBLISHED } }; },
     async createPrice(record) { calls.prices.push(record); return record; },
     async findById(id) { calls.finds.push(id); return id === "l1" ? { id, inventoryItemId: "inv-1", status: ListingStatus.DRAFT, publicSlug: null, publishedAt: null } : null; },
-    async listAdmin(filters) { calls.listAdmin = filters; return { records: [{ id: "l1", inventory_item_id: "inv-1", status: "DRAFT", public_slug: null, published_at: null, created_at: "2026-08-16T12:00:00.000Z", pcx_item_id: "PCX-1", model_id: "m1", model_name: "GPU", price: null }], nextCursor: null }; },
+    async listAdmin(filters) { calls.listAdmin = filters; return { records: [{ id: "l1", inventory_item_id: "inv-1", status: "DRAFT", public_slug: null, published_at: null, created_at: "2026-08-16T12:00:00.000Z", pcx_item_id: "PCX-1", model_id: "m1", model_name: "GPU", brand_name: "MSI", category_name: "GPU", condition_grade: "A", current_health_score: 90, price: null }], nextCursor: null }; },
     async findPublicPassport(pcxItemId) { calls.passports.push(pcxItemId); return pcxItemId === "PCX-1" ? { pcx_item_id: "PCX-1", inventory_item_id: "inv-1", listing_id: "l1", model_id: "m1", name: "GPU", category_id: "gpu", brand_id: "b1", status: "PUBLISHED", published_at: "2026-08-16T12:00:00.000Z", price: "15000", serial: "SECRET", media_ids: ["media-1"] } : null; },
     async searchPublished(filters) { calls.searches = filters; return { records: [{ id: "l1", public_slug: "pcx-gaming-tower", inventory_item_id: "inv-1", pcx_item_id: "PCX-1", model_id: "m1", name: "GPU", category_id: "gpu", brand_id: "b1", price: 15000, published_at: "2026-08-16T12:00:00.000Z", cover_media_id: "media-1" }], nextCursor: null }; },
     ...overrides.repository
@@ -65,6 +65,10 @@ test("listAdmin requires pricing read and maps snake_case admin rows", async () 
   const result = await service.listAdmin("access", {});
   assert.equal(result.data[0].modelName, "GPU");
   assert.equal(result.data[0].pcxItemId, "PCX-1");
+  assert.equal(result.data[0].brandName, "MSI");
+  assert.equal(result.data[0].categoryName, "GPU");
+  assert.equal(result.data[0].conditionGrade, "A");
+  assert.equal(result.data[0].currentHealthScore, 90);
   assert.equal(result.data[0].price, null);
   assert.equal(result.meta.nextCursor, null);
   assert.deepEqual(calls.listAdmin, {});

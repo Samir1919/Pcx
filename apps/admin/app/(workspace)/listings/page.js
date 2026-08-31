@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { listingApi } from "../../../lib/listing-api.js";
+import { statusLabel, statusTone, gradeLabel, gradeTone, formatPrice } from "../../../lib/ui-format";
 import ListingMediaModal from "./media-modal";
 
 function slug(value) { return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); }
@@ -194,14 +195,15 @@ export default function ListingsPage() {
           {loading ? <p className="state" role="status">Loading listings…</p> : listings.length === 0 ? <p className="state">No listings found.</p> : (
             <div className="tableWrap">
               <table>
-                <thead><tr><th>Model</th><th>PCX ID</th><th>Status</th><th>Price</th><th><span className="sr">Actions</span></th></tr></thead>
+                <thead><tr><th>Product</th><th>PCX ID</th><th>Condition</th><th>Status</th><th>Price</th><th><span className="sr">Actions</span></th></tr></thead>
                 <tbody>
                   {listings.map((l) => (
                     <tr key={l.id}>
-                      <td><strong>{l.modelName}</strong><small>{l.id.slice(0, 8)}…</small></td>
+                      <td><strong>{l.modelName}</strong><small>{l.brandName ?? "Unknown brand"} · {l.categoryName ?? "Unknown category"}</small></td>
                       <td>{l.pcxItemId ?? "—"}</td>
-                      <td><span className="pill">{l.status}</span></td>
-                      <td>{l.price == null ? "—" : l.price}</td>
+                      <td><span className={`pill ${gradeTone(l.conditionGrade)}`}>{gradeLabel(l.conditionGrade)}</span></td>
+                      <td><span className={`pill ${statusTone(l.status, "listing")}`}>{statusLabel(l.status, "listing")}</span></td>
+                      <td><strong>{formatPrice(l.price)}</strong></td>
                       <td>
                         <div className="actions">
                           {l.status === "DRAFT" && <button type="button" disabled={busy} onClick={() => openDialog("publish", l)}>Publish</button>}

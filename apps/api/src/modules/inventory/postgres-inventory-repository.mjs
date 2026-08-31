@@ -18,9 +18,16 @@ function item(row) {
     id: row.id,
     pcxItemId: row.pcx_item_id,
     productModelId: row.product_model_id,
+    productName: row.product_name ?? null,
+    modelCode: row.model_code ?? null,
+    brandName: row.brand_name ?? null,
+    categoryName: row.category_name ?? null,
     acquisitionId: row.acquisition_id,
     acquisitionCost: row.acquisition_cost != null ? Number(row.acquisition_cost) : null,
     status: row.status,
+    conditionGrade: row.condition_grade ?? null,
+    currentHealthScore: row.current_health_score != null ? Number(row.current_health_score) : null,
+    approvedAt: row.approved_at ? new Date(row.approved_at).toISOString() : null,
     receivedAt: new Date(row.received_at).toISOString(),
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString()
@@ -67,15 +74,35 @@ export function createPostgresInventoryRepository({ pool }) {
 
     async findById(id) {
       const result = await pool.query(
-        "SELECT id, pcx_item_id, product_model_id, acquisition_id, acquisition_cost, status, received_at, created_at, updated_at FROM inventory_items WHERE id::text = $1",
+        `SELECT ii.id, ii.pcx_item_id, ii.product_model_id, ii.acquisition_id, ii.acquisition_cost,
+                ii.status, ii.condition_grade, ii.current_health_score, ii.approved_at,
+                ii.received_at, ii.created_at, ii.updated_at,
+                pm.name AS product_name, pm.model_code,
+                b.name AS brand_name, c.name AS category_name,
+                (SELECT si.value_display FROM serial_identifiers si WHERE si.inventory_item_id = ii.id AND si.is_primary = true LIMIT 1) AS serial_value
+         FROM inventory_items ii
+         JOIN product_models pm ON pm.id = ii.product_model_id
+         LEFT JOIN brands b ON b.id = pm.brand_id
+         LEFT JOIN categories c ON c.id = pm.category_id
+         WHERE ii.id::text = $1`,
         [id]
       );
-      return result.rows[0] ? item(result.rows[0]) : null;
+      const row = result.rows[0];
+      return row ? Object.freeze({ ...item(row), serialValue: row.serial_value ?? null }) : null;
     },
 
     async list() {
       const result = await pool.query(
-        "SELECT id, pcx_item_id, product_model_id, acquisition_id, acquisition_cost, status, received_at, created_at, updated_at FROM inventory_items ORDER BY received_at DESC"
+        `SELECT ii.id, ii.pcx_item_id, ii.product_model_id, ii.acquisition_id, ii.acquisition_cost,
+                ii.status, ii.condition_grade, ii.current_health_score, ii.approved_at,
+                ii.received_at, ii.created_at, ii.updated_at,
+                pm.name AS product_name, pm.model_code,
+                b.name AS brand_name, c.name AS category_name
+         FROM inventory_items ii
+         JOIN product_models pm ON pm.id = ii.product_model_id
+         LEFT JOIN brands b ON b.id = pm.brand_id
+         LEFT JOIN categories c ON c.id = pm.category_id
+         ORDER BY ii.received_at DESC`
       );
       return result.rows.map(item);
     }

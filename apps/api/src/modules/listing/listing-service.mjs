@@ -96,6 +96,10 @@ export function createListingService({ authService, repository, auditLogService,
           pcxItemId: row.pcx_item_id,
           modelId: row.model_id,
           modelName: row.model_name,
+          brandName: row.brand_name ?? null,
+          categoryName: row.category_name ?? null,
+          conditionGrade: row.condition_grade ?? null,
+          currentHealthScore: row.current_health_score != null ? Number(row.current_health_score) : null,
           price: row.price == null ? null : Number(row.price)
         }))),
         meta: Object.freeze({ nextCursor: result.nextCursor })
