@@ -79,6 +79,12 @@ test("order/payment repository persists order, snapshot items, and idempotent pa
     assert.equal(confirmed.status, "confirmed");
     assert.equal(confirmed.record.status, "CONFIRMED");
 
+    // Payment confirm advances the order and marks the claimed listing SOLD.
+    const confirmedOrder = await pool.query("SELECT status FROM orders WHERE id::text = $1", [orderId]);
+    assert.equal(confirmedOrder.rows[0].status, "CONFIRMED");
+    const soldListing = await pool.query("SELECT status FROM listings WHERE inventory_item_id::text = $1", [itemA]);
+    assert.equal(soldListing.rows[0].status, "SOLD");
+
     // Confirming again returns not_confirmable.
     assert.deepEqual(await repository.confirmPayment("txn-order-1", customer, now), { status: "not_confirmable" });
   } finally {

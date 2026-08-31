@@ -144,6 +144,21 @@ export function createPostgresOrderPaymentRepository({ pool }) {
           [providerTransactionId, userId, now]
         );
         if (updated.rowCount !== 1) return { status: "not_confirmable" };
+        const orderId = updated.rows[0].order_id;
+        // Payment received: advance the order and mark each claimed listing
+        // SOLD (RESERVED -> SOLD) so the sold item can never return to the
+        // sellable pool (spec 5/18/22).
+        await client.query(
+          `UPDATE orders SET status = 'CONFIRMED', updated_at = $2
+           WHERE id = $1 AND status = 'PENDING_PAYMENT'`,
+          [orderId, now]
+        );
+        await client.query(
+          `UPDATE listings SET status = 'SOLD'
+           WHERE id IN (SELECT listing_id FROM order_items WHERE order_id = $1)
+             AND status = 'RESERVED'`,
+          [orderId]
+        );
         return { status: "confirmed", record: payment(updated.rows[0]) };
       });
     }
