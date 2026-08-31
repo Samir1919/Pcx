@@ -54,17 +54,20 @@ export function createInventoryItem({
   id,
   productModelId,
   acquisitionId = null,
+  acquisitionCost = null,
   pcxItemId = null,
   status = InventoryItemStatus.RECEIVED,
   receivedAt = new Date()
 }) {
   if (!statuses.has(status)) throw new TypeError("inventory status is invalid");
+  if (acquisitionCost != null && (typeof acquisitionCost !== "number" || !Number.isFinite(acquisitionCost) || acquisitionCost < 0)) throw new TypeError("acquisitionCost is invalid");
   const now = timestamp(receivedAt, "receivedAt");
   return Object.freeze({
     id: requiredString(id, "id"),
     pcxItemId: optionalString(pcxItemId, "pcxItemId"),
     productModelId: requiredString(productModelId, "productModelId"),
     acquisitionId: optionalString(acquisitionId, "acquisitionId"),
+    acquisitionCost,
     status,
     receivedAt: now,
     createdAt: now,

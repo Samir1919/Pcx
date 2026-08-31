@@ -1,10 +1,10 @@
 {
-  "scope": "Admin acquisition continuation + sell-request status auto-advance (offer to accept to acquisition to pay)",
+  "scope": "Admin acquisition continuation + sell-request status auto-advance + inventory intake (offer to accept to acquisition to pay to register item)",
   "headed": true,
   "tool": "scripts/acquisition-flow-e2e-check.mjs",
   "result": "passed",
   "businessFlow": {
-    "subject": "Admin offer to accept to acquisition to pay with sell-request status auto-advance",
+    "subject": "Admin offer to accept to acquisition to pay to inventory intake with status auto-advance",
     "steps": [
       "admin-login",
       "open-sell-request",
@@ -19,8 +19,10 @@
       "status-acq-pending",
       "mark-paid",
       "acquisition-paid",
-      "status-paid"
+      "status-paid",
+      "register-item",
+      "item-registered-shown"
     ]
   },
-  "ranAt": "2026-08-31T08:41:11.168Z"
+  "ranAt": "2026-08-31T10:31:39.944Z"
 }

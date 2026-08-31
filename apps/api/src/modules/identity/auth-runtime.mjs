@@ -180,7 +180,7 @@ export function createAuthRuntime({ pool, allowedOrigins, adminOrigins, abuseCon
   const sellRequestService = createSellRequestService({ authService, repository: createPostgresSellRequestRepository({ pool }), indicativePriceService, catalogService, notificationEmitter });
   const acquisitionService = createAcquisitionService({ authService, repository: createPostgresAcquisitionRepository({ pool }), notificationEmitter });
   const inventoryRepository = createPostgresInventoryRepository({ pool });
-  const inventoryService = createInventoryService({ authService, repository: inventoryRepository });
+  const inventoryService = createInventoryService({ authService, repository: inventoryRepository, acquisitionCostResolver: (acquisitionId) => acquisitionService.getAcquisitionAgreedPrice(acquisitionId) });
   const inspectionTemplateRepository = createPostgresInspectionTemplateRepository({ pool });
   const inspectionTemplateService = createInspectionTemplateService({ authService, repository: inspectionTemplateRepository });
   const inspectionExecutionService = createInspectionExecutionService({ authService, inventoryRepository, inspectionTemplateRepository, repository: createPostgresInspectionExecutionRepository({ pool }) });

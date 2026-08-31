@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { acquisitionApi } from "../../../lib/acquisition-api.js";
+import { opsApi } from "../../../lib/ops-api.js";
 import { sellRequestStatusLabel, SELL_REQUEST_FLOW } from "../../../lib/sell-request-status.js";
 
 function Banner({ notice, onClose }) {
@@ -49,6 +50,7 @@ export default function SellRequestModal({ request, onClose, onChanged }) {
   const [zoom, setZoom] = useState(null);
   const [offers, setOffers] = useState([]);
   const [acquisition, setAcquisition] = useState(null);
+  const [registeredItem, setRegisteredItem] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -130,6 +132,20 @@ export default function SellRequestModal({ request, onClose, onChanged }) {
 
   async function markAcquisitionPaid(acquisitionId) {
     await run(() => acquisitionApi.markAcquisitionPaid(acquisitionId));
+  }
+
+  async function registerInventoryItem(event) {
+    event.preventDefault();
+    const serialValue = event.currentTarget.elements.serial.value;
+    await run(async () => {
+      const result = await opsApi.intakeInventory({
+        productModelId: detail.productModelId,
+        acquisitionId: acquisition.id,
+        status: "RECEIVED",
+        identifiers: [{ identifierType: "SERIAL", value: serialValue, isPrimary: true }]
+      });
+      setRegisteredItem(result.data);
+    });
   }
 
   async function transition(toStatus) {
@@ -294,6 +310,15 @@ export default function SellRequestModal({ request, onClose, onChanged }) {
                     {acquisition.paymentStatus === "PENDING" ? (
                       <button className="primary" disabled={busy} onClick={() => markAcquisitionPaid(acquisition.id)}>Mark paid</button>
                     ) : null}
+                  {acquisition.paymentStatus === "PAID" && !registeredItem ? (
+                    <form onSubmit={registerInventoryItem} style={{ marginTop: 12 }}>
+                      <label><span>Serial / identifier</span><input name="serial" required placeholder="Enter the item serial" /></label>
+                      <button className="primary" disabled={busy}>Register inventory item</button>
+                    </form>
+                  ) : null}
+                  {registeredItem ? (
+                    <p className="state">Item registered: {registeredItem.item?.pcxItemId ?? "—"} (RECEIVED).</p>
+                  ) : null}
                   </>
                 ) : (
                   <p className="state">No acquisition yet. Once an offer is accepted (seller decision), create the acquisition here.</p>

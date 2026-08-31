@@ -11,7 +11,7 @@ export class InventoryError extends Error {
 const intakeFields = new Set(["productModelId", "acquisitionId", "status", "identifiers"]);
 const identifierFields = new Set(["identifierType", "value", "isPrimary"]);
 
-export function createInventoryService({ authService, repository, id = randomUUID, clock = () => new Date() }) {
+export function createInventoryService({ authService, repository, id = randomUUID, clock = () => new Date(), acquisitionCostResolver = null }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
   for (const method of ["createWithIdentifiers", "findById", "list"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
 
@@ -31,11 +31,15 @@ export function createInventoryService({ authService, repository, id = randomUUI
       await actor(accessCredential);
       const fields = exact(input, intakeFields);
       if (!Array.isArray(fields.identifiers)) throw new InventoryError("invalid_input");
+      let acquisitionCost = null;
+      if (fields.acquisitionId && typeof acquisitionCostResolver === "function") {
+        try { acquisitionCost = await acquisitionCostResolver(fields.acquisitionId); } catch { acquisitionCost = null; }
+      }
       const now = clock().toISOString();
       const itemId = id();
       let record;
       try {
-        record = createInventoryItem({ id: itemId, productModelId: fields.productModelId, acquisitionId: fields.acquisitionId, pcxItemId: generatePcxItemId(itemId), status: fields.status, receivedAt: now });
+        record = createInventoryItem({ id: itemId, productModelId: fields.productModelId, acquisitionId: fields.acquisitionId, acquisitionCost, pcxItemId: generatePcxItemId(itemId), status: fields.status, receivedAt: now });
       } catch {
         throw new InventoryError("invalid_input");
       }

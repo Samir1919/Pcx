@@ -15,7 +15,8 @@ function fixture(overrides = {}) {
     authService: { async authenticateAccess() { return { userId: "admin-1", status: "ACTIVE", roles: ["ADMIN"] }; }, ...overrides.authService },
     repository,
     id: (() => { let n = 0; return () => `id-${++n}`; })(),
-    clock: () => new Date("2026-08-16T00:00:00.000Z")
+    clock: () => new Date("2026-08-16T00:00:00.000Z"),
+    acquisitionCostResolver: overrides.acquisitionCostResolver ?? null
   });
   return { service, calls };
 }
@@ -59,4 +60,27 @@ test("list and get enforce permission and return found record", async () => {
   assert.equal((await service.get("access", "inv-1")).id, "inv-1");
   await assert.rejects(service.get("access", "missing"), (error) => error.code === "not_found");
   assert.equal((await service.list("access")).length, 1);
+});
+
+test("intake allocates acquisition cost from the resolver when acquisitionId is provided", async () => {
+  let resolvedId = null;
+  const { service } = fixture({ acquisitionCostResolver: async (acquisitionId) => { resolvedId = acquisitionId; return 4200; } });
+  const result = await service.intake("access", {
+    productModelId: "model-1",
+    acquisitionId: "acq-1",
+    identifiers: [{ identifierType: SerialIdentifierType.SERIAL, value: "SN-1", isPrimary: true }]
+  });
+  assert.equal(resolvedId, "acq-1");
+  assert.equal(result.item.acquisitionId, "acq-1");
+  assert.equal(result.item.acquisitionCost, 4200);
+});
+
+test("intake leaves cost null when the resolver throws", async () => {
+  const { service } = fixture({ acquisitionCostResolver: async () => { throw new Error("boom"); } });
+  const result = await service.intake("access", {
+    productModelId: "model-1",
+    acquisitionId: "acq-1",
+    identifiers: [{ identifierType: SerialIdentifierType.SERIAL, value: "SN-1", isPrimary: true }]
+  });
+  assert.equal(result.item.acquisitionCost, null);
 });

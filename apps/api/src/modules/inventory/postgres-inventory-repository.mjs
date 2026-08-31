@@ -19,6 +19,7 @@ function item(row) {
     pcxItemId: row.pcx_item_id,
     productModelId: row.product_model_id,
     acquisitionId: row.acquisition_id,
+    acquisitionCost: row.acquisition_cost != null ? Number(row.acquisition_cost) : null,
     status: row.status,
     receivedAt: new Date(row.received_at).toISOString(),
     createdAt: new Date(row.created_at).toISOString(),
@@ -45,10 +46,10 @@ export function createPostgresInventoryRepository({ pool }) {
     async createWithIdentifiers(record, identifiers, now) {
       return transaction(pool, async (client) => {
         const inserted = await client.query(
-          `INSERT INTO inventory_items(id, pcx_item_id, product_model_id, acquisition_id, status, received_at, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $6, $6)
-           RETURNING id, pcx_item_id, product_model_id, acquisition_id, status, received_at, created_at, updated_at`,
-          [record.id, record.pcxItemId, record.productModelId, record.acquisitionId, record.status, now]
+          `INSERT INTO inventory_items(id, pcx_item_id, product_model_id, acquisition_id, acquisition_cost, status, received_at, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $7)
+           RETURNING id, pcx_item_id, product_model_id, acquisition_id, acquisition_cost, status, received_at, created_at, updated_at`,
+          [record.id, record.pcxItemId, record.productModelId, record.acquisitionId, record.acquisitionCost, record.status, now]
         );
         const serialRows = [];
         for (const identifier of identifiers) {
@@ -66,7 +67,7 @@ export function createPostgresInventoryRepository({ pool }) {
 
     async findById(id) {
       const result = await pool.query(
-        "SELECT id, pcx_item_id, product_model_id, acquisition_id, status, received_at, created_at, updated_at FROM inventory_items WHERE id::text = $1",
+        "SELECT id, pcx_item_id, product_model_id, acquisition_id, acquisition_cost, status, received_at, created_at, updated_at FROM inventory_items WHERE id::text = $1",
         [id]
       );
       return result.rows[0] ? item(result.rows[0]) : null;
@@ -74,7 +75,7 @@ export function createPostgresInventoryRepository({ pool }) {
 
     async list() {
       const result = await pool.query(
-        "SELECT id, pcx_item_id, product_model_id, acquisition_id, status, received_at, created_at, updated_at FROM inventory_items ORDER BY received_at DESC"
+        "SELECT id, pcx_item_id, product_model_id, acquisition_id, acquisition_cost, status, received_at, created_at, updated_at FROM inventory_items ORDER BY received_at DESC"
       );
       return result.rows.map(item);
     }

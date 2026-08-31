@@ -11,7 +11,7 @@ const acquisitionFields = new Set(["sellRequestId", "acceptedOfferId", "sellerUs
 
 export function createAcquisitionService({ authService, repository, id = randomUUID, clock = () => new Date(), notificationEmitter = null }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  for (const method of ["createOffer", "acceptOffer", "rejectOffer", "findOwnerUserIdByOffer", "findOfferById", "createAcquisition", "findByOffer", "markPaid", "findOwnerUserIdBySellRequest", "listOffersBySellRequest", "findAcquisitionBySellRequest"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  for (const method of ["createOffer", "acceptOffer", "rejectOffer", "findOwnerUserIdByOffer", "findOfferById", "createAcquisition", "findByOffer", "markPaid", "findOwnerUserIdBySellRequest", "listOffersBySellRequest", "findAcquisitionBySellRequest", "findAcquisitionById"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
 
   async function actor(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -153,6 +153,14 @@ export function createAcquisitionService({ authService, repository, id = randomU
       return Object.freeze({ data: await repository.findAcquisitionBySellRequest(sellRequestId) });
     },
 
+
+    // Internal read for the inventory module intake to allocate acquisition
+    // cost onto the received item (server-derived, never client-set). Plain
+    // read; the inventory intake actor is already authorized.
+    async getAcquisitionAgreedPrice(acquisitionId) {
+      const record = await repository.findAcquisitionById(acquisitionId);
+      return record ? record.agreedPrice : null;
+    },
 
     async markAcquisitionPaid(accessCredential, acquisitionId) {
       await actor(accessCredential);

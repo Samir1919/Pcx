@@ -132,6 +132,20 @@ async function main() {
             const paidText = await dialog.innerText().catch(() => "");
             rec("acquisition-paid", paidText.includes("PAID"), "acquisition PAID shown");
             rec("status-paid", (await sellStatus()) === "Paid", `sell status=${await sellStatus()}`);
+            const serialInput = dialog.locator("input[name=serial]");
+            try { await serialInput.waitFor({ state: "visible", timeout: 15000 }); } catch {}
+            if (!(await serialInput.count())) {
+              rec("register-item", false, "no serial input");
+            } else {
+              await serialInput.fill(`SN-E2E-${Date.now().toString().slice(-6)}`);
+              const respP4 = page.waitForResponse((r) => r.url().endsWith("/api/v1/admin/inventory") && r.request().method() === "POST", { timeout: 30000 });
+              await dialog.getByRole("button", { name: "Register inventory item" }).click();
+              const resp4 = await respP4;
+              rec("register-item", resp4.status() === 201, `http ${resp4.status()}`);
+              await page.waitForTimeout(700);
+              const regText = await dialog.innerText().catch(() => "");
+              rec("item-registered-shown", regText.includes("Item registered"), "registered item PCX ID shown");
+            }
           }
         }
       }
@@ -145,12 +159,12 @@ async function main() {
 
   if (process.argv.includes("--evidence")) {
     await writeEvidence({
-      scope: "Admin acquisition continuation + sell-request status auto-advance (offer to accept to acquisition to pay)",
+      scope: "Admin acquisition continuation + sell-request status auto-advance + inventory intake (offer to accept to acquisition to pay to register item)",
       headed,
       tool: "scripts/acquisition-flow-e2e-check.mjs",
       result: failed.length === 0 ? "passed" : "failed",
       businessFlow: {
-        subject: "Admin offer to accept to acquisition to pay with sell-request status auto-advance",
+        subject: "Admin offer to accept to acquisition to pay to inventory intake with status auto-advance",
         steps: results.map((r) => r.name)
       }
     });

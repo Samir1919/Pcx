@@ -17,6 +17,7 @@ function fixture(overrides = {}) {
     async markPaid(acquisitionId, now) { calls.paid.push({ acquisitionId, now }); return { status: "paid", record: { id: acquisitionId, paymentStatus: "PAID" } }; },
     async findOwnerUserIdBySellRequest() { return "customer-1"; },
     async listOffersBySellRequest() { return []; },
+    async findAcquisitionById() { return null; },
     async findAcquisitionBySellRequest() { return null; },
     ...overrides.repository
   };
