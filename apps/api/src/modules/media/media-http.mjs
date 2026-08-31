@@ -47,6 +47,22 @@ async function binaryBody(request) {
   return Buffer.concat(chunks);
 }
 
+async function jsonBody(request) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of request) {
+    const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    size += bytes.length;
+    if (size > 64 * 1024) throw new MediaError("invalid_input");
+    chunks.push(bytes);
+  }
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+  } catch {
+    throw new MediaError("invalid_input");
+  }
+}
+
 function id(value) {
   try { const decoded = decodeURIComponent(value); return decoded && decoded.length <= 128 && !decoded.includes("/") ? decoded : null; } catch { return null; }
 }
@@ -77,8 +93,10 @@ export async function handleMediaRequest(request, response, { mediaService, allo
     || url.pathname.match(/^\/api\/v1\/inspections\/([^/]+)\/media$/)
     || url.pathname.match(/^\/api\/v1\/admin\/listings\/([^/]+)\/media$/);
   const adminSellMediaListMatch = url.pathname.match(/^\/api\/v1\/admin\/sell-requests\/([^/]+)\/media$/);
+  const promoteMatch = url.pathname.match(/^\/api\/v1\/admin\/listings\/([^/]+)\/media\/promote$/);
+  const sellerMediaListMatch = url.pathname.match(/^\/api\/v1\/admin\/listings\/([^/]+)\/seller-media$/);
 
-  if (!uploadMatch && !readMatch && !listMatch && !adminSellMediaListMatch) return false;
+  if (!uploadMatch && !readMatch && !listMatch && !adminSellMediaListMatch && !promoteMatch && !sellerMediaListMatch) return false;
   if (!mediaService) { send(response, 503, failure("MEDIA_UNAVAILABLE", "Media is temporarily unavailable", requestId)); return true; }
 
   const method = request.method ?? "GET";
@@ -90,6 +108,36 @@ export async function handleMediaRequest(request, response, { mediaService, allo
     if (!resourceId) { send(response, 404, failure("MEDIA_NOT_FOUND", "Media not found", requestId)); return true; }
     try {
       send(response, 200, { data: await mediaService.listSellRequestMediaForAdmin(cookies.pcx_access, resourceId) });
+    } catch (error) {
+      const [status, code, message] = map(error);
+      send(response, status, failure(code, message, requestId));
+    }
+    return true;
+  }
+
+  // Admin promotes a seller's private photo to a public listing photo.
+  if (promoteMatch && method === "POST") {
+    const listingId = id(promoteMatch[1]);
+    if (!listingId) { send(response, 404, failure("MEDIA_NOT_FOUND", "Media not found", requestId)); return true; }
+    try {
+      requireWriteSecurity(request, allowedOrigins, cookies);
+      const body = await jsonBody(request);
+      const mediaId = typeof body?.mediaId === "string" ? id(body.mediaId) : null;
+      if (!mediaId) { send(response, 400, failure("INVALID_REQUEST", "mediaId is required", requestId)); return true; }
+      send(response, 201, { data: await mediaService.promoteSellerPhoto(cookies.pcx_access, listingId, mediaId) });
+    } catch (error) {
+      const [status, code, message] = map(error);
+      send(response, status, failure(code, message, requestId));
+    }
+    return true;
+  }
+
+  // Admin list of a listing's source seller photos (for the promote picker).
+  if (sellerMediaListMatch && method === "GET") {
+    const listingId = id(sellerMediaListMatch[1]);
+    if (!listingId) { send(response, 404, failure("MEDIA_NOT_FOUND", "Media not found", requestId)); return true; }
+    try {
+      send(response, 200, { data: await mediaService.listSellerMediaForListing(cookies.pcx_access, listingId) });
     } catch (error) {
       const [status, code, message] = map(error);
       send(response, status, failure(code, message, requestId));

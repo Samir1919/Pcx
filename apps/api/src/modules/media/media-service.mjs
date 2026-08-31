@@ -103,6 +103,36 @@ export function createMediaService({ authService, repository, storage, id = rand
       return Object.freeze(await repository.listListingMedia(listingId));
     },
 
+    // Admin promotes a seller's private photo onto the listing (pick & promote).
+    // The photo flips to PUBLIC and is linked to the listing; the storage key
+    // is unchanged so the DB unique(storage_key) constraint is never violated.
+    async promoteSellerPhoto(accessCredential, listingId, mediaId) {
+      await admin(accessCredential);
+      const sellRequestId = await repository.findListingSellRequestId(listingId);
+      if (!sellRequestId) throw new MediaError("not_found");
+      const sellerMedia = await repository.listSellRequestMedia(sellRequestId);
+      const source = sellerMedia.find((m) => m.id === mediaId);
+      if (!source) throw new MediaError("forbidden");
+      const listingMedia = await repository.listListingMedia(listingId);
+      if (listingMedia.some((m) => m.id === source.id)) return Object.freeze(source);
+      await storage.promote(source.storageKey);
+      const promoted = await repository.updateVisibility(source.id, "PUBLIC");
+      await repository.linkListing(id(), listingId, source.id, "PHOTO");
+      return Object.freeze(promoted ?? source);
+    },
+
+    // Admin picker: seller photos for a listing's source sell request, marked
+    // with whether each has already been promoted.
+    async listSellerMediaForListing(accessCredential, listingId) {
+      await admin(accessCredential);
+      const sellRequestId = await repository.findListingSellRequestId(listingId);
+      if (!sellRequestId) return Object.freeze([]);
+      const sellerMedia = await repository.listSellRequestMedia(sellRequestId);
+      const listingMedia = await repository.listListingMedia(listingId);
+      const promotedIds = new Set(listingMedia.map((m) => m.id));
+      return Object.freeze(sellerMedia.map((m) => Object.freeze({ ...m, promoted: promotedIds.has(m.id) })));
+    },
+
     async read(accessCredential, mediaId, { thumb = false } = {}) {
       const media = await repository.findById(mediaId);
       if (!media) throw new MediaError("not_found");

@@ -96,7 +96,10 @@ export function createPostgresListingRepository({ pool }) {
         `SELECT ii.pcx_item_id, ii.id AS inventory_item_id, l.id AS listing_id,
                 pm.id AS model_id, pm.name, pm.category_id, pm.brand_id,
                 ii.condition_grade, ii.current_health_score,
-                l.status, l.published_at, lp.price
+                l.status, l.published_at, lp.price,
+                (SELECT COALESCE(json_agg(lm.media_id ORDER BY m.created_at), '[]'::json)
+                   FROM listing_media lm JOIN media m ON m.id = lm.media_id
+                  WHERE lm.listing_id = l.id AND m.visibility = 'PUBLIC') AS media_ids
          FROM listings l
          JOIN inventory_items ii ON ii.id = l.inventory_item_id
          JOIN product_models pm ON pm.id = ii.product_model_id
@@ -170,7 +173,11 @@ export function createPostgresListingRepository({ pool }) {
       const result = await pool.query(
         `SELECT l.id, l.public_slug, ii.id AS inventory_item_id, ii.pcx_item_id, pm.id AS model_id, pm.name, pm.category_id, pm.brand_id,
                 ii.condition_grade, ii.current_health_score,
-                l.published_at, lp.price
+                l.published_at, lp.price,
+                (SELECT lm.media_id
+                   FROM listing_media lm JOIN media m ON m.id = lm.media_id
+                  WHERE lm.listing_id = l.id AND m.visibility = 'PUBLIC'
+                  ORDER BY m.created_at LIMIT 1) AS cover_media_id
          FROM listings l
          JOIN inventory_items ii ON ii.id = l.inventory_item_id
          JOIN product_models pm ON pm.id = ii.product_model_id

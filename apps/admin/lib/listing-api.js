@@ -31,5 +31,7 @@ export const listingApi = Object.freeze({
   setPrice: (body) => apiRequest("/api/v1/admin/listings/prices", { method: "POST", body }),
   uploadMedia: (listingId, file, purpose) => uploadListingMedia(listingId, file, purpose),
   listMedia: (listingId) => apiRequest(`/api/v1/admin/listings/${encodeURIComponent(listingId)}/media`),
+  listSellerMedia: (listingId) => apiRequest(`/api/v1/admin/listings/${encodeURIComponent(listingId)}/seller-media`),
+  promoteMedia: (listingId, mediaId) => apiRequest(`/api/v1/admin/listings/${encodeURIComponent(listingId)}/media/promote`, { method: "POST", body: { mediaId } }),
   mediaUrl: (mediaId) => `/api/v1/media/${encodeURIComponent(mediaId)}`
 });

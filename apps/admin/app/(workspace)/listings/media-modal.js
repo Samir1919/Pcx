@@ -8,15 +8,34 @@ export default function ListingMediaModal({ listing, onClose, onUploaded }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [media, setMedia] = useState([]);
+  const [sellerMedia, setSellerMedia] = useState([]);
 
   const loadMedia = useCallback(async () => {
     try {
       const payload = await listingApi.listMedia(listing.id);
       setMedia(payload.data ?? []);
     } catch { /* best-effort */ }
+    try {
+      const sellerPayload = await listingApi.listSellerMedia(listing.id);
+      setSellerMedia(sellerPayload.data ?? []);
+    } catch { /* best-effort */ }
   }, [listing.id]);
 
   useEffect(() => { loadMedia(); }, [loadMedia]);
+
+  async function promote(sellerPhoto) {
+    setBusy(true);
+    setError(null);
+    try {
+      await listingApi.promoteMedia(listing.id, sellerPhoto.id);
+      await loadMedia();
+      if (onUploaded) onUploaded();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   useEffect(() => {
     const onKey = (event) => { if (event.key === "Escape") onClose(); };
@@ -68,6 +87,23 @@ export default function ListingMediaModal({ listing, onClose, onUploaded }) {
             {files.map((file, i) => (
               <img key={i} src={URL.createObjectURL(file)} alt={`Selected ${i + 1}`} />
             ))}
+          </div>
+        )}
+
+        {sellerMedia.length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            <p className="eyebrow">SELLER PHOTOS</p>
+            <p>Promote the seller&apos;s original photos to the public listing — pick only the ones to show buyers.</p>
+            <div className="mediaGrid" style={{ marginTop: 8 }}>
+              {sellerMedia.map((m) => (
+                <div key={m.id}>
+                  <img src={`${listingApi.mediaUrl(m.id)}?size=thumb`} alt="Seller photo" />
+                  <button type="button" disabled={busy || m.promoted} onClick={() => promote(m)} style={{ display: "block", width: "100%", marginTop: 4 }}>
+                    {m.promoted ? "Added ✓" : "Use for listing"}
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

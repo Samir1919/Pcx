@@ -11,8 +11,8 @@ function fixture(overrides = {}) {
     async createPrice(record) { calls.prices.push(record); return record; },
     async findById(id) { calls.finds.push(id); return id === "l1" ? { id, inventoryItemId: "inv-1", status: ListingStatus.DRAFT, publicSlug: null, publishedAt: null } : null; },
     async listAdmin(filters) { calls.listAdmin = filters; return { records: [{ id: "l1", inventory_item_id: "inv-1", status: "DRAFT", public_slug: null, published_at: null, created_at: "2026-08-16T12:00:00.000Z", pcx_item_id: "PCX-1", model_id: "m1", model_name: "GPU", price: null }], nextCursor: null }; },
-    async findPublicPassport(pcxItemId) { calls.passports.push(pcxItemId); return pcxItemId === "PCX-1" ? { pcx_item_id: "PCX-1", inventory_item_id: "inv-1", listing_id: "l1", model_id: "m1", name: "GPU", category_id: "gpu", brand_id: "b1", status: "PUBLISHED", published_at: "2026-08-16T12:00:00.000Z", price: "15000", serial: "SECRET" } : null; },
-    async searchPublished(filters) { calls.searches = filters; return { records: [{ id: "l1", public_slug: "pcx-gaming-tower", inventory_item_id: "inv-1", pcx_item_id: "PCX-1", model_id: "m1", name: "GPU", category_id: "gpu", brand_id: "b1", price: 15000, published_at: "2026-08-16T12:00:00.000Z" }], nextCursor: null }; },
+    async findPublicPassport(pcxItemId) { calls.passports.push(pcxItemId); return pcxItemId === "PCX-1" ? { pcx_item_id: "PCX-1", inventory_item_id: "inv-1", listing_id: "l1", model_id: "m1", name: "GPU", category_id: "gpu", brand_id: "b1", status: "PUBLISHED", published_at: "2026-08-16T12:00:00.000Z", price: "15000", serial: "SECRET", media_ids: ["media-1"] } : null; },
+    async searchPublished(filters) { calls.searches = filters; return { records: [{ id: "l1", public_slug: "pcx-gaming-tower", inventory_item_id: "inv-1", pcx_item_id: "PCX-1", model_id: "m1", name: "GPU", category_id: "gpu", brand_id: "b1", price: 15000, published_at: "2026-08-16T12:00:00.000Z", cover_media_id: "media-1" }], nextCursor: null }; },
     ...overrides.repository
   };
   const service = createListingService({
@@ -77,6 +77,7 @@ test("public search returns safe listing cards with pagination meta", async () =
   const { service, calls } = fixture();
   const result = await service.searchPublic({ categoryId: "gpu", q: "GPU", limit: 10, sort: "newest" });
   assert.equal(result.data[0].pcxItemId, "PCX-1");
+  assert.equal(result.data[0].coverMediaId, "media-1");
   assert.equal(Object.hasOwn(result.data[0], "serial"), false);
   assert.equal(Object.hasOwn(result.data[0], "acquisitionCost"), false);
   assert.deepEqual(result.meta, { nextCursor: null });
@@ -93,6 +94,7 @@ test("public passport maps snake_case row and never leaks serial or internal fie
   assert.equal(passport.brandId, "b1");
   assert.equal(passport.status, "PUBLISHED");
   assert.equal(passport.price, 15000);
+  assert.deepEqual(passport.mediaIds, ["media-1"]);
   assert.equal(Object.hasOwn(passport, "serial"), false);
   assert.equal(await service.publicPassport("missing"), null);
 });

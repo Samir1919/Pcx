@@ -66,6 +66,11 @@ async function uploadBinary(path, file) {
   return payload;
 }
 
+// Public listing media is served by id; thumbnails use ?size=thumb.
+export function mediaUrl(mediaId, { thumb = false } = {}) {
+  return `/api/v1/media/${encodeURIComponent(mediaId)}${thumb ? "?size=thumb" : ""}`;
+}
+
 // Public storefront surface. Read paths never request serial/cost/private
 // evidence; writes carry the double-submit CSRF token from the session cookie
 // and rely on server-side authorization/ownership checks for every action.

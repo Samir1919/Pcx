@@ -137,7 +137,8 @@ export function createListingService({ authService, repository, auditLogService,
           price: row.price == null ? null : Number(row.price),
           status: row.status,
           publishedAt: row.published_at,
-          specifications: []
+          specifications: [],
+          mediaIds: Array.isArray(row.media_ids) ? row.media_ids : []
         });
       } catch (error) {
         console.error("[listing] publicPassport construction failed", { pcxItemId, error });
@@ -160,6 +161,7 @@ export function createListingService({ authService, repository, auditLogService,
           grade: row.condition_grade,
           healthScore: row.current_health_score == null ? null : Number(row.current_health_score),
           price: row.price == null ? null : Number(row.price),
+          coverMediaId: row.cover_media_id ?? null,
           publishedAt: row.published_at ? new Date(row.published_at).toISOString() : null
         }))),
         meta: Object.freeze({ nextCursor: result.nextCursor })

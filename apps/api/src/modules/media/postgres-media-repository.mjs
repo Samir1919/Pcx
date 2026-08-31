@@ -33,6 +33,14 @@ export function createPostgresMediaRepository({ pool }) {
       return result.rows[0] ? media(result.rows[0]) : null;
     },
 
+    async updateVisibility(mediaId, visibility) {
+      const result = await pool.query(
+        "UPDATE media SET visibility = $2 WHERE id::text = $1 RETURNING id, storage_key, mime_type, size_bytes, visibility, purpose, uploaded_by, created_at",
+        [mediaId, visibility]
+      );
+      return result.rows[0] ? media(result.rows[0]) : null;
+    },
+
     async linkSellRequest(linkId, sellRequestId, mediaId, purpose) {
       await pool.query(
         "INSERT INTO sell_request_media(id, sell_request_id, media_id, purpose) VALUES ($1,$2,$3,$4)",
@@ -60,6 +68,18 @@ export function createPostgresMediaRepository({ pool }) {
         [sellRequestId]
       );
       return result.rows[0]?.user_id ?? null;
+    },
+
+    async findListingSellRequestId(listingId) {
+      const result = await pool.query(
+        `SELECT a.sell_request_id
+         FROM listings l
+         JOIN inventory_items ii ON ii.id = l.inventory_item_id
+         JOIN acquisitions a ON a.id = ii.acquisition_id
+         WHERE l.id::text = $1`,
+        [listingId]
+      );
+      return result.rows[0]?.sell_request_id ?? null;
     },
 
     async listSellRequestMedia(sellRequestId) {

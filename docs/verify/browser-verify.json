@@ -1,21 +1,20 @@
 {
-  "scope": "Admin inventory List button → draft listing → publish → set price → storefront visibility",
+  "scope": "Seller photo pick-and-promote onto listing + storefront/passport image rendering",
   "headed": true,
   "tool": "scripts/admin-e2e-check.mjs",
   "result": "passed",
   "businessFlow": {
-    "subject": "Registered inventory item listed, published, priced, and visible in the storefront",
+    "subject": "Admin promotes a seller's private photo to a public listing photo, then it renders on the storefront card and passport",
     "steps": [
       "admin-login",
-      "open-inventory",
-      "find-item",
-      "click-list",
-      "draft-listing-created",
       "open-listings",
-      "publish-draft",
-      "set-price",
-      "storefront-shows-item"
+      "open-photos-modal",
+      "seller-photos-shown",
+      "promote-photo",
+      "photo-marked-added",
+      "storefront-card-shows-image",
+      "passport-shows-gallery"
     ]
   },
-  "ranAt": "2026-08-31T11:45:00.000Z"
+  "ranAt": "2026-08-31T12:50:00.000Z"
 }

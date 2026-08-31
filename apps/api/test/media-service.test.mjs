@@ -117,3 +117,72 @@ test("media service enforces seller ownership on upload and private read", async
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("media service promotes a seller photo to a public listing copy and validates the chain", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "pcx-media-"));
+  const storage = createLocalMediaStorage({ root });
+  const saved = await storage.save(PNG, { visibility: "PRIVATE" });
+  const links = [];
+  const repository = {
+    async create(record) { return record; },
+    async findById(id) { return { id, storageKey: saved.storageKey, mimeType: "image/webp", sizeBytes: saved.sizeBytes, visibility: "PRIVATE" }; },
+    async findSellRequestOwner() { return "customer-1"; },
+    async linkSellRequest() { },
+    async linkInspection() { },
+    async linkListing(linkId, listingId, mediaId) { links.push({ linkId, listingId, mediaId }); },
+    async updateVisibility(mediaId, visibility) { return { id: mediaId, storageKey: saved.storageKey, mimeType: "image/webp", sizeBytes: saved.sizeBytes, visibility }; },
+    async findListingSellRequestId(listingId) { return listingId === "l1" ? "sr1" : null; },
+    async listSellRequestMedia() { return [{ id: "m1", storageKey: saved.storageKey, mimeType: "image/webp", sizeBytes: saved.sizeBytes, purpose: "PHOTO" }]; },
+    async listListingMedia() { return []; }
+  };
+  const service = createMediaService({
+    authService: { async authenticateAccess() { return { userId: "admin-1", status: "ACTIVE", roles: ["ADMIN"] }; } },
+    repository,
+    storage
+  });
+  try {
+    const promoted = await service.promoteSellerPhoto("access", "l1", "m1");
+    assert.equal(promoted.visibility, "PUBLIC");
+    assert.equal(promoted.storageKey, saved.storageKey);
+    assert.equal(links.length, 1);
+    assert.equal(links[0].listingId, "l1");
+    assert.equal(links[0].mediaId, "m1");
+    const publicBytes = await storage.read(saved.storageKey, { visibility: "PUBLIC" });
+    assert.ok(Buffer.isBuffer(publicBytes) && publicBytes.length > 0);
+    await assert.rejects(service.promoteSellerPhoto("access", "l1", "other"), (e) => e.code === "forbidden");
+    await assert.rejects(service.promoteSellerPhoto("access", "missing", "m1"), (e) => e.code === "not_found");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("media service marks seller picker items as promoted by media id", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "pcx-media-"));
+  const storage = createLocalMediaStorage({ root });
+  const saved = await storage.save(PNG, { visibility: "PRIVATE" });
+  const repository = {
+    async create(record) { return record; },
+    async findById(id) { return { id, storageKey: saved.storageKey, mimeType: "image/webp", sizeBytes: saved.sizeBytes, visibility: "PRIVATE" }; },
+    async findSellRequestOwner() { return "customer-1"; },
+    async linkSellRequest() { },
+    async linkInspection() { },
+    async linkListing() { },
+    async updateVisibility(mediaId, visibility) { return { id: mediaId, visibility }; },
+    async findListingSellRequestId(listingId) { return listingId === "l1" ? "sr1" : null; },
+    async listSellRequestMedia() { return [{ id: "m1", storageKey: saved.storageKey, mimeType: "image/webp", sizeBytes: saved.sizeBytes }]; },
+    async listListingMedia() { return [{ id: "m1", storageKey: saved.storageKey }]; }
+  };
+  const service = createMediaService({
+    authService: { async authenticateAccess() { return { userId: "admin-1", status: "ACTIVE", roles: ["ADMIN"] }; } },
+    repository,
+    storage
+  });
+  try {
+    const rows = await service.listSellerMediaForListing("access", "l1");
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].promoted, true);
+    assert.deepEqual(await service.listSellerMediaForListing("access", "missing"), []);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

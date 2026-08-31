@@ -1667,6 +1667,15 @@ a.footerContactRow:hover {
   border: 1px solid var(--line);
 }
 
+.cardMedia {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  display: block;
+}
+
 /* ---------- International phone input ---------- */
 .phoneInput {
   display: grid;

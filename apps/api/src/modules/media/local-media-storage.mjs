@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile, readFile } from "node:fs/promises";
+import { mkdir, writeFile, readFile, copyFile } from "node:fs/promises";
+import { constants } from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 
@@ -111,6 +112,27 @@ export function createLocalMediaStorage({ root = DEFAULT_MEDIA_ROOT } = {}) {
         } catch {
           throw new MediaStorageError("not_found");
         }
+      }
+    },
+
+    // Move a private image (and its thumbnail) into the public directory so a
+    // promoted listing photo is served without the private access gate. The
+    // storage key is unchanged; only the directory + media visibility flip, so
+    // the DB unique(storage_key) constraint is never violated.
+    async promote(storageKey) {
+      const key = assertKey(storageKey);
+      const publicDir = path.join(root, "public");
+      const privateDir = path.join(root, "private");
+      await mkdir(publicDir, { recursive: true });
+      try {
+        await copyFile(path.join(privateDir, key), path.join(publicDir, key), constants.COPYFILE_EXCL);
+      } catch (error) {
+        if (error?.code !== "EEXIST") throw error; // already promoted
+      }
+      try {
+        await copyFile(path.join(privateDir, `${key}_thumb`), path.join(publicDir, `${key}_thumb`), constants.COPYFILE_EXCL);
+      } catch (error) {
+        if (error?.code !== "EEXIST" && error?.code !== "ENOENT") throw error; // legacy uploads may lack a thumbnail
       }
     },
 

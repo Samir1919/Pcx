@@ -1,10 +1,12 @@
 "use client";
 import { money } from "../../lib/format";
+import { mediaUrl } from "../../lib/storefront-api";
 import PassportInfoModal from "../passport/PassportInfoModal";
 
 export default function ListingCard({ item, brandName, categoryName }) {
   return (
     <a className="card" href={`/passport/${encodeURIComponent(item.pcxItemId)}`}>
+      {item.coverMediaId ? <img className="cardMedia" src={mediaUrl(item.coverMediaId, { thumb: true })} alt={item.name} /> : null}
       <span className="pill">Certified</span>
       <h3>{item.name}</h3>
       <div className="meta">{brandName ?? "Unknown brand"} · {categoryName ?? "Unknown category"}</div>

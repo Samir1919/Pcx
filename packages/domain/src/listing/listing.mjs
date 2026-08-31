@@ -101,7 +101,8 @@ export function createPublicListing({
   grade = null,
   healthScore = null,
   price = null,
-  publishedAt
+  publishedAt,
+  coverMediaId = null
 }) {
   return Object.freeze({
     id: requiredString(id, "id"),
@@ -115,7 +116,8 @@ export function createPublicListing({
     grade,
     healthScore: healthScore == null ? null : (Number.isFinite(healthScore) ? healthScore : null),
     price: price == null ? null : money(price, "price"),
-    publishedAt: publishedAt == null ? null : timestamp(publishedAt, "publishedAt")
+    publishedAt: publishedAt == null ? null : timestamp(publishedAt, "publishedAt"),
+    coverMediaId: coverMediaId == null ? null : requiredString(coverMediaId, "coverMediaId")
   });
 }
 
@@ -133,6 +135,7 @@ export function createPublicPassport({
   status,
   publishedAt,
   specifications = [],
+  mediaIds = [],
   verificationSummary = null
 }) {
   return Object.freeze({
@@ -149,6 +152,7 @@ export function createPublicPassport({
     status: requiredString(status, "status"),
     publishedAt: publishedAt == null ? null : timestamp(publishedAt, "publishedAt"),
     specifications: Object.freeze([...(specifications ?? [])]),
+    mediaIds: Object.freeze([...(mediaIds ?? [])]),
     verificationSummary: verificationSummary == null ? null : requiredString(verificationSummary, "verificationSummary")
   });
 }

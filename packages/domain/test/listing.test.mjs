@@ -36,9 +36,11 @@ test("public listing card exposes only approved disclosure fields", () => {
     grade: "A",
     healthScore: 90,
     price: 15000,
-    publishedAt: "2026-08-16T12:00:00.000Z"
+    publishedAt: "2026-08-16T12:00:00.000Z",
+    coverMediaId: "media-1"
   });
   assert.equal(listing.pcxItemId, "PCX-1");
+  assert.equal(listing.coverMediaId, "media-1");
   assert.equal(Object.hasOwn(listing, "serial"), false);
   assert.equal(Object.hasOwn(listing, "acquisitionCost"), false);
 });
@@ -56,9 +58,11 @@ test("public passport exposes only approved disclosure fields", () => {
     healthScore: 90,
     price: 15000,
     status: "PUBLISHED",
-    publishedAt: "2026-08-16T12:00:00.000Z"
+    publishedAt: "2026-08-16T12:00:00.000Z",
+    mediaIds: ["media-1", "media-2"]
   });
   assert.equal(passport.pcxItemId, "PCX-1");
+  assert.deepEqual(passport.mediaIds, ["media-1", "media-2"]);
   assert.equal(Object.hasOwn(passport, "serial"), false);
   assert.equal(Object.hasOwn(passport, "acquisitionCost"), false);
   assert.equal(Object.hasOwn(passport, "technicianNotes"), false);

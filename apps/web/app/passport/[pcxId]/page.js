@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { storefrontApi } from "../../../lib/storefront-api";
+import { storefrontApi, mediaUrl } from "../../../lib/storefront-api";
 import { money } from "../../../lib/format";
 import PassportInfoModal from "../PassportInfoModal";
 import BuyFlow from "../BuyFlow";
@@ -36,6 +36,13 @@ export default function PassportPage() {
               <PassportInfoModal triggerAs="span" triggerLabel="Public passport" triggerClassName="pill pill-link" />
               <h1>{passport.name}</h1>
               <div className="meta">PCX item {passport.pcxItemId}</div>
+              {passport.mediaIds?.length > 0 && (
+                <div className="mediaGrid" style={{ marginTop: 12 }}>
+                  {passport.mediaIds.map((id) => (
+                    <img key={id} src={mediaUrl(id)} alt={`Photo ${id}`} />
+                  ))}
+                </div>
+              )}
               <a className="pill pill-link" href={`/model/${encodeURIComponent(passport.modelId)}`}>View full model specifications</a>
               <div className="price">{money(passport.price)}<small>PCX-set price</small></div>
               <dl>
