@@ -1,15 +1,16 @@
 {
-  "scope": "Storefront condition grade label + card grade badge (A_PLUS -> A+)",
+  "scope": "Inventory APPROVED-only List gate (server + UI) + ui-guard status parsing fix",
   "headed": true,
   "tool": "scripts/admin-e2e-check.mjs",
   "result": "passed",
   "businessFlow": {
-    "subject": "Storefront card + passport render human grade labels",
+    "subject": "Only APPROVED inventory items can be listed; RECEIVED items show a disabled List action",
     "steps": [
-      "storefront-card-shows-grade-badge",
-      "passport-shows-grade-label",
-      "health-score-shown"
+      "admin-login",
+      "open-inventory",
+      "approved-item-list-enabled",
+      "received-item-list-disabled"
     ]
   },
-  "ranAt": "2026-08-31T13:30:00.000Z"
+  "ranAt": "2026-08-31T13:45:00.000Z"
 }

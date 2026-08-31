@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createListing, createListingPrice, createPublicListing, createPublicPassport, publishListing } from "@pcx/domain";
+import { createListing, createListingPrice, createPublicListing, createPublicPassport, InventoryItemStatus, publishListing } from "@pcx/domain";
 import { hasPermission, Permission } from "@pcx/domain";
 
 export class ListingError extends Error {
@@ -11,7 +11,7 @@ const priceFields = new Set(["listingId", "price", "reason"]);
 
 export function createListingService({ authService, repository, auditLogService, id = randomUUID, clock = () => new Date() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  for (const method of ["createDraft", "publish", "createPrice", "findById", "listAdmin"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  for (const method of ["createDraft", "publish", "createPrice", "findById", "listAdmin", "findInventoryItemStatus"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
 
   async function actor(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -41,6 +41,9 @@ export function createListingService({ authService, repository, auditLogService,
     async createDraft(accessCredential, input) {
       const identity = await actor(accessCredential);
       const fields = exact(input, draftFields);
+      const itemStatus = await repository.findInventoryItemStatus(fields.inventoryItemId);
+      if (itemStatus == null) throw new ListingError("invalid_reference");
+      if (itemStatus !== InventoryItemStatus.APPROVED) throw new ListingError("item_not_approved");
       let record;
       try {
         record = createListing({ id: id(), inventoryItemId: fields.inventoryItemId, publicSlug: fields.publicSlug, warrantyPolicyId: fields.warrantyPolicyId, createdAt: clock() });

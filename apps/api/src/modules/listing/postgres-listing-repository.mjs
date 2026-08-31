@@ -83,6 +83,14 @@ export function createPostgresListingRepository({ pool }) {
       return result.rows[0] ? listing(result.rows[0]) : null;
     },
 
+    async findInventoryItemStatus(inventoryItemId) {
+      const result = await pool.query(
+        "SELECT status FROM inventory_items WHERE id::text = $1",
+        [inventoryItemId]
+      );
+      return result.rows[0]?.status ?? null;
+    },
+
     async findPublishedByInventoryItem(inventoryItemId) {
       const result = await pool.query(
         "SELECT id, inventory_item_id, status, public_slug, published_at, unpublished_at, warranty_policy_id, created_at FROM listings WHERE inventory_item_id::text = $1 AND status = 'PUBLISHED' LIMIT 1",

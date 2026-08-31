@@ -32,8 +32,15 @@ export function classifyUiFiles(files) {
   );
 }
 
+// Trim only trailing newlines/CR so a `git status --short` first line keeps its
+// leading status column (e.g. " M apps/…"). A full .trim() there would strip the
+// leading space and break the slice(3) filename parse below.
+export function trimTrailingNewlines(value) {
+  return typeof value === "string" ? value.replace(/[\r\n]+$/, "") : value;
+}
+
 function git(args) {
-  return execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  return trimTrailingNewlines(execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }));
 }
 
 export function collectChangedFiles({ runGit = git, runStatus = () => "" } = {}) {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { classifyUiFiles, collectChangedFiles, validateEvidence } from "./browser-verify-guard.mjs";
+import { classifyUiFiles, collectChangedFiles, trimTrailingNewlines, validateEvidence } from "./browser-verify-guard.mjs";
 
 function validEvidence(overrides = {}) {
   return {
@@ -62,6 +62,13 @@ test("validateEvidence rejects non-headed evidence", () => {
 
 test("validateEvidence rejects a failed result", () => {
   assert.match(validateEvidence(validEvidence({ result: "failed" })), /result must be "passed"/);
+});
+
+test("trimTrailingNewlines preserves the leading status column of git status output", () => {
+  const status = " M apps/admin/app/page.js\n M apps/web/app/page.js\n";
+  assert.equal(trimTrailingNewlines(status), " M apps/admin/app/page.js\n M apps/web/app/page.js");
+  assert.equal(trimTrailingNewlines("apps/web/app/page.js\n"), "apps/web/app/page.js");
+  assert.equal(trimTrailingNewlines("x\n\n"), "x");
 });
 
 test("validateEvidence rejects empty scope, tool, subject, or steps", () => {

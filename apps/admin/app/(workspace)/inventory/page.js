@@ -133,7 +133,7 @@ export default function InventoryPage() {
                       <div className="actions">
                         <button type="button" disabled={busy} onClick={() => viewItem(item)}>View</button>
                         <button type="button" disabled={busy} onClick={() => setInspectItem(item)}>Inspect</button>
-                        <button type="button" disabled={busy} onClick={() => createListing(item)}>List</button>
+                        <button type="button" disabled={busy || item.status !== "APPROVED"} title={item.status !== "APPROVED" ? "Inspect and approve this item before listing" : "Create a draft listing"} onClick={() => createListing(item)}>List</button>
                       </div>
                     </td>
                   </tr>

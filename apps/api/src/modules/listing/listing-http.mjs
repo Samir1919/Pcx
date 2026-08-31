@@ -60,6 +60,7 @@ function map(error) {
     if (error.code === "conflict") return [409, "LISTING_CONFLICT", "Listing conflicts with existing data"];
     if (error.code === "invalid_state") return [409, "STATE_TRANSITION_NOT_ALLOWED", "Listing state transition is not allowed"];
     if (error.code === "invalid_reference") return [422, "INVALID_REFERENCE", "Listing reference is invalid"];
+    if (error.code === "item_not_approved") return [409, "ITEM_NOT_APPROVED", "Only approved inventory items can be listed"];
     if (error.code === "not_found") return [404, "LISTING_NOT_FOUND", "Listing not found"];
     return [error.code === "invalid_request" ? 400 : 422, error.code === "invalid_request" ? "INVALID_REQUEST" : "INVALID_INPUT", "Listing request is invalid"];
   }
