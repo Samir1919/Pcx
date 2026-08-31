@@ -1,5 +1,5 @@
 "use client";
-import { money } from "../../lib/format";
+import { money, gradeLabel } from "../../lib/format";
 import { mediaUrl } from "../../lib/storefront-api";
 import PassportInfoModal from "../passport/PassportInfoModal";
 
@@ -8,6 +8,7 @@ export default function ListingCard({ item, brandName, categoryName }) {
     <a className="card" href={`/passport/${encodeURIComponent(item.pcxItemId)}`}>
       {item.coverMediaId ? <img className="cardMedia" src={mediaUrl(item.coverMediaId, { thumb: true })} alt={item.name} /> : null}
       <span className="pill">Certified</span>
+      {item.grade ? <span className="pill">{gradeLabel(item.grade)}</span> : null}
       <h3>{item.name}</h3>
       <div className="meta">{brandName ?? "Unknown brand"} · {categoryName ?? "Unknown category"}</div>
       <div className="price">{money(item.price)}<small>PCX-set price · <PassportInfoModal triggerAs="span" triggerLabel="passport verified" triggerClassName="passport-verified-trigger" /></small></div>

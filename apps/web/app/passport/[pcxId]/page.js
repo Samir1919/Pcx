@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { storefrontApi, mediaUrl } from "../../../lib/storefront-api";
-import { money } from "../../../lib/format";
+import { money, gradeLabel } from "../../../lib/format";
 import PassportInfoModal from "../PassportInfoModal";
 import BuyFlow from "../BuyFlow";
 import StorefrontNav from "../../StorefrontNav";
@@ -47,7 +47,7 @@ export default function PassportPage() {
               <div className="price">{money(passport.price)}<small>PCX-set price</small></div>
               <dl>
                 <div><dt>Status</dt><dd>{passport.status}</dd></div>
-                <div><dt>Grade</dt><dd>{passport.grade ?? "Not graded"}</dd></div>
+                <div><dt>Grade</dt><dd>{gradeLabel(passport.grade)}</dd></div>
                 <div><dt>Health score</dt><dd>{passport.healthScore ?? "—"}</dd></div>
                 <div><dt>Published</dt><dd>{passport.publishedAt ? new Date(passport.publishedAt).toLocaleDateString() : "—"}</dd></div>
               </dl>

@@ -1,18 +1,15 @@
 {
-  "scope": "Admin inventory + listings human-readable tables/detail (name, brand-category, condition, labeled status, formatted price, serial/cost)",
+  "scope": "Storefront condition grade label + card grade badge (A_PLUS -> A+)",
   "headed": true,
   "tool": "scripts/admin-e2e-check.mjs",
   "result": "passed",
   "businessFlow": {
-    "subject": "Inventory and listings pages show readable product/condition/status instead of raw UUIDs",
+    "subject": "Storefront card + passport render human grade labels",
     "steps": [
-      "admin-login",
-      "open-inventory",
-      "inventory-table-readable",
-      "inventory-detail-readable",
-      "open-listings",
-      "listings-table-readable"
+      "storefront-card-shows-grade-badge",
+      "passport-shows-grade-label",
+      "health-score-shown"
     ]
   },
-  "ranAt": "2026-08-31T13:10:00.000Z"
+  "ranAt": "2026-08-31T13:30:00.000Z"
 }
