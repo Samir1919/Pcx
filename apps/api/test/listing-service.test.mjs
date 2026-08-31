@@ -11,6 +11,7 @@ function fixture(overrides = {}) {
     async createPrice(record) { calls.prices.push(record); return record; },
     async findById(id) { calls.finds.push(id); return id === "l1" ? { id, inventoryItemId: "inv-1", status: ListingStatus.DRAFT, publicSlug: null, publishedAt: null } : null; },
     async findInventoryItemStatus() { return "APPROVED"; },
+    async listModelSpecifications() { return [{ key: "storage", label: "Storage", dataType: "TEXT", unit: null, value: "1TB" }]; },
     async listAdmin(filters) { calls.listAdmin = filters; return { records: [{ id: "l1", inventory_item_id: "inv-1", status: "DRAFT", public_slug: null, published_at: null, created_at: "2026-08-16T12:00:00.000Z", pcx_item_id: "PCX-1", model_id: "m1", model_name: "GPU", brand_name: "MSI", category_name: "GPU", condition_grade: "A", current_health_score: 90, price: null }], nextCursor: null }; },
     async findPublicPassport(pcxItemId) { calls.passports.push(pcxItemId); return pcxItemId === "PCX-1" ? { pcx_item_id: "PCX-1", inventory_item_id: "inv-1", listing_id: "l1", model_id: "m1", name: "GPU", category_id: "gpu", brand_id: "b1", status: "PUBLISHED", published_at: "2026-08-16T12:00:00.000Z", price: "15000", serial: "SECRET", media_ids: ["media-1"] } : null; },
     async searchPublished(filters) { calls.searches = filters; return { records: [{ id: "l1", public_slug: "pcx-gaming-tower", inventory_item_id: "inv-1", pcx_item_id: "PCX-1", model_id: "m1", name: "GPU", category_id: "gpu", brand_id: "b1", price: 15000, published_at: "2026-08-16T12:00:00.000Z", cover_media_id: "media-1" }], nextCursor: null }; },
@@ -112,6 +113,7 @@ test("public passport maps snake_case row and never leaks serial or internal fie
   assert.equal(passport.status, "PUBLISHED");
   assert.equal(passport.price, 15000);
   assert.deepEqual(passport.mediaIds, ["media-1"]);
+  assert.deepEqual(passport.specifications, [{ key: "storage", label: "Storage", dataType: "TEXT", unit: null, value: "1TB" }]);
   assert.equal(Object.hasOwn(passport, "serial"), false);
   assert.equal(await service.publicPassport("missing"), null);
 });

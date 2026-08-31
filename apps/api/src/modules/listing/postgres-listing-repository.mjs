@@ -91,6 +91,28 @@ export function createPostgresListingRepository({ pool }) {
       return result.rows[0]?.status ?? null;
     },
 
+    async listModelSpecifications(modelId) {
+      const result = await pool.query(
+        `SELECT d.key, d.label, v.data_type, d.unit,
+                v.value_text, v.value_number, v.value_boolean, v.value_json
+         FROM model_spec_values v
+         JOIN spec_definitions d ON d.id = v.spec_definition_id
+         WHERE v.product_model_id::text = $1
+         ORDER BY d.sort_order, d.label, d.id`,
+        [modelId]
+      );
+      return result.rows.map((row) => ({
+        key: row.key,
+        label: row.label,
+        dataType: row.data_type,
+        unit: row.unit ?? null,
+        value: row.data_type === "TEXT" ? row.value_text
+          : row.data_type === "NUMBER" ? (row.value_number == null ? null : Number(row.value_number))
+          : row.data_type === "BOOLEAN" ? row.value_boolean
+          : row.value_json
+      }));
+    },
+
     async findPublishedByInventoryItem(inventoryItemId) {
       const result = await pool.query(
         "SELECT id, inventory_item_id, status, public_slug, published_at, unpublished_at, warranty_policy_id, created_at FROM listings WHERE inventory_item_id::text = $1 AND status = 'PUBLISHED' LIMIT 1",

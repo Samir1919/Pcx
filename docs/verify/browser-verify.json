@@ -1,16 +1,11 @@
 {
-  "scope": "Inventory APPROVED-only List gate (server + UI) + ui-guard status parsing fix",
+  "scope": "Ecommerce product detail view (main image + thumbnail gallery + full specs) on the storefront passport",
   "headed": true,
   "tool": "scripts/admin-e2e-check.mjs",
   "result": "passed",
   "businessFlow": {
-    "subject": "Only APPROVED inventory items can be listed; RECEIVED items show a disabled List action",
-    "steps": [
-      "admin-login",
-      "open-inventory",
-      "approved-item-list-enabled",
-      "received-item-list-disabled"
-    ]
+    "subject": "Passport renders a large main image, a thumbnail gallery, and full model specifications",
+    "steps": ["open-passport", "main-image-shown", "thumbnail-gallery-shown", "specifications-table-shown"]
   },
-  "ranAt": "2026-08-31T13:45:00.000Z"
+  "ranAt": "2026-08-31T14:05:00.000Z"
 }

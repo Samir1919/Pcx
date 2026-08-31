@@ -11,7 +11,7 @@ const priceFields = new Set(["listingId", "price", "reason"]);
 
 export function createListingService({ authService, repository, auditLogService, id = randomUUID, clock = () => new Date() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  for (const method of ["createDraft", "publish", "createPrice", "findById", "listAdmin", "findInventoryItemStatus"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  for (const method of ["createDraft", "publish", "createPrice", "findById", "listAdmin", "findInventoryItemStatus", "listModelSpecifications"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
 
   async function actor(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -130,6 +130,7 @@ export function createListingService({ authService, repository, auditLogService,
     async publicPassport(pcxItemId) {
       const row = await repository.findPublicPassport(pcxItemId);
       if (!row) return null;
+      const specifications = await repository.listModelSpecifications(row.model_id);
       try {
         return createPublicPassport({
           pcxItemId: row.pcx_item_id,
@@ -144,7 +145,7 @@ export function createListingService({ authService, repository, auditLogService,
           price: row.price == null ? null : Number(row.price),
           status: row.status,
           publishedAt: row.published_at,
-          specifications: [],
+          specifications: Array.isArray(specifications) ? specifications : [],
           mediaIds: Array.isArray(row.media_ids) ? row.media_ids : []
         });
       } catch (error) {

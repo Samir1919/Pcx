@@ -1675,6 +1675,42 @@ a.footerContactRow:hover {
   border: 1px solid var(--line);
   display: block;
 }
+.gallery {
+  margin-top: 12px;
+}
+.galleryMain {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: contain;
+  background: #f2f4f1;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+.galleryThumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.galleryThumb {
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  background: none;
+  overflow: hidden;
+}
+.galleryThumb.active {
+  border-color: var(--green);
+}
+.galleryThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
 
 /* ---------- International phone input ---------- */
 .phoneInput {

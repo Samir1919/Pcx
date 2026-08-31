@@ -16,3 +16,11 @@ const GRADES = {
 export function gradeLabel(grade) {
   return grade ? (GRADES[grade] ?? grade) : "Not graded";
 }
+
+// Render a model specification value (text/number/boolean) for display.
+export function specValue(spec) {
+  if (spec?.value == null) return "—";
+  if (spec.dataType === "BOOLEAN") return spec.value ? "Yes" : "No";
+  const unit = spec.unit ? ` ${spec.unit}` : "";
+  return `${spec.value}${unit}`;
+}
