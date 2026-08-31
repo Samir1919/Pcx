@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { acquisitionApi } from "../../../lib/acquisition-api.js";
+import { sellRequestStatusLabel, SELL_REQUEST_FLOW } from "../../../lib/sell-request-status.js";
 
 function Banner({ notice, onClose }) {
   if (!notice) return null;
@@ -156,7 +157,7 @@ export default function SellRequestModal({ request, onClose, onChanged }) {
         ) : (
           <>
             <dl className="detailList">
-              <div><dt>Status</dt><dd><span className="pill">{detail.status}</span></dd></div>
+              <div><dt>Status</dt><dd><span className="pill">{sellRequestStatusLabel(detail.status)}</span></dd></div>
               <div><dt>Entry</dt><dd>{detail.sellEntry ?? "—"}</dd></div>
               <div><dt>Product model</dt><dd>{detail.productModelName ?? detail.productModelId ?? "—"}</dd></div>
               <div><dt>Name</dt><dd>{detail.contactName ?? "—"}</dd></div>
@@ -166,10 +167,29 @@ export default function SellRequestModal({ request, onClose, onChanged }) {
               <div><dt>Submitted</dt><dd>{detail.submittedAt ? new Date(detail.submittedAt).toLocaleString() : "—"}</dd></div>
             </dl>
 
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+              {SELL_REQUEST_FLOW.map((step) => {
+                const idx = SELL_REQUEST_FLOW.indexOf(step);
+                const cur = SELL_REQUEST_FLOW.indexOf(detail.status);
+                const active = detail.status === step;
+                const done = cur >= 0 && idx >= 0 && idx < cur;
+                return (
+                  <span key={step} style={{
+                    padding: "4px 10px",
+                    borderRadius: 999,
+                    fontSize: 12,
+                    border: "1px solid #244138",
+                    color: active ? "#fff" : done ? "#244138" : "#9eb2ab",
+                    background: active ? "#244138" : "transparent"
+                  }}>{sellRequestStatusLabel(step)}</span>
+                );
+              })}
+            </div>
+
             {(TRANSITIONS[detail.status] ?? []).length > 0 && (
               <div className="modalActions" style={{ justifyContent: "flex-start", marginTop: 12 }}>
                 {(TRANSITIONS[detail.status] ?? []).map((target) => (
-                  <button key={target} type="button" disabled={busy} onClick={() => transition(target)}>→ {target}</button>
+                  <button key={target} type="button" disabled={busy} onClick={() => transition(target)}>→ {sellRequestStatusLabel(target)}</button>
                 ))}
               </div>
             )}

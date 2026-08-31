@@ -13,6 +13,16 @@ async function transaction(pool, operation) {
   }
 }
 
+// Auto-advance the linked sell request along the canonical graph after an
+// offer/acquisition event. Best-effort + optimistic: only moves from the
+// exact expected source state (mirrors SellRequestTransitions in @pcx/domain).
+async function transitionSellRequest(client, sellRequestId, fromStatus, toStatus, now) {
+  await client.query(
+    `UPDATE sell_requests SET status = $3, updated_at = $4 WHERE id = $1 AND status = $2`,
+    [sellRequestId, fromStatus, toStatus, now]
+  );
+}
+
 function offer(row) {
   return Object.freeze({
     id: row.id,
@@ -48,13 +58,16 @@ export function createPostgresAcquisitionRepository({ pool }) {
 
   return Object.freeze({
     async createOffer(record) {
-      const result = await pool.query(
-        `INSERT INTO offers(id, sell_request_id, amount, status, expires_at, created_by, created_at)
-         VALUES ($1, $2, $3, 'ACTIVE', $4, $5, $6)
-         RETURNING ${offerColumns}`,
-        [record.id, record.sellRequestId, record.amount, record.expiresAt, record.createdBy, record.createdAt]
-      );
-      return offer(result.rows[0]);
+      return transaction(pool, async (client) => {
+        const result = await client.query(
+          `INSERT INTO offers(id, sell_request_id, amount, status, expires_at, created_by, created_at)
+           VALUES ($1, $2, $3, 'ACTIVE', $4, $5, $6)
+           RETURNING ${offerColumns}`,
+          [record.id, record.sellRequestId, record.amount, record.expiresAt, record.createdBy, record.createdAt]
+        );
+        await transitionSellRequest(client, record.sellRequestId, "INSPECTING", "OFFERED", record.createdAt);
+        return offer(result.rows[0]);
+      });
     },
 
     async acceptOffer(offerId, now) {
@@ -66,18 +79,25 @@ export function createPostgresAcquisitionRepository({ pool }) {
           [offerId, now]
         );
         if (updated.rowCount !== 1) return { status: "not_acceptable" };
-        return { status: "accepted", record: offer(updated.rows[0]) };
+        const accepted = offer(updated.rows[0]);
+        await transitionSellRequest(client, accepted.sellRequestId, "OFFERED", "ACCEPTED", now);
+        return { status: "accepted", record: accepted };
       });
     },
 
-    async rejectOffer(offerId) {
-      const updated = await pool.query(
-        `UPDATE offers SET status = 'REJECTED'
-         WHERE id = $1 AND status = 'ACTIVE'
-         RETURNING ${offerColumns}`,
-        [offerId]
-      );
-      return updated.rowCount === 1 ? offer(updated.rows[0]) : null;
+    async rejectOffer(offerId, now) {
+      return transaction(pool, async (client) => {
+        const updated = await client.query(
+          `UPDATE offers SET status = 'REJECTED'
+           WHERE id = $1 AND status = 'ACTIVE'
+           RETURNING ${offerColumns}`,
+          [offerId]
+        );
+        if (updated.rowCount !== 1) return null;
+        const rejected = offer(updated.rows[0]);
+        await transitionSellRequest(client, rejected.sellRequestId, "OFFERED", "REJECTED_BY_SELLER", now);
+        return rejected;
+      });
     },
 
     // Resolve the seller (owner) of the offer via the linked sell_request, so
@@ -126,7 +146,9 @@ export function createPostgresAcquisitionRepository({ pool }) {
            RETURNING id, sell_request_id, accepted_offer_id, seller_user_id, source_type, agreed_price, payment_status, ownership_confirmed_at, acquired_at, idempotency_key`,
           [record.id, record.sellRequestId, record.acceptedOfferId, record.sellerUserId, record.sourceType, record.agreedPrice, record.ownershipConfirmedAt, record.acquiredAt, record.idempotencyKey]
         );
-        return acquisition(inserted.rows[0]);
+        const created = acquisition(inserted.rows[0]);
+        await transitionSellRequest(client, created.sellRequestId, "ACCEPTED", "ACQUISITION_PENDING", now);
+        return created;
       });
     },
 
@@ -156,7 +178,9 @@ export function createPostgresAcquisitionRepository({ pool }) {
           [acquisitionId]
         );
         if (updated.rowCount !== 1) return { status: "not_payable" };
-        return { status: "paid", record: acquisition(updated.rows[0]) };
+        const paid = acquisition(updated.rows[0]);
+        await transitionSellRequest(client, paid.sellRequestId, "ACQUISITION_PENDING", "PAID", now);
+        return { status: "paid", record: paid };
       });
     }
   });

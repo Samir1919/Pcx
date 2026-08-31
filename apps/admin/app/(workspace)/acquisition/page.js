@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { acquisitionApi } from "../../../lib/acquisition-api.js";
 import SellRequestModal from "./sell-request-modal.js";
+import { sellRequestStatusLabel } from "../../../lib/sell-request-status.js";
 
 function Banner({ notice, onClose }) {
   if (!notice) return null;
@@ -70,7 +71,7 @@ export default function AcquisitionPage() {
                         : "—"}
                     </td>
                     <td>{r.productModelName ?? (r.productModelId ? `${r.productModelId.slice(0, 8)}…` : "—")}</td>
-                    <td><span className="pill">{r.status}</span></td>
+                    <td><span className="pill">{sellRequestStatusLabel(r.status)}</span></td>
                     <td>{r.submittedAt ? new Date(r.submittedAt).toLocaleString() : "—"}</td>
                     <td>
                       <div className="actions">

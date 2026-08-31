@@ -7,18 +7,18 @@ import StorefrontNav from "../StorefrontNav";
 const STATUS_LABELS = {
   DRAFT: "Draft",
   SUBMITTED: "Submitted",
-  REVIEWING: "Reviewing",
-  INFO_REQUIRED: "Info required",
-  INSPECTION_REQUIRED: "Inspection required",
-  INSPECTING: "Inspecting",
+  REVIEWING: "In review",
+  INFO_REQUIRED: "In review",
+  INSPECTION_REQUIRED: "In review",
+  INSPECTING: "In review",
   OFFERED: "Offer received",
   ACCEPTED: "Accepted",
   REJECTED: "Rejected",
   REJECTED_BY_SELLER: "Offer declined",
-  EXPIRED: "Expired",
-  ACQUISITION_PENDING: "Acquisition pending",
-  PAID: "Paid",
-  CLOSED: "Closed",
+  EXPIRED: "Offer expired",
+  ACQUISITION_PENDING: "Completed",
+  PAID: "Completed",
+  CLOSED: "Completed",
   CANCELLED: "Cancelled"
 };
 

@@ -91,7 +91,7 @@ export function createAcquisitionService({ authService, repository, id = randomU
 
     async rejectOfferForCustomer(accessCredential, offerId) {
       await ownerOfOffer(accessCredential, offerId);
-      const record = await repository.rejectOffer(offerId);
+      const record = await repository.rejectOffer(offerId, clock().toISOString());
       if (!record) throw new AcquisitionError("invalid_state");
       return record;
     },

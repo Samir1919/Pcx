@@ -67,6 +67,16 @@ async function main() {
       if (opened) {
         const body = await dialog.innerText().catch(() => "");
         rec("offers-section", body.includes("Offer history"), body.includes("Offer history") ? "OFFERS history section present" : "OFFERS section missing");
+        const statusPill = dialog.locator(".detailList span.pill").first();
+        async function sellStatus() { return statusPill.textContent().catch(() => ""); }
+        async function clickTransition(label) {
+          const btn = dialog.getByRole("button", { name: "→ " + label });
+          if (await btn.count()) { await btn.click(); await page.waitForTimeout(500); }
+        }
+        await clickTransition("Reviewing");
+        await clickTransition("Inspection required");
+        await clickTransition("Inspecting");
+        await page.waitForTimeout(500);
 
         const createOfferForm = dialog.locator("form").first();
         if (!(await createOfferForm.count())) {
@@ -77,6 +87,8 @@ async function main() {
           await createOfferForm.getByRole("button", { name: "Create offer" }).click();
           const resp = await respP;
           rec("create-offer", resp.status() === 201, `http ${resp.status()}`);
+          await page.waitForTimeout(700);
+          rec("status-offered", (await sellStatus()) === "Offer sent", `sell status=${await sellStatus()}`);
           await page.waitForTimeout(600);
           const offersText = await dialog.locator("table").first().innerText().catch(() => "");
           rec("offer-listed-active", offersText.includes("25,000") && offersText.includes("ACTIVE"), offersText.includes("25,000") ? "offer amount listed" : "offer row missing");
@@ -89,6 +101,7 @@ async function main() {
             await page.waitForTimeout(700);
             const afterAccept = await dialog.innerText().catch(() => "");
             rec("offer-accepted", afterAccept.includes("ACCEPTED"), "offer moved to ACCEPTED");
+            rec("status-accepted", (await sellStatus()) === "Accepted", `sell status=${await sellStatus()}`);
           }
 
           const createAcq = dialog.getByRole("button", { name: "Create acquisition" }).first();
@@ -103,6 +116,7 @@ async function main() {
             await page.waitForTimeout(700);
             const acqText = await dialog.innerText().catch(() => "");
             rec("acquisition-pending", acqText.includes("PENDING"), "acquisition PENDING shown");
+            rec("status-acq-pending", (await sellStatus()) === "Acquisition pending", `sell status=${await sellStatus()}`);
           }
 
           const markPaid = dialog.getByRole("button", { name: "Mark paid" }).first();
@@ -117,6 +131,7 @@ async function main() {
             await page.waitForTimeout(700);
             const paidText = await dialog.innerText().catch(() => "");
             rec("acquisition-paid", paidText.includes("PAID"), "acquisition PAID shown");
+            rec("status-paid", (await sellStatus()) === "Paid", `sell status=${await sellStatus()}`);
           }
         }
       }
@@ -130,12 +145,12 @@ async function main() {
 
   if (process.argv.includes("--evidence")) {
     await writeEvidence({
-      scope: "Admin acquisition continuation: offer history, seller-agreed accept, acquisition creation, and payment",
+      scope: "Admin acquisition continuation + sell-request status auto-advance (offer to accept to acquisition to pay)",
       headed,
       tool: "scripts/acquisition-flow-e2e-check.mjs",
       result: failed.length === 0 ? "passed" : "failed",
       businessFlow: {
-        subject: "Admin offer -> accept -> acquisition -> pay continuation",
+        subject: "Admin offer to accept to acquisition to pay with sell-request status auto-advance",
         steps: results.map((r) => r.name)
       }
     });
