@@ -70,7 +70,7 @@ export default function SellRequestsPage() {
     try {
       if (action === "accept") await storefrontApi.acceptOffer(offerId);
       else await storefrontApi.rejectOffer(offerId);
-      setNotice({ kind: "success", message: `Offer ${action === "accept" ? "accepted" : "declined"}.` });
+      setNotice({ kind: "success", message: action === "accept" ? "Offer accepted. PCX will contact you to arrange handoff and payment." : "Offer declined." });
       await load();
     } catch (err) {
       setNotice({ kind: "error", message: err.message });
@@ -121,7 +121,7 @@ export default function SellRequestsPage() {
                       <tr key={r.id}>
                         <td><strong>{r.publicRequestNo ?? r.id.slice(0, 8)}</strong></td>
                         <td><span className="pill">{statusLabel(r.status)}</span></td>
-                        <td>{latestOffer && latestOffer.status === "ACTIVE" ? `৳${Number(latestOffer.amount).toLocaleString("en-BD")}` : "—"}</td>
+<td>{latestOffer && (latestOffer.status === "ACTIVE" || latestOffer.status === "ACCEPTED") ? `৳${Number(latestOffer.amount).toLocaleString("en-BD")}` : "—"}</td>
                         <td>{r.submittedAt ? new Date(r.submittedAt).toLocaleDateString() : "—"}</td>
                         <td>
                           {activeOffer ? (

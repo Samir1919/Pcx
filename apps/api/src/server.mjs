@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { normalizeCookieHeader } from "./modules/identity/cookie-surface.mjs";
 import { handleAuthRequest } from "./modules/identity/auth-http.mjs";
 import { handleSelfRequest } from "./modules/identity/self-http.mjs";
 import { handleAddressRequest } from "./modules/identity/address-http.mjs";
@@ -72,7 +73,7 @@ function catalogFilters(url) {
   });
 }
 
-export function createRequestHandler({ readiness = () => ({ ok: true }), catalogService, catalogCommandService, catalogSpecCommandService, authService, identityActionService, userAdminService, addressService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, inspectionExecutionService, listingService, merchantListingService, reservationService, cartService, mediaService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, operationsReportService, notificationService, notificationProviderConfigService, auditLogService, paymentProviderConfigService, indicativePriceService, sellTaxonomyService, siteFooterService, allowedOrigins } = {}) {
+export function createRequestHandler({ readiness = () => ({ ok: true }), catalogService, catalogCommandService, catalogSpecCommandService, authService, identityActionService, userAdminService, addressService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, inspectionExecutionService, listingService, merchantListingService, reservationService, cartService, mediaService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, operationsReportService, notificationService, notificationProviderConfigService, auditLogService, paymentProviderConfigService, indicativePriceService, sellTaxonomyService, siteFooterService, allowedOrigins, adminOrigins = new Set() } = {}) {
   return async (request, response) => {
     response.setHeader("content-type", "application/json; charset=utf-8");
     response.setHeader("x-content-type-options", "nosniff");
@@ -81,6 +82,7 @@ export function createRequestHandler({ readiness = () => ({ ok: true }), catalog
     response.setHeader("content-security-policy", "default-src 'none'; frame-ancestors 'none'");
     const url = new URL(request.url, "http://pcx.local");
     const method = request.method ?? "GET";
+    normalizeCookieHeader(request, adminOrigins);
     if (url.pathname === "/health/live") {
       send(response, 200, { status: "ok" });
       return;
@@ -91,7 +93,7 @@ export function createRequestHandler({ readiness = () => ({ ok: true }), catalog
       return;
     }
 
-    if (await handleAuthRequest(request, response, { authService, identityActionService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleAuthRequest(request, response, { authService, identityActionService, allowedOrigins, adminOrigins, requestId: requestId(request) })) return;
     if (await handleUserAdminRequest(request, response, { userAdminService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleMerchantListingRequest(request, response, { merchantListingService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleCatalogSpecCommandRequest(request, response, { catalogSpecCommandService, allowedOrigins, requestId: requestId(request) })) return;

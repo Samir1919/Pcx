@@ -4,7 +4,7 @@ import { returnApi } from "../lib/return-api.js";
 
 test("return admin actions use correct paths and refund body carries only amount", async () => {
   const priorDocument = global.document, priorFetch = global.fetch;
-  global.document = { cookie: "pcx_csrf=secure" };
+  global.document = { cookie: "pcx_admin_csrf=secure" };
   const calls = [];
   global.fetch = async (...args) => { calls.push(args); return { ok: true, status: 200, async json() { return { data: {} }; } }; };
   try {

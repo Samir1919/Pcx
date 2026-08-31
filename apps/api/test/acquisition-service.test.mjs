@@ -17,6 +17,7 @@ function fixture(overrides = {}) {
     async markPaid(acquisitionId, now) { calls.paid.push({ acquisitionId, now }); return { status: "paid", record: { id: acquisitionId, paymentStatus: "PAID" } }; },
     async findOwnerUserIdBySellRequest() { return "customer-1"; },
     async listOffersBySellRequest() { return []; },
+    async findAcquisitionBySellRequest() { return null; },
     ...overrides.repository
   };
   const service = createAcquisitionService({
@@ -110,4 +111,22 @@ test("markAcquisitionPaid is permission-gated and rejects non-payable state", as
 
   const denied = fixture({ authService: { async authenticateAccess() { return { userId: "u", status: "ACTIVE", roles: ["CUSTOMER"] }; } } });
   await assert.rejects(denied.service.markAcquisitionPaid("access", "a1"), (error) => error.code === "forbidden");
+});
+
+test("admin can list offers for a sell request", async () => {
+  const { service } = fixture();
+  const result = await service.listOffersForAdmin("access", "sr1");
+  assert.deepEqual(result.data, []);
+});
+
+test("admin can read the acquisition for a sell request", async () => {
+  const { service } = fixture();
+  const result = await service.getAcquisitionForAdmin("access", "sr1");
+  assert.deepEqual(result.data, null);
+});
+
+test("admin offer/acquisition reads are permission-gated", async () => {
+  const { service } = customerFixture();
+  await assert.rejects(() => service.listOffersForAdmin("access", "sr1"), (e) => e instanceof AcquisitionError && e.code === "forbidden");
+  await assert.rejects(() => service.getAcquisitionForAdmin("access", "sr1"), (e) => e instanceof AcquisitionError && e.code === "forbidden");
 });

@@ -54,7 +54,8 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://pcx:pcx_prod_local_only@postgres:5432/pcx}
       API_PORT: 4000
-      PCX_API_ORIGIN: ${API_ALLOWED_ORIGINS:-http://localhost:8080,http://localhost:8081}
+      API_ALLOWED_ORIGINS: ${API_ALLOWED_ORIGINS:-http://localhost:8080,http://localhost:8081}
+      API_ADMIN_ORIGINS: ${API_ADMIN_ORIGINS:-http://localhost:8081}
     depends_on:
       postgres:
         condition: service_healthy

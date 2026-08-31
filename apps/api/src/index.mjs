@@ -7,6 +7,7 @@ const connectionString = process.env.DATABASE_URL ?? "postgresql://pcx:pcx_local
 // Browser origins allowed to call the API from the storefront/admin apps.
 // `PCX_API_ORIGIN` is the API's own address and is no longer reused for CORS.
 const allowedOrigins = process.env.API_ALLOWED_ORIGINS ?? "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001";
+const adminOrigins = process.env.API_ADMIN_ORIGINS ?? "http://localhost:3001,http://127.0.0.1:3001,http://localhost:8081,http://127.0.0.1:8081,http://localhost:8083,http://127.0.0.1:8083";
 const port = Number(process.env.API_PORT || 4000);
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -32,7 +33,7 @@ const delivery = {
   }
 };
 
-const runtime = createAuthRuntime({ pool, allowedOrigins, delivery, mfa });
+const runtime = createAuthRuntime({ pool, allowedOrigins, adminOrigins, delivery, mfa });
 
 // The readiness probe itself is bounded with an explicit timeout in addition to
 // the pool's query/statement timeouts, so it always answers instead of hanging.

@@ -4,7 +4,7 @@ import { opsApi } from "../lib/ops-api.js";
 
 test("createTemplate posts typed items without server-owned status", async () => {
   const priorDocument = global.document, priorFetch = global.fetch;
-  global.document = { cookie: "pcx_csrf=secure" };
+  global.document = { cookie: "pcx_admin_csrf=secure" };
   let call;
   global.fetch = async (...args) => { call = args; return { ok: true, status: 201, async json() { return { data: { id: "server-id", status: "ACTIVE" } }; } }; };
   try {
@@ -30,7 +30,7 @@ test("createTemplate posts typed items without server-owned status", async () =>
 
 test("inventory intake posts normalized identifiers without client-owned status", async () => {
   const priorDocument = global.document, priorFetch = global.fetch;
-  global.document = { cookie: "pcx_csrf=secure" };
+  global.document = { cookie: "pcx_admin_csrf=secure" };
   let call;
   global.fetch = async (...args) => { call = args; return { ok: true, status: 201, async json() { return { data: { id: "server-id", status: "RECEIVED" } }; } }; };
   try {

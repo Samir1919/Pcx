@@ -1,6 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { AuthenticationError } from "./auth-service.mjs";
 import { IdentityActionError } from "./identity-action-service.mjs";
+import { cookieName, surfaceIsAdmin } from "./cookie-surface.mjs";
 
 // `Secure` cookies require HTTPS and are the default (safe for any non-dev
 // environment). Only an explicit development run over `http://localhost` omits
@@ -117,37 +118,37 @@ function context(request, requestId) {
   };
 }
 
-function sessionCookies(session, csrfToken) {
+function sessionCookies(session, csrfToken, isAdmin) {
   const accessExpiry = new Date(session.accessExpiresAt).toUTCString();
   const refreshExpiry = new Date(session.refreshExpiresAt).toUTCString();
   return [
-    `pcx_access=${encodeURIComponent(session.accessCredential)}; Path=/; Expires=${accessExpiry}; ${secureCookie}HttpOnly; SameSite=Strict`,
-    `pcx_refresh=${encodeURIComponent(session.refreshCredential)}; Path=/api/v1/auth; Expires=${refreshExpiry}; ${secureCookie}HttpOnly; SameSite=Strict`,
-    `pcx_csrf=${encodeURIComponent(csrfToken)}; Path=/; Expires=${refreshExpiry}; ${secureCookie}SameSite=Strict`
+    `${cookieName("access", isAdmin)}=${encodeURIComponent(session.accessCredential)}; Path=/; Expires=${accessExpiry}; ${secureCookie}HttpOnly; SameSite=Strict`,
+    `${cookieName("refresh", isAdmin)}=${encodeURIComponent(session.refreshCredential)}; Path=/api/v1/auth; Expires=${refreshExpiry}; ${secureCookie}HttpOnly; SameSite=Strict`,
+    `${cookieName("csrf", isAdmin)}=${encodeURIComponent(csrfToken)}; Path=/; Expires=${refreshExpiry}; ${secureCookie}SameSite=Strict`
   ];
 }
 
 // MFA challenges have no session yet, but the follow-up `verify-mfa` call is a
 // write and therefore requires CSRF. Issue a short-lived CSRF-only cookie so
 // the second step can complete without a session.
-function csrfOnlyCookie(token) {
+function csrfOnlyCookie(token, isAdmin) {
   const expiry = new Date(Date.now() + 15 * 60 * 1000).toUTCString();
-  return `pcx_csrf=${encodeURIComponent(token)}; Path=/; Expires=${expiry}; ${secureCookie}SameSite=Strict`;
+  return `${cookieName("csrf", isAdmin)}=${encodeURIComponent(token)}; Path=/; Expires=${expiry}; ${secureCookie}SameSite=Strict`;
 }
 
 // Trusted-device credential (ADR 0010) issued after a verified MFA event. It is
 // scoped to the auth boundary and never readable from JavaScript.
-function deviceCookie(device) {
+function deviceCookie(device, isAdmin) {
   const expiry = new Date(device.expiresAt).toUTCString();
-  return `pcx_device=${encodeURIComponent(device.credential)}; Path=/api/v1/auth; Expires=${expiry}; ${secureCookie}HttpOnly; SameSite=Strict`;
+  return `${cookieName("device", isAdmin)}=${encodeURIComponent(device.credential)}; Path=/api/v1/auth; Expires=${expiry}; ${secureCookie}HttpOnly; SameSite=Strict`;
 }
 
-function clearCookies() {
+function clearCookies(isAdmin) {
   return [
-    `pcx_access=; Path=/; Max-Age=0; ${secureCookie}HttpOnly; SameSite=Strict`,
-    `pcx_refresh=; Path=/api/v1/auth; Max-Age=0; ${secureCookie}HttpOnly; SameSite=Strict`,
-    `pcx_device=; Path=/api/v1/auth; Max-Age=0; ${secureCookie}HttpOnly; SameSite=Strict`,
-    `pcx_csrf=; Path=/; Max-Age=0; ${secureCookie}SameSite=Strict`
+    `${cookieName("access", isAdmin)}=; Path=/; Max-Age=0; ${secureCookie}HttpOnly; SameSite=Strict`,
+    `${cookieName("refresh", isAdmin)}=; Path=/api/v1/auth; Max-Age=0; ${secureCookie}HttpOnly; SameSite=Strict`,
+    `${cookieName("device", isAdmin)}=; Path=/api/v1/auth; Max-Age=0; ${secureCookie}HttpOnly; SameSite=Strict`,
+    `${cookieName("csrf", isAdmin)}=; Path=/; Max-Age=0; ${secureCookie}SameSite=Strict`
   ];
 }
 
@@ -166,7 +167,7 @@ function mapped(error) {
   return new HttpAuthError("UNAUTHENTICATED", 401, "Authentication failed");
 }
 
-export async function handleAuthRequest(request, response, { authService, identityActionService, allowedOrigins, requestId, csrfToken = () => randomBytes(32).toString("base64url") }) {
+export async function handleAuthRequest(request, response, { authService, identityActionService, allowedOrigins, adminOrigins = new Set(), requestId, csrfToken = () => randomBytes(32).toString("base64url") }) {
   const url = new URL(request.url, "http://pcx.local");
   if (!url.pathname.startsWith("/api/v1/auth/")) return false;
   const action = url.pathname.slice("/api/v1/auth/".length);
@@ -180,6 +181,7 @@ export async function handleAuthRequest(request, response, { authService, identi
     send(response, 503, errorBody("AUTH_UNAVAILABLE", "Authentication is temporarily unavailable", requestId));
     return true;
   }
+  const isAdmin = surfaceIsAdmin(request, adminOrigins);
   try {
     if (url.searchParams.size > 0) throw new HttpAuthError("INVALID_REQUEST", 400, "Query parameters are not supported");
     requireOrigin(request, allowedOrigins);
@@ -195,25 +197,25 @@ export async function handleAuthRequest(request, response, { authService, identi
     } else if (action === "login") {
       const result = await authService.login(body, authContext, { trustedDeviceCredential: parsedCookies.pcx_device ?? null });
       if (result.status === "mfa_required") {
-        response.setHeader("set-cookie", [csrfOnlyCookie(csrfToken())]);
+        response.setHeader("set-cookie", [csrfOnlyCookie(csrfToken(), isAdmin)]);
         send(response, 202, { data: { status: result.status, challenge: result.challenge } });
       } else {
-        response.setHeader("set-cookie", sessionCookies(result.session, csrfToken()));
+        response.setHeader("set-cookie", sessionCookies(result.session, csrfToken(), isAdmin));
         send(response, 200, { data: { identity: result.identity } });
       }
     } else if (action === "verify-mfa") {
       const result = await authService.verifyMfa({ challengeId: body.challengeId, credential: body.credential, rememberDevice: body.rememberDevice === true }, authContext);
-      const cookiesToSet = sessionCookies(result.session, csrfToken());
-      if (result.device) cookiesToSet.push(deviceCookie(result.device));
+      const cookiesToSet = sessionCookies(result.session, csrfToken(), isAdmin);
+      if (result.device) cookiesToSet.push(deviceCookie(result.device, isAdmin));
       response.setHeader("set-cookie", cookiesToSet);
       send(response, 200, { data: { status: result.status, identity: result.identity } });
     } else if (action === "refresh") {
       const result = await authService.refresh({ refreshCredential: parsedCookies.pcx_refresh }, authContext);
-      response.setHeader("set-cookie", sessionCookies(result.session, csrfToken()));
+      response.setHeader("set-cookie", sessionCookies(result.session, csrfToken(), isAdmin));
       send(response, 200, { data: { status: result.status } });
     } else if (action === "logout") {
       await authService.logout({ refreshCredential: parsedCookies.pcx_refresh }, authContext);
-      response.setHeader("set-cookie", clearCookies());
+      response.setHeader("set-cookie", clearCookies(isAdmin));
       response.writeHead(204).end();
     } else if (action === "verify-contact") {
       const result = await identityActionService.verifyContact({ credential: body.token }, authContext);
@@ -226,12 +228,12 @@ export async function handleAuthRequest(request, response, { authService, identi
       send(response, 202, { data: { status: "accepted" } });
     } else {
       await identityActionService.resetPassword({ credential: body.token, password: body.password }, authContext);
-      response.setHeader("set-cookie", clearCookies());
+      response.setHeader("set-cookie", clearCookies(isAdmin));
       response.writeHead(204).end();
     }
   } catch (error) {
     if ((action === "refresh" && error instanceof AuthenticationError && error.code === "invalid_refresh") || action === "reset-password") {
-      response.setHeader("set-cookie", clearCookies());
+      response.setHeader("set-cookie", clearCookies(isAdmin));
     }
     const failure = mapped(error);
     send(response, failure.status, errorBody(failure.code, failure.message, requestId));

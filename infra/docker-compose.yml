@@ -47,6 +47,7 @@ services:
       API_PORT: 4000
       NODE_ENV: development
       API_ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001
+      API_ADMIN_ORIGINS: http://localhost:3001,http://127.0.0.1:3001
     ports: [ "4000:4000" ]
     volumes:
       - ../apps/api:/app/apps/api

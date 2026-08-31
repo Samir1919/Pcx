@@ -4,7 +4,7 @@ import { warrantyApi } from "../lib/warranty-api.js";
 
 test("warranty writes use correct paths and resolve body carries only typed fields", async () => {
   const priorDocument = global.document, priorFetch = global.fetch;
-  global.document = { cookie: "pcx_csrf=secure" };
+  global.document = { cookie: "pcx_admin_csrf=secure" };
   const calls = [];
   global.fetch = async (...args) => { calls.push(args); return { ok: true, status: 201, async json() { return { data: {} }; } }; };
   try {

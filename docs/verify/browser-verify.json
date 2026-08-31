@@ -1,29 +1,22 @@
 {
-  "scope": "Admin auth gate redirect (non-staff -> /login), acquisition detail/queue (contact fields, build-component model names, offer create), and storefront sell-flow photo upload",
+  "scope": "Admin acquisition continuation: offer history, seller-agreed accept, acquisition creation, and payment",
   "headed": true,
-  "tool": "Playwright MCP (headed)",
+  "tool": "scripts/acquisition-flow-e2e-check.mjs",
   "result": "passed",
   "businessFlow": {
-    "subject": "Admin auth redirect + sell photo upload + acquisition detail review",
+    "subject": "Admin offer -> accept -> acquisition -> pay continuation",
     "steps": [
-      "admin sign-in (email/password + dev MFA 123456)",
-      "open /acquisition admin queue",
-      "open a sell-request detail modal (SR-000040)",
-      "verify contact shown as separate Name/Phone/Email fields",
-      "verify queue Model column shows a human-readable model name (GeForce RTX 3060 12GB)",
-      "create an offer (amount 25000) -> 201, no client TypeError",
-      "verify non-customer (admin) is rejected at sell-request create with 'Sell request operation is not allowed' (no longer 'Media operation is not allowed')",
-      "verify a non-staff session (customer) on /admin redirects to /login instead of a blank screen",
-      "verify the acquisition detail modal shows the uploaded ITEM PHOTOS (single/multi image) via /api/v1/media/:id",
-      "verify clicking a photo thumbnail opens a full-size lightbox preview and the close button dismisses it",
-      "verify the sell form limits to 8 photos and shows an X/8 counter",
-      "verify an upload is compressed to WebP ≤2 MiB with a generated thumbnail (2000x1500 JPEG -> 3.5KB WebP + 298B thumb)",
-      "storefront sign-in as demo-seller",
-      "walk /sell PC_PARTS -> GPU -> model -> request step",
-      "select a photo and submit (SR-000040) -> photo persisted (image/png, PRIVATE/PHOTO)"
+      "admin-login",
+      "open-sell-request",
+      "offers-section",
+      "create-offer",
+      "offer-listed-active",
+      "offer-accepted",
+      "create-acquisition",
+      "acquisition-pending",
+      "mark-paid",
+      "acquisition-paid"
     ]
   },
-  "notes": "Fixes: media route shadowing + JSON-stringify in media-http; admin modal event.currentTarget reset; contact split; model-name resolution via catalog read.",
-  "ranAt": "2026-08-25T18:12:00.000Z"
+  "ranAt": "2026-08-31T07:49:25.402Z"
 }
-

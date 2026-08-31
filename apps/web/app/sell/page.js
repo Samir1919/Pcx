@@ -387,7 +387,10 @@ function SellFlow() {
                   <p className="disclaimer">{result.estimatedRange.disclaimer}</p>
                 </div>
               )}
-              <a className="primary" href="/sell">Create another request</a>
+              <div className="actions">
+                <a className="primary" href="/sell-requests">Track my sell request</a>
+                <a className="learn-more" href="/sell">Create another request</a>
+              </div>
             </div>
           ) : (
             <Banner notice={error ? { kind: "error", message: error } : null} onClose={() => setError(null)} />

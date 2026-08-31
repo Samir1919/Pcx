@@ -17,9 +17,9 @@ export class ApiError extends Error {
 }
 
 export function csrfToken(cookie = typeof document === "undefined" ? "" : document.cookie) {
-  const entry = cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith("pcx_csrf="));
+  const entry = cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith("pcx_admin_csrf="));
   if (!entry) return null;
-  try { return decodeURIComponent(entry.slice("pcx_csrf=".length)); } catch { return null; }
+  try { return decodeURIComponent(entry.slice("pcx_admin_csrf=".length)); } catch { return null; }
 }
 
 // Auth lifecycle endpoints must never trigger a self-refresh loop: a 401 from
@@ -43,7 +43,7 @@ async function refreshSession() {
       if (!token) throw new ApiError("CSRF_MISSING", "Your secure session is incomplete. Sign in again.", 403);
       const response = await fetch("/api/v1/auth/refresh", {
         method: "POST",
-        headers: { accept: "application/json", "content-type": "application/json", "x-csrf-token": token },
+        headers: { accept: "application/json", "content-type": "application/json", "x-csrf-token": token, "x-pcx-surface": "admin" },
         credentials: "include",
         body: "{}"
       });
@@ -57,12 +57,12 @@ async function refreshSession() {
 }
 
 async function requestOnce(path, { method = "GET", body, csrf = true } = {}) {
-  const headers = { accept: "application/json" };
+  const headers = { accept: "application/json", "x-pcx-surface": "admin" };
   if (body !== undefined) headers["content-type"] = "application/json";
   // The auth boundary does NOT CSRF-gate `login`/`register` (they are protected
   // by Origin + allowed-origins and run before a session cookie exists). Those
   // calls pass `csrf: false`; every other non-GET request fails closed when the
-  // `pcx_csrf` cookie is missing rather than sending without the double-submit
+  // `pcx_admin_csrf` cookie is missing rather than sending without the double-submit
   // token.
   if (method !== "GET" && csrf) {
     const token = csrfToken();

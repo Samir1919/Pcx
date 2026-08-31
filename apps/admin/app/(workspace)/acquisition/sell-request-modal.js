@@ -46,6 +46,8 @@ export default function SellRequestModal({ request, onClose, onChanged }) {
   const [notice, setNotice] = useState(null);
   const [media, setMedia] = useState([]);
   const [zoom, setZoom] = useState(null);
+  const [offers, setOffers] = useState([]);
+  const [acquisition, setAcquisition] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -56,6 +58,18 @@ export default function SellRequestModal({ request, onClose, onChanged }) {
         setMedia(mediaPayload.data ?? []);
       } catch {
         setMedia([]);
+      }
+      try {
+        const offersPayload = await acquisitionApi.listOffers(request.id);
+        setOffers(offersPayload.data ?? []);
+      } catch {
+        setOffers([]);
+      }
+      try {
+        const acqPayload = await acquisitionApi.getAcquisition(request.id);
+        setAcquisition(acqPayload.data ?? null);
+      } catch {
+        setAcquisition(null);
       }
     } catch (error) {
       setDetail(null);
@@ -99,34 +113,22 @@ export default function SellRequestModal({ request, onClose, onChanged }) {
     formElement.reset();
   }
 
-  async function acceptOffer(event) {
-    event.preventDefault();
-    const formElement = event.currentTarget;
-    const form = formBody(event);
-    await run(() => acquisitionApi.acceptOffer(form.get("offerId")));
-    formElement.reset();
+  async function acceptOfferAdmin(offerId) {
+    await run(() => acquisitionApi.acceptOffer(offerId));
   }
 
-  async function createAcquisition(event) {
-    event.preventDefault();
-    const formElement = event.currentTarget;
-    const form = formBody(event);
+  async function createAcquisitionForOffer(offer) {
     await run(() => acquisitionApi.createAcquisition({
-      sellRequestId: form.get("sellRequestId"),
-      acceptedOfferId: form.get("acceptedOfferId"),
-      sellerUserId: form.get("sellerUserId") || null,
-      sourceType: form.get("sourceType"),
-      idempotencyKey: form.get("idempotencyKey")
+      sellRequestId: detail.id,
+      acceptedOfferId: offer.id,
+      sellerUserId: detail.userId ?? null,
+      sourceType: "SELL_TO_PCX",
+      idempotencyKey: `acq-${offer.id}`
     }));
-    formElement.reset();
   }
 
-  async function markPaid(event) {
-    event.preventDefault();
-    const formElement = event.currentTarget;
-    const form = formBody(event);
-    await run(() => acquisitionApi.markAcquisitionPaid(form.get("acquisitionId")));
-    formElement.reset();
+  async function markAcquisitionPaid(acquisitionId) {
+    await run(() => acquisitionApi.markAcquisitionPaid(acquisitionId));
   }
 
   async function transition(toStatus) {
@@ -225,34 +227,57 @@ export default function SellRequestModal({ request, onClose, onChanged }) {
               </section>
 
               <section className="panel formPanel">
-                <p className="eyebrow">ACCEPT</p>
-                <h2>Accept offer</h2>
-                <form onSubmit={acceptOffer}>
-                  <Field label="Offer ID" name="offerId" required />
-                  <button className="primary" disabled={busy}>Accept offer</button>
-                </form>
+                <p className="eyebrow">OFFERS</p>
+                <h2>Offer history &amp; seller decision</h2>
+                {offers.length === 0 ? (
+                  <p className="state">No offers yet. Create the first offer above.</p>
+                ) : (
+                  <div className="tableWrap">
+                    <table>
+                      <thead><tr><th>Amount</th><th>Status</th><th>Expires</th><th>Accepted</th><th><span className="sr">Actions</span></th></tr></thead>
+                      <tbody>
+                        {offers.map((o) => (
+                          <tr key={o.id}>
+                            <td><strong>৳{Number(o.amount).toLocaleString("en-BD")}</strong></td>
+                            <td><span className="pill">{o.status}</span></td>
+                            <td>{o.expiresAt ? new Date(o.expiresAt).toLocaleString() : "—"}</td>
+                            <td>{o.acceptedAt ? new Date(o.acceptedAt).toLocaleString() : "—"}</td>
+                            <td>
+                              <div className="actions">
+                                {o.status === "ACTIVE" ? (
+                                  <button type="button" disabled={busy} onClick={() => acceptOfferAdmin(o.id)}>Seller agreed</button>
+                                ) : null}
+                                {o.status === "ACCEPTED" && !acquisition ? (
+                                  <button type="button" className="primary" disabled={busy} onClick={() => createAcquisitionForOffer(o)}>Create acquisition</button>
+                                ) : null}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </section>
 
               <section className="panel formPanel">
                 <p className="eyebrow">ACQUISITION</p>
-                <h2>Create acquisition</h2>
-                <form onSubmit={createAcquisition}>
-                  <Field label="Sell request ID" name="sellRequestId" defaultValue={detail.id} readOnly required />
-                  <Field label="Accepted offer ID" name="acceptedOfferId" required />
-                  <Field label="Seller user ID" name="sellerUserId" defaultValue={detail.userId} required />
-                  <label><span>Source type</span><select name="sourceType" required><option>SELL_TO_PCX</option><option>DIRECT_PURCHASE</option><option>TRADE_IN</option><option>CORPORATE</option><option>OTHER</option></select></label>
-                  <Field label="Idempotency key" name="idempotencyKey" required />
-                  <button className="primary" disabled={busy}>Create acquisition</button>
-                </form>
-              </section>
-
-              <section className="panel formPanel">
-                <p className="eyebrow">PAYMENT</p>
-                <h2>Mark acquisition paid</h2>
-                <form onSubmit={markPaid}>
-                  <Field label="Acquisition ID" name="acquisitionId" required />
-                  <button className="primary" disabled={busy}>Mark paid</button>
-                </form>
+                <h2>Acquisition &amp; payment</h2>
+                {acquisition ? (
+                  <>
+                    <dl className="detailList">
+                      <div><dt>Status</dt><dd><span className="pill">{acquisition.paymentStatus}</span></dd></div>
+                      <div><dt>Agreed price</dt><dd>৳{Number(acquisition.agreedPrice).toLocaleString("en-BD")}</dd></div>
+                      <div><dt>Source</dt><dd>{acquisition.sourceType}</dd></div>
+                      <div><dt>Acquired</dt><dd>{acquisition.acquiredAt ? new Date(acquisition.acquiredAt).toLocaleString() : "—"}</dd></div>
+                    </dl>
+                    {acquisition.paymentStatus === "PENDING" ? (
+                      <button className="primary" disabled={busy} onClick={() => markAcquisitionPaid(acquisition.id)}>Mark paid</button>
+                    ) : null}
+                  </>
+                ) : (
+                  <p className="state">No acquisition yet. Once an offer is accepted (seller decision), create the acquisition here.</p>
+                )}
               </section>
             </div>
 

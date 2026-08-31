@@ -11,7 +11,7 @@ const acquisitionFields = new Set(["sellRequestId", "acceptedOfferId", "sellerUs
 
 export function createAcquisitionService({ authService, repository, id = randomUUID, clock = () => new Date(), notificationEmitter = null }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  for (const method of ["createOffer", "acceptOffer", "rejectOffer", "findOwnerUserIdByOffer", "findOfferById", "createAcquisition", "findByOffer", "markPaid", "findOwnerUserIdBySellRequest", "listOffersBySellRequest"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  for (const method of ["createOffer", "acceptOffer", "rejectOffer", "findOwnerUserIdByOffer", "findOfferById", "createAcquisition", "findByOffer", "markPaid", "findOwnerUserIdBySellRequest", "listOffersBySellRequest", "findAcquisitionBySellRequest"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
 
   async function actor(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -140,6 +140,19 @@ export function createAcquisitionService({ authService, repository, id = randomU
         throw error;
       }
     },
+
+    // Admin read: list offers for a sell request (privileged, not owner-scoped).
+    async listOffersForAdmin(accessCredential, sellRequestId) {
+      await actor(accessCredential);
+      return Object.freeze({ data: Object.freeze(await repository.listOffersBySellRequest(sellRequestId)) });
+    },
+
+    // Admin read: the acquisition (if any) created from a sell request.
+    async getAcquisitionForAdmin(accessCredential, sellRequestId) {
+      await actor(accessCredential);
+      return Object.freeze({ data: await repository.findAcquisitionBySellRequest(sellRequestId) });
+    },
+
 
     async markAcquisitionPaid(accessCredential, acquisitionId) {
       await actor(accessCredential);

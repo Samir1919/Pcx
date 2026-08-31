@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { apiRequest, ApiError } from "../lib/api-client.js";
 
-const CSRF_COOKIE = "pcx_csrf=token";
+const CSRF_COOKIE = "pcx_admin_csrf=token";
 
 function response(status, body) {
   return { ok: status >= 200 && status < 300, status, async json() { return body; } };

@@ -4,7 +4,7 @@ import { notificationApi } from "../lib/notification-api.js";
 
 test("notification create posts allow-listed fields without server-owned status", async () => {
   const priorDocument = global.document, priorFetch = global.fetch;
-  global.document = { cookie: "pcx_csrf=secure" };
+  global.document = { cookie: "pcx_admin_csrf=secure" };
   let call;
   global.fetch = async (...args) => { call = args; return { ok: true, status: 201, async json() { return { data: { id: "n1", status: "PENDING" } }; } }; };
   try {

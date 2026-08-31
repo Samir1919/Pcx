@@ -16,7 +16,7 @@ test("listing admin list uses the admin read endpoint", async () => {
 
 test("listing writes encode ids and never send client-owned status", async () => {
   const priorDocument = global.document, priorFetch = global.fetch;
-  global.document = { cookie: "pcx_csrf=secure" };
+  global.document = { cookie: "pcx_admin_csrf=secure" };
   let call;
   global.fetch = async (...args) => { call = args; return { ok: true, status: 200, async json() { return { data: {} }; } }; };
   try {

@@ -57,6 +57,7 @@ services:
       DATABASE_URL: postgresql://pcx_staging:pcx_staging_local_only@postgres:5432/pcx_staging
       API_PORT: 4000
       API_ALLOWED_ORIGINS: http://localhost:8082,http://localhost:8083
+      API_ADMIN_ORIGINS: http://localhost:8083
       NODE_ENV: staging
     depends_on:
       postgres:

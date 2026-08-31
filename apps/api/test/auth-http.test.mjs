@@ -28,7 +28,7 @@ function service(overrides = {}) {
   };
 }
 
-async function invoke(path, { method = "POST", body = {}, headers = {}, authService = service(), identityActionService, allowedOrigins = new Set([origin]) } = {}) {
+async function invoke(path, { method = "POST", body = {}, headers = {}, authService = service(), identityActionService, allowedOrigins = new Set([origin]), adminOrigins = new Set() } = {}) {
   const serialized = typeof body === "string" ? body : JSON.stringify(body);
   const result = { headers: {} };
   const response = {
@@ -43,7 +43,7 @@ async function invoke(path, { method = "POST", body = {}, headers = {}, authServ
     socket: { remoteAddress: "192.0.2.1" },
     async *[Symbol.asyncIterator]() { if (serialized.length > 0) yield Buffer.from(serialized); }
   };
-  await createRequestHandler({ authService, identityActionService, allowedOrigins })(request, response);
+  await createRequestHandler({ authService, identityActionService, allowedOrigins, adminOrigins })(request, response);
   return result;
 }
 
@@ -189,4 +189,75 @@ test("auth routes allow POST only and unknown auth resources remain hidden", asy
   assert.equal((await invoke("/api/v1/auth/login?redirect=evil", { body: { contact: "a", password: "b" } })).status, 400);
   assert.equal((await invoke("/api/v1/auth/unknown")).status, 404);
   assert.equal((await invoke("/api/v1/auth/login/extra")).status, 404);
+});
+
+const adminOrigin = "https://admin.pcx.example";
+
+test("admin-origin login issues surface-scoped admin cookies", async () => {
+  const response = await invoke("/api/v1/auth/login", {
+    body: { contact: "admin@example.com", password: "password" },
+    headers: { origin: adminOrigin },
+    allowedOrigins: new Set([origin, adminOrigin]),
+    adminOrigins: new Set([adminOrigin])
+  });
+  assert.equal(response.status, 200);
+  const [access, refresh, csrf] = response.headers["set-cookie"];
+  assert.match(access, /^pcx_admin_access=raw-access; Path=\/; .*Secure; HttpOnly; SameSite=Strict$/);
+  assert.match(refresh, /^pcx_admin_refresh=raw-refresh; Path=\/api\/v1\/auth; .*Secure; HttpOnly; SameSite=Strict$/);
+  assert.match(csrf, /^pcx_admin_csrf=.*; Path=\/;/);
+});
+
+test("admin surface reads admin cookies while a storefront session coexists", async () => {
+  let presented;
+  const response = await invoke("/api/v1/auth/refresh", {
+    headers: {
+      origin: adminOrigin,
+      cookie: "pcx_admin_refresh=admin-refresh; pcx_admin_csrf=tok; pcx_refresh=storefront-refresh; pcx_csrf=bad",
+      "x-csrf-token": "tok"
+    },
+    allowedOrigins: new Set([origin, adminOrigin]),
+    adminOrigins: new Set([adminOrigin]),
+    authService: service({ async refresh(input) { presented = input; return { status: "refreshed", session }; } })
+  });
+  assert.equal(response.status, 200);
+  assert.equal(presented.refreshCredential, "admin-refresh");
+  const names = response.headers["set-cookie"].map((c) => c.split("=")[0]);
+  assert.ok(names.includes("pcx_admin_access"));
+  assert.equal(names.includes("pcx_access"), false);
+});
+
+test("storefront surface ignores admin cookies", async () => {
+  let presented;
+  const response = await invoke("/api/v1/auth/refresh", {
+    headers: {
+      cookie: "pcx_refresh=storefront-refresh; pcx_csrf=tok; pcx_admin_refresh=admin-refresh; pcx_admin_csrf=bad",
+      "x-csrf-token": "tok"
+    },
+    allowedOrigins: new Set([origin, adminOrigin]),
+    adminOrigins: new Set([adminOrigin]),
+    authService: service({ async refresh(input) { presented = input; return { status: "refreshed", session }; } })
+  });
+  assert.equal(response.status, 200);
+  assert.equal(presented.refreshCredential, "storefront-refresh");
+  const names = response.headers["set-cookie"].map((c) => c.split("=")[0]);
+  assert.ok(names.includes("pcx_access"));
+  assert.equal(names.includes("pcx_admin_access"), false);
+});
+
+test("x-pcx-surface header overrides origin for surface detection", async () => {
+  let presented;
+  const response = await invoke("/api/v1/auth/refresh", {
+    headers: {
+      "x-pcx-surface": "admin",
+      cookie: "pcx_admin_refresh=admin-refresh; pcx_admin_csrf=tok; pcx_refresh=storefront-refresh; pcx_csrf=bad",
+      "x-csrf-token": "tok"
+    },
+    allowedOrigins: new Set([origin, adminOrigin]),
+    adminOrigins: new Set([adminOrigin]),
+    authService: service({ async refresh(input) { presented = input; return { status: "refreshed", session }; } })
+  });
+  assert.equal(response.status, 200);
+  assert.equal(presented.refreshCredential, "admin-refresh");
+  const names = response.headers["set-cookie"].map((c) => c.split("=")[0]);
+  assert.ok(names.includes("pcx_admin_access"));
 });

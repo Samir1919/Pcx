@@ -4,7 +4,7 @@ import { acquisitionApi } from "../lib/acquisition-api.js";
 
 test("acquisition writes use correct paths and never send server-owned agreed price", async () => {
   const priorDocument = global.document, priorFetch = global.fetch;
-  global.document = { cookie: "pcx_csrf=secure" };
+  global.document = { cookie: "pcx_admin_csrf=secure" };
   const calls = [];
   global.fetch = async (...args) => { calls.push(args); return { ok: true, status: 201, async json() { return { data: {} }; } }; };
   try {

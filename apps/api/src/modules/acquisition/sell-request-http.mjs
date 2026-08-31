@@ -88,6 +88,34 @@ export async function handleSellRequestRequest(request, response, { sellRequestS
     return true;
   }
 
+  // Admin offer + acquisition reads: GET /api/v1/admin/sell-requests/:id/offers
+  // and /:id/acquisition. Handled before the detail read so the suffix is not
+  // rejected by that handler slash-free id guard.
+  const adminSubPrefix = "/api/v1/admin/sell-requests/";
+  if (url.pathname.startsWith(adminSubPrefix)) {
+    const tail = url.pathname.slice(adminSubPrefix.length);
+    const slash = tail.indexOf("/");
+    if (slash > 0) {
+      const subRequestId = id(tail.slice(0, slash));
+      const subresource = tail.slice(slash + 1);
+      if (subRequestId && (subresource === "offers" || subresource === "acquisition")) {
+        if (!acquisitionService) { send(response, 503, failure("ACQUISITION_UNAVAILABLE", "Acquisition is temporarily unavailable", requestId)); return true; }
+        if (url.searchParams.size > 0) { send(response, 400, failure("INVALID_REQUEST", "Query parameters are not supported", requestId)); return true; }
+        if (request.method !== "GET") { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
+        const cookies = parsedCookies(request);
+        try {
+          if (subresource === "offers") send(response, 200, await acquisitionService.listOffersForAdmin(cookies.pcx_access, subRequestId));
+          else send(response, 200, await acquisitionService.getAcquisitionForAdmin(cookies.pcx_access, subRequestId));
+        } catch (error) {
+          const [status, code, message] = map(error);
+          send(response, status, failure(code, message, requestId));
+        }
+        return true;
+      }
+    }
+  }
+
+
   // Admin detail read: GET /api/v1/admin/sell-requests/:id
   const adminPrefix = "/api/v1/admin/sell-requests/";
   if (url.pathname.startsWith(adminPrefix) && !url.pathname.endsWith("/transition")) {

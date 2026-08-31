@@ -113,7 +113,7 @@ export function parseAllowedOrigins(value) {
   return origins;
 }
 
-export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, delivery, mfa, courierWebhookSecret = process.env.COURIER_WEBHOOK_SECRET ?? null } = {}) {
+export function createAuthRuntime({ pool, allowedOrigins, adminOrigins, abuseControl, audit, delivery, mfa, courierWebhookSecret = process.env.COURIER_WEBHOOK_SECRET ?? null } = {}) {
   if (!pool || typeof pool.query !== "function" || typeof pool.connect !== "function") throw new TypeError("PostgreSQL pool is required");
   if (!delivery || typeof delivery.send !== "function") throw new TypeError("identity action delivery.send is required");
   const origins = parseAllowedOrigins(allowedOrigins instanceof Set ? [...allowedOrigins].join(",") : allowedOrigins);
@@ -122,6 +122,9 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
   // double-submit CSRF token still protects every write. Production and staging
   // keep the exact allow-list.
   if (process.env.NODE_ENV === "development") origins.relaxToConfiguredPorts();
+  const adminOriginValue = adminOrigins instanceof Set ? [...adminOrigins].join(",") : (adminOrigins ?? "");
+  const adminOriginsSet = adminOriginValue.trim() === "" ? new AllowedOrigins() : parseAllowedOrigins(adminOriginValue);
+  if (process.env.NODE_ENV === "development") adminOriginsSet.relaxToConfiguredPorts();
   const repository = createPostgresIdentityRepository({ pool });
   const control = abuseControl ?? createInMemoryAuthAbuseControl();
   const auditSink = audit ?? createPostgresAuthAudit({ pool });
@@ -242,6 +245,7 @@ export function createAuthRuntime({ pool, allowedOrigins, abuseControl, audit, d
     indicativePriceService,
     sellTaxonomyService,
     siteFooterService,
-    allowedOrigins: origins
+    allowedOrigins: origins,
+    adminOrigins: adminOriginsSet
   });
 }

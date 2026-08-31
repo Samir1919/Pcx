@@ -138,6 +138,15 @@ export function createPostgresAcquisitionRepository({ pool }) {
       return result.rows[0] ? acquisition(result.rows[0]) : null;
     },
 
+    async findAcquisitionBySellRequest(sellRequestId) {
+      const result = await pool.query(
+        "SELECT id, sell_request_id, accepted_offer_id, seller_user_id, source_type, agreed_price, payment_status, ownership_confirmed_at, acquired_at, idempotency_key FROM acquisitions WHERE sell_request_id::text = $1 ORDER BY acquired_at DESC LIMIT 1",
+        [sellRequestId]
+      );
+      return result.rows[0] ? acquisition(result.rows[0]) : null;
+    },
+
+
     async markPaid(acquisitionId, now) {
       return transaction(pool, async (client) => {
         const updated = await client.query(
