@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { opsApi } from "../../../lib/ops-api";
+import { listingApi } from "../../../lib/listing-api.js";
 import InspectionModal from "./inspection-modal";
 
 function ItemDetailModal({ item, onClose }) {
@@ -85,6 +86,19 @@ export default function InventoryPage() {
     }
   }
 
+  async function createListing(item) {
+    setBusy(true);
+    setNotice(null);
+    try {
+      await listingApi.createDraft({ inventoryItemId: item.id });
+      setNotice({ kind: "success", message: `Draft listing created for ${item.pcxItemId}. Publish it from the Listings page.` });
+    } catch (err) {
+      setNotice({ kind: "error", message: err.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <>
       <header>
@@ -113,6 +127,7 @@ export default function InventoryPage() {
                       <div className="actions">
                         <button type="button" disabled={busy} onClick={() => viewItem(item)}>View</button>
                         <button type="button" disabled={busy} onClick={() => setInspectItem(item)}>Inspect</button>
+                        <button type="button" disabled={busy} onClick={() => createListing(item)}>List</button>
                       </div>
                     </td>
                   </tr>

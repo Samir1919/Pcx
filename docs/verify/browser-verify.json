@@ -1,28 +1,21 @@
 {
-  "scope": "Admin acquisition continuation + sell-request status auto-advance + inventory intake (offer to accept to acquisition to pay to register item)",
+  "scope": "Admin inventory List button → draft listing → publish → set price → storefront visibility",
   "headed": true,
-  "tool": "scripts/acquisition-flow-e2e-check.mjs",
+  "tool": "scripts/admin-e2e-check.mjs",
   "result": "passed",
   "businessFlow": {
-    "subject": "Admin offer to accept to acquisition to pay to inventory intake with status auto-advance",
+    "subject": "Registered inventory item listed, published, priced, and visible in the storefront",
     "steps": [
       "admin-login",
-      "open-sell-request",
-      "offers-section",
-      "create-offer",
-      "status-offered",
-      "offer-listed-active",
-      "offer-accepted",
-      "status-accepted",
-      "create-acquisition",
-      "acquisition-pending",
-      "status-acq-pending",
-      "mark-paid",
-      "acquisition-paid",
-      "status-paid",
-      "register-item",
-      "item-registered-shown"
+      "open-inventory",
+      "find-item",
+      "click-list",
+      "draft-listing-created",
+      "open-listings",
+      "publish-draft",
+      "set-price",
+      "storefront-shows-item"
     ]
   },
-  "ranAt": "2026-08-31T10:31:39.944Z"
+  "ranAt": "2026-08-31T11:45:00.000Z"
 }
