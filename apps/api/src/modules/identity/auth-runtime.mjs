@@ -38,6 +38,7 @@ import { createPostgresCartRepository } from "../commerce/postgres-cart-reposito
 import { createCartService } from "../commerce/cart-service.mjs";
 import { createLocalMediaStorage } from "../media/local-media-storage.mjs";
 import { createPostgresMediaRepository } from "../media/postgres-media-repository.mjs";
+import { createSignatureMalwareScanner } from "../media/malware-scanner.mjs";
 import { createMediaService } from "../media/media-service.mjs";
 import { createPostgresOrderPaymentRepository } from "../commerce/postgres-order-payment-repository.mjs";
 import { createOrderPaymentService } from "../commerce/order-payment-service.mjs";
@@ -198,7 +199,7 @@ export function createAuthRuntime({ pool, allowedOrigins, adminOrigins, abuseCon
   const merchantListingService = createMerchantListingService({ authService, repository: createMerchantListingRepository({ pool }) });
   const reservationService = createReservationService({ authService, listingRepository, reservationRepository: createPostgresReservationRepository({ pool }) });
   const cartService = createCartService({ authService, listingRepository, cartRepository: createPostgresCartRepository({ pool }) });
-  const mediaService = createMediaService({ authService, repository: createPostgresMediaRepository({ pool }), storage: createLocalMediaStorage() });
+  const mediaService = createMediaService({ authService, repository: createPostgresMediaRepository({ pool }), storage: createLocalMediaStorage(), malwareScanner: createSignatureMalwareScanner() });
   const paymentProviderConfigRepository = createPostgresPaymentProviderConfigRepository({ pool });
   const paymentProviderConfigService = createPaymentProviderConfigService({ authService, repository: paymentProviderConfigRepository });
   const sellTaxonomyService = createSellTaxonomyService({ authService, readRepository: createPostgresSellTaxonomyRepository({ pool }), commandRepository: createPostgresSellTaxonomyCommandRepository({ pool }) });

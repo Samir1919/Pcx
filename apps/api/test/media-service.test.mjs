@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { createLocalMediaStorage, MediaStorageError } from "../src/modules/media/local-media-storage.mjs";
 import { createMediaService } from "../src/modules/media/media-service.mjs";
+import { EICAR_TEST_SIGNATURE } from "../src/modules/media/malware-scanner.mjs";
 
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
 
@@ -189,6 +190,31 @@ test("media service attaches and lists private shipment packaging evidence", asy
       storage
     });
     await assert.rejects(denied.listShipmentMedia("access", "s1"), (e) => e.code === "forbidden");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("media service rejects an upload that fails the malware scan", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "pcx-media-"));
+  const storage = createLocalMediaStorage({ root });
+  const repository = {
+    async create(record) { return record; },
+    async findById(id) { return { id, storageKey: "key", mimeType: "image/webp", sizeBytes: 10, visibility: "PRIVATE" }; },
+    async findSellRequestOwner(id) { return id === "sr1" ? "customer-1" : null; },
+    async linkSellRequest() { },
+    async linkInspection() { },
+    async linkListing() { },
+    async listSellRequestMedia() { return []; }
+  };
+  const service = createMediaService({
+    authService: { async authenticateAccess() { return { userId: "customer-1", status: "ACTIVE", roles: ["CUSTOMER"] }; } },
+    repository,
+    storage
+  });
+  try {
+    const malicious = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), Buffer.from(EICAR_TEST_SIGNATURE)]);
+    await assert.rejects(service.addSellRequestMedia("access", "sr1", malicious), (e) => e.code === "malware_detected");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

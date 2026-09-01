@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { hasPermission, Permission, Role } from "@pcx/domain";
+import { createSignatureMalwareScanner } from "./malware-scanner.mjs";
 
 export class MediaError extends Error {
   constructor(code) { super(code); this.name = "MediaError"; this.code = code; }
@@ -9,10 +10,11 @@ export class MediaError extends Error {
 // single sell request (enough to show condition from every angle).
 export const MAX_IMAGES_PER_RESOURCE = 8;
 
-export function createMediaService({ authService, repository, storage, id = randomUUID }) {
+export function createMediaService({ authService, repository, storage, malwareScanner = createSignatureMalwareScanner(), id = randomUUID }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
   if (!repository || typeof repository.create !== "function") throw new TypeError("repository.create is required");
   if (!storage || typeof storage.save !== "function" || typeof storage.read !== "function") throw new TypeError("storage.save and storage.read are required");
+  if (!malwareScanner || typeof malwareScanner.scan !== "function") throw new TypeError("malwareScanner.scan is required");
 
   async function customer(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -39,6 +41,10 @@ export function createMediaService({ authService, repository, storage, id = rand
   }
 
   async function persist(buffer, { visibility, purpose, uploadedBy }) {
+    // Malware scan (fail-closed): every upload is scanned before it reaches
+    // storage. A hostile payload is rejected outright.
+    const scan = await malwareScanner.scan(buffer);
+    if (!scan.clean) throw new MediaError("malware_detected");
     const saved = await storage.save(buffer, { visibility });
     const record = await repository.create({
       id: id(),

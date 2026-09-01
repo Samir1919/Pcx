@@ -74,6 +74,7 @@ function map(error) {
     if (error.code === "csrf_invalid") return [403, "CSRF_INVALID", "CSRF validation failed"];
     if (error.code === "forbidden") return [403, "MEDIA_FORBIDDEN", "Media operation is not allowed"];
     if (error.code === "limit_reached") return [422, "IMAGE_LIMIT_REACHED", "Maximum 8 photos per item"];
+    if (error.code === "malware_detected") return [422, "MALWARE_DETECTED", "Upload failed a security scan and was rejected"];
     if (error.code === "unsupported_type" || error.code === "invalid_input") return [422, "INVALID_UPLOAD", "Upload type or size is not allowed"];
     if (error.code === "not_found") return [404, "MEDIA_NOT_FOUND", "Media not found"];
     return [500, "INTERNAL_ERROR", "Unexpected server error"];
