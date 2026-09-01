@@ -13,6 +13,8 @@ import { createPostgresReservationRepository } from "../../api/src/modules/comme
 import { createPostgresListingRepository } from "../../api/src/modules/listing/postgres-listing-repository.mjs";
 import { createPostgresScheduledExportRepository } from "../../api/src/modules/reporting/postgres-scheduled-export-repository.mjs";
 import { createScheduledExportService } from "../../api/src/modules/reporting/scheduled-export-service.mjs";
+import { createPostgresRetentionRepository } from "../../api/src/modules/reporting/postgres-retention-repository.mjs";
+import { createRetentionService } from "../../api/src/modules/reporting/retention-service.mjs";
 import { startWorker } from "./worker.mjs";
 
 // The worker never performs an authenticated operation: it only dispatches due
@@ -89,6 +91,11 @@ export function createWorkerRuntime({
     authService: workerAuthService,
     repository: createPostgresScheduledExportRepository({ pool })
   });
+  // Retention: purges obsolete rows on a daily throttle (safe categories only —
+  // never financial/legal records, inventory, inspections, or audit events).
+  const retentionService = createRetentionService({
+    repository: createPostgresRetentionRepository({ pool })
+  });
   const countRows = async (report) => {
     if (report === "operations") {
       const r = await pool.query("SELECT (SELECT count(*) FROM orders)::int + (SELECT count(*) FROM sell_requests)::int AS c");
@@ -105,9 +112,10 @@ export function createWorkerRuntime({
     notificationService,
     reservationService,
     scheduledExportService: { async runDue() { return scheduledExportService.runDue({ countRows }); } },
+    retentionService,
     intervalMs,
     onError,
     unref
   });
-  return Object.freeze({ worker, shipmentService, notificationService, reservationService, scheduledExportService });
+  return Object.freeze({ worker, shipmentService, notificationService, reservationService, scheduledExportService, retentionService });
 }

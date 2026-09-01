@@ -6,18 +6,21 @@
 //   - dispatchDueWebhookEvents: retries PENDING courier webhook outbox events.
 //   - dispatchDue (notifications): sends due notifications.
 //   - expireDueReservations: expires ACTIVE reservations past reserved_until.
+//   - runRetention: purges obsolete rows (daily throttle, safe categories only).
 //
 // The worker never owns business truth; it only advances durable state that the
 // services already own. Jobs are idempotent and safe to run repeatedly.
 
-export function startWorker({ shipmentService, notificationService, reservationService, scheduledExportService, intervalMs = 5_000, onError = console.error, unref = true } = {}) {
+export function startWorker({ shipmentService, notificationService, reservationService, scheduledExportService, retentionService, retentionIntervalMs = 24 * 60 * 60 * 1000, intervalMs = 5_000, onError = console.error, unref = true } = {}) {
   if (shipmentService && typeof shipmentService.dispatchDueWebhookEvents !== "function") throw new TypeError("shipmentService.dispatchDueWebhookEvents is required");
   if (notificationService && typeof notificationService.dispatchDue !== "function") throw new TypeError("notificationService.dispatchDue is required");
   if (reservationService && typeof reservationService.expireDue !== "function") throw new TypeError("reservationService.expireDue is required");
   if (scheduledExportService && typeof scheduledExportService.runDue !== "function") throw new TypeError("scheduledExportService.runDue is required");
+  if (retentionService && typeof retentionService.run !== "function") throw new TypeError("retentionService.run is required");
 
   let timer = null;
   let running = false;
+  let lastRetentionAt = 0;
 
   async function tick() {
     if (running) return;
@@ -27,6 +30,13 @@ export function startWorker({ shipmentService, notificationService, reservationS
       if (notificationService) await notificationService.dispatchDue();
       if (reservationService) await reservationService.expireDue();
       if (scheduledExportService) await scheduledExportService.runDue();
+      if (retentionService) {
+        const now = Date.now();
+        if (now - lastRetentionAt >= retentionIntervalMs) {
+          await retentionService.run();
+          lastRetentionAt = now;
+        }
+      }
     } catch (error) {
       onError(error);
     } finally {
