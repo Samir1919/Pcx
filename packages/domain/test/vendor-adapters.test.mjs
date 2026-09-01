@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createSandboxCourier, createSandboxNotificationDispatcher, createSandboxPaymentGateway } from "../src/index.mjs";
+import { createSandboxCourier, createSandboxNotificationDispatcher, createSandboxPaymentGateway, createSandboxRefundGateway } from "../src/index.mjs";
 
 test("sandbox notification dispatcher matches the injected dispatcher contract", async () => {
   const delivered = [];
@@ -62,6 +62,28 @@ test("sandbox payment gateway default returns a deterministic transaction id", a
   const gateway = createSandboxPaymentGateway();
   const result = await gateway.charge({ amount: 50, currency: "BDT", reference: "acq-9" });
   assert.equal(result.providerTransactionId, "sandbox-pay-acq-9");
+  assert.equal(result.status, "CONFIRMED");
+});
+
+test("sandbox refund gateway is idempotent by reference and validates inputs", async () => {
+  const calls = [];
+  const gateway = createSandboxRefundGateway({
+    refund: async ({ reference }) => { calls.push(reference); return { providerTransactionId: `rf-${reference}`, status: "CONFIRMED" }; }
+  });
+  const first = await gateway.refund({ amount: 100, currency: "BDT", reference: "refund-r1" });
+  const second = await gateway.refund({ amount: 100, currency: "BDT", reference: "refund-r1" });
+  assert.equal(first.providerTransactionId, "rf-refund-r1");
+  assert.equal(second.providerTransactionId, first.providerTransactionId);
+  assert.equal(calls.length, 1, "same reference must not be refunded twice");
+  await assert.rejects(() => gateway.refund({ amount: -5, currency: "BDT", reference: "r" }), /amount/);
+  await assert.rejects(() => gateway.refund({ amount: 10, currency: "XYZ", reference: "r" }), /currency/);
+  await assert.rejects(() => gateway.refund({ amount: 10, currency: "BDT" }), /reference/);
+});
+
+test("sandbox refund gateway default returns a deterministic transaction id", async () => {
+  const gateway = createSandboxRefundGateway();
+  const result = await gateway.refund({ amount: 50, currency: "BDT", reference: "refund-r9" });
+  assert.equal(result.providerTransactionId, "sandbox-refund-refund-r9");
   assert.equal(result.status, "CONFIRMED");
 });
 

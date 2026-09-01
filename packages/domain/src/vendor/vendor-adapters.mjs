@@ -202,3 +202,45 @@ const defaultBkashCharge = async ({ reference, mode }) => ({
   providerTransactionId: `bkash-${mode.toLowerCase()}-${reference}`,
   status: "CONFIRMED"
 });
+
+/**
+ * Sandbox refund gateway factory. Returns a provider-neutral gateway with a
+ * single `refund` method, mirroring `createSandboxPaymentGateway`. Idempotent by
+ * reference: refunding the same reference twice returns the same provider
+ * transaction id. Never touches real credentials. A `refund` implementation may
+ * be injected for deterministic testing; the default returns a deterministic
+ * sandbox transaction id.
+ */
+export const createSandboxRefundGateway = ({ refund = defaultSandboxRefund } = {}) => {
+  if (typeof refund !== "function") throw new TypeError("refund must be a function");
+  const seen = new Map();
+  return Object.freeze({
+    async refund({ amount, currency, reference } = {}) {
+      const safeAmount = asAmount(amount);
+      const safeCurrency = asCurrency(currency);
+      const safeReference = asNonEmptyString(reference, "reference");
+      if (seen.has(safeReference)) return seen.get(safeReference);
+      // Store the in-flight promise immediately so concurrent callers with the
+      // same reference await the same promise instead of racing a second refund.
+      const inFlight = (async () => {
+        const outcome = await refund({ amount: safeAmount, currency: safeCurrency, reference: safeReference });
+        const providerTransactionId = asNonEmptyString(outcome?.providerTransactionId, "providerTransactionId");
+        const status = asNonEmptyString(outcome?.status ?? "CONFIRMED", "status").toUpperCase();
+        if (!PAYMENT_STATUSES.has(status)) throw new TypeError(`refund status is invalid: ${status}`);
+        return Object.freeze({ providerTransactionId, status, amount: safeAmount, currency: safeCurrency, reference: safeReference });
+      })();
+      seen.set(safeReference, inFlight);
+      try {
+        return await inFlight;
+      } catch (error) {
+        seen.delete(safeReference);
+        throw error;
+      }
+    }
+  });
+};
+
+const defaultSandboxRefund = async ({ reference }) => ({
+  providerTransactionId: `sandbox-refund-${reference}`,
+  status: "CONFIRMED"
+});

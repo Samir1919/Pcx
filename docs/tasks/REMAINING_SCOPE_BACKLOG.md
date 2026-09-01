@@ -21,10 +21,15 @@ remaining gaps, ordered by dependency.
 
 ## 2. Refund gateway adapter execution (E12, sandbox)
 
-- Scope: injected sandbox refund gateway behind the existing settleRefund flow
-  (domain `settleRefund`, repository, HTTP already complete); idempotent provider
-  transaction id; gateway failure never rolls back the REFUNDED transition.
-- Acceptance: settleRefund calls the gateway; replay-safe; sandbox-only.
+- Status: **COMPLETE (2026-09-01)** — `createSandboxRefundGateway` domain adapter (idempotent
+  by reference, secret-free) wired behind `settleRefund`; migration
+  `0038_return_refund_provider.sql` adds `refund_provider`,
+  `refund_provider_transaction_id` (unique), and `refund_provider_status` to
+  `return_requests`. settleRefund is replay-safe (an already-REFUNDED return is
+  returned without a second gateway call) and a gateway failure still transitions
+  to REFUNDED, recording `refund_provider_status='FAILED'` for reconciliation.
+  Admin returns table surfaces the provider status + transaction id read-only.
+  Handoff: `docs/handoffs/REFUND_GATEWAY_ADAPTER.md`.
 
 ## 3. Real bKash HTTP adapter (E10)
 

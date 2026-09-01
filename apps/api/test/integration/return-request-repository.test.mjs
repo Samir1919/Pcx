@@ -49,9 +49,12 @@ test("return request repository enforces one-refundable-per-item and settles onc
     assert.equal(approved.status, "approved");
     const received = await repository.markReceived(returnId, now);
     assert.equal(received.status, "received");
-    const refunded = await repository.settleRefund(returnId, 1000, now);
+    const refunded = await repository.settleRefund(returnId, 1000, now, { provider: "SANDBOX", providerTransactionId: "sandbox-refund-ret-1", providerStatus: "CONFIRMED" });
     assert.equal(refunded.status, "refunded");
     assert.equal(refunded.record.resolutionAmount, 1000);
+    assert.equal(refunded.record.refundProvider, "SANDBOX");
+    assert.equal(refunded.record.refundProviderTransactionId, "sandbox-refund-ret-1");
+    assert.equal(refunded.record.refundProviderStatus, "CONFIRMED");
 
     // Settling again returns not_refundable.
     assert.deepEqual(await repository.settleRefund(returnId, 1000, now), { status: "not_refundable" });

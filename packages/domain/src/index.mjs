@@ -31,4 +31,4 @@ export { createPaymentProviderConfig, maskCredentials, normalizeCredentials, Pay
 export { approveReturn, createReturnRequest, markReturnReceived, ReturnRequestStatus, settleRefund } from "./warranty/return-refund.mjs";
 export { createClaim, createClaimResolution, createWarranty, ClaimStatus, ResolutionType, WarrantyStatus } from "./warranty/warranty-claim.mjs";
 export { archiveIndicativePrice, createIndicativePrice, IndicativePriceStatus, toPublicQuoteRange } from "./pricing/indicative-price.mjs";
-export { createBkashGateway, createSandboxCourier, createSandboxNotificationDispatcher, createSandboxPaymentGateway } from "./vendor/vendor-adapters.mjs";
+export { createBkashGateway, createSandboxCourier, createSandboxNotificationDispatcher, createSandboxPaymentGateway, createSandboxRefundGateway } from "./vendor/vendor-adapters.mjs";

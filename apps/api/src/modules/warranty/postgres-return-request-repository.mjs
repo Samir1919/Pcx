@@ -23,9 +23,14 @@ function toRecord(row) {
     requestedAt: row.requested_at ? new Date(row.requested_at).toISOString() : null,
     receivedAt: row.received_at ? new Date(row.received_at).toISOString() : null,
     resolutionType: row.resolution_type,
-    resolutionAmount: row.resolution_amount == null ? null : Number(row.resolution_amount)
+    resolutionAmount: row.resolution_amount == null ? null : Number(row.resolution_amount),
+    refundProvider: row.refund_provider ?? null,
+    refundProviderTransactionId: row.refund_provider_transaction_id ?? null,
+    refundProviderStatus: row.refund_provider_status ?? null
   });
 }
+
+const columns = "id, order_item_id, status, reason_code, customer_notes, requested_at, received_at, resolution_type, resolution_amount, refund_provider, refund_provider_transaction_id, refund_provider_status";
 
 export function createPostgresReturnRequestRepository({ pool }) {
   if (!pool || typeof pool.query !== "function" || typeof pool.connect !== "function") throw new TypeError("PostgreSQL pool is required");
@@ -35,7 +40,7 @@ export function createPostgresReturnRequestRepository({ pool }) {
       const result = await pool.query(
         `INSERT INTO return_requests(id, order_item_id, status, reason_code, customer_notes, requested_at)
          VALUES ($1, $2, 'REQUESTED', $3, $4, $5)
-         RETURNING id, order_item_id, status, reason_code, customer_notes, requested_at, received_at, resolution_type, resolution_amount`,
+         RETURNING ${columns}`,
         [record.id, record.orderItemId, record.reasonCode, record.customerNotes, record.requestedAt]
       );
       return toRecord(result.rows[0]);
@@ -46,7 +51,7 @@ export function createPostgresReturnRequestRepository({ pool }) {
         const updated = await client.query(
           `UPDATE return_requests SET status = 'APPROVED'
            WHERE id = $1 AND status = 'REQUESTED'
-           RETURNING id, order_item_id, status, reason_code, customer_notes, requested_at, received_at, resolution_type, resolution_amount`,
+           RETURNING ${columns}`,
           [id]
         );
         if (updated.rowCount !== 1) return { status: "not_approvable" };
@@ -59,7 +64,7 @@ export function createPostgresReturnRequestRepository({ pool }) {
         const updated = await client.query(
           `UPDATE return_requests SET status = 'RECEIVED', received_at = $2
            WHERE id = $1 AND status = 'APPROVED'
-           RETURNING id, order_item_id, status, reason_code, customer_notes, requested_at, received_at, resolution_type, resolution_amount`,
+           RETURNING ${columns}`,
           [id, now]
         );
         if (updated.rowCount !== 1) return { status: "not_receivable" };
@@ -67,13 +72,14 @@ export function createPostgresReturnRequestRepository({ pool }) {
       });
     },
 
-    async settleRefund(id, amount, now) {
+    async settleRefund(id, amount, now, provider = {}) {
       return transaction(pool, async (client) => {
         const updated = await client.query(
-          `UPDATE return_requests SET status = 'REFUNDED', resolution_type = 'REFUND', resolution_amount = $2
+          `UPDATE return_requests SET status = 'REFUNDED', resolution_type = 'REFUND', resolution_amount = $2,
+                  refund_provider = $3, refund_provider_transaction_id = $4, refund_provider_status = $5
            WHERE id = $1 AND status = 'RECEIVED'
-           RETURNING id, order_item_id, status, reason_code, customer_notes, requested_at, received_at, resolution_type, resolution_amount`,
-          [id, amount]
+           RETURNING ${columns}`,
+          [id, amount, provider.provider ?? null, provider.providerTransactionId ?? null, provider.providerStatus ?? null]
         );
         if (updated.rowCount !== 1) return { status: "not_refundable" };
         return { status: "refunded", record: toRecord(updated.rows[0]) };
@@ -82,20 +88,20 @@ export function createPostgresReturnRequestRepository({ pool }) {
 
     async list() {
       const result = await pool.query(
-        "SELECT id, order_item_id, status, reason_code, customer_notes, requested_at, received_at, resolution_type, resolution_amount FROM return_requests ORDER BY requested_at DESC LIMIT 100",
+        `SELECT ${columns} FROM return_requests ORDER BY requested_at DESC LIMIT 100`,
         []
       );
       return result.rows.map(toRecord);
     },
 
     async findById(id) {
-      const result = await pool.query("SELECT id, order_item_id, status, reason_code, customer_notes, requested_at, received_at, resolution_type, resolution_amount FROM return_requests WHERE id::text = $1", [id]);
+      const result = await pool.query(`SELECT ${columns} FROM return_requests WHERE id::text = $1`, [id]);
       return result.rows[0] ? toRecord(result.rows[0]) : null;
     },
 
     async findRefundableByOrderItem(orderItemId) {
       const result = await pool.query(
-        "SELECT id, order_item_id, status, reason_code, customer_notes, requested_at, received_at, resolution_type, resolution_amount FROM return_requests WHERE order_item_id::text = $1 AND status IN ('REQUESTED','APPROVED','RECEIVED','REFUNDED')",
+        `SELECT ${columns} FROM return_requests WHERE order_item_id::text = $1 AND status IN ('REQUESTED','APPROVED','RECEIVED','REFUNDED')`,
         [orderItemId]
       );
       return result.rows[0] ? toRecord(result.rows[0]) : null;

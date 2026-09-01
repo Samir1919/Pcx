@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { createReturnRequest, settleRefund } from "@pcx/domain";
-import { hasPermission, normalizeSerialIdentifier, Permission } from "@pcx/domain";
+import { createReturnRequest, ReturnRequestStatus, settleRefund } from "@pcx/domain";
+import { hasPermission, normalizeSerialIdentifier, Permission, createSandboxRefundGateway } from "@pcx/domain";
 
 export class ReturnRequestError extends Error {
   constructor(code) { super(code); this.name = "ReturnRequestError"; this.code = code; }
@@ -8,9 +8,10 @@ export class ReturnRequestError extends Error {
 
 const createFields = new Set(["orderItemId", "reasonCode", "customerNotes"]);
 
-export function createReturnRequestService({ authService, repository, id = randomUUID, clock = () => new Date() }) {
+export function createReturnRequestService({ authService, repository, id = randomUUID, clock = () => new Date(), refundGateway = createSandboxRefundGateway() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
   for (const method of ["create", "approve", "markReceived", "settleRefund", "findById", "findRefundableByOrderItem", "orderItemInventoryId", "findPrimarySerialByOrderItem", "list"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  if (!refundGateway || typeof refundGateway.refund !== "function") throw new TypeError("refundGateway.refund is required");
 
   async function customer(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -93,12 +94,28 @@ export function createReturnRequestService({ authService, repository, id = rando
       await refundActor(accessCredential);
       const existing = await repository.findById(returnId);
       if (!existing) throw new ReturnRequestError("not_found");
+      // Replay-safe: a repeated settle for an already-REFUNDED return returns the
+      // existing record without calling the gateway a second time.
+      if (existing.status === ReturnRequestStatus.REFUNDED) return existing;
       try {
         settleRefund(existing, amount, { resolvedAt: clock() });
       } catch {
         throw new ReturnRequestError("invalid_state");
       }
-      const result = await repository.settleRefund(returnId, amount, clock().toISOString());
+      // Idempotent, server-authoritative provider transaction id derived from the
+      // return + amount, so a client retry reuses the same reference and the
+      // gateway dedupes it instead of issuing a duplicate disbursement.
+      const reference = `refund-${returnId}-${amount}`;
+      let provider = { provider: "SANDBOX", providerTransactionId: null, providerStatus: "FAILED" };
+      try {
+        const outcome = await refundGateway.refund({ amount, currency: "BDT", reference });
+        provider = { provider: "SANDBOX", providerTransactionId: outcome.providerTransactionId, providerStatus: outcome.status };
+      } catch {
+        // Gateway failure never rolls back the REFUNDED transition: the
+        // authorized financial fact persists and the FAILED provider status is
+        // recorded for later reconciliation.
+      }
+      const result = await repository.settleRefund(returnId, amount, clock().toISOString(), provider);
       if (result.status !== "refunded") throw new ReturnRequestError("invalid_state");
       return result.record;
     }

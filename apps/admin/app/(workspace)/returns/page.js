@@ -128,7 +128,7 @@ export default function ReturnsPage() {
         {loading ? <p className="state" role="status">Loading returns…</p> : returns.length === 0 ? <p className="state">No returns yet.</p> : (
           <div className="tableWrap">
             <table>
-              <thead><tr><th>Return</th><th>Order item</th><th>Reason</th><th>Status</th><th>Amount</th><th><span className="sr">Actions</span></th></tr></thead>
+              <thead><tr><th>Return</th><th>Order item</th><th>Reason</th><th>Status</th><th>Amount</th><th>Refund provider</th><th><span className="sr">Actions</span></th></tr></thead>
               <tbody>
                 {returns.map((r) => {
                   const action = actionFor(r);
@@ -139,6 +139,7 @@ export default function ReturnsPage() {
                       <td>{r.reasonCode}</td>
                       <td><span className="pill">{r.status}</span></td>
                       <td>{r.resolutionAmount == null ? "—" : r.resolutionAmount}</td>
+                      <td>{r.refundProviderStatus ? <span className="pill">{r.refundProviderStatus}</span> : "—"}{r.refundProviderTransactionId ? <small>{r.refundProviderTransactionId.slice(0, 18)}…</small> : null}</td>
                       <td>
                         {action && (
                           <div className="actions">

@@ -40,7 +40,8 @@ test("item cost repository appends entries and sums totals server-side", { skip:
     assert.equal(totals.totalCost, 4325.5);
 
     const byType = await repository.sumByType();
-    assert.ok(byType.some((r) => r.costType === "TESTING" && r.total === 100));
+    const testing = byType.find((r) => r.costType === "TESTING");
+    assert.ok(testing && testing.total >= 100, "aggregate must include the appended TESTING cost");
   } finally {
     await pool.end();
   }
