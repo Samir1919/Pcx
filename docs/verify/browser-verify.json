@@ -1,17 +1,20 @@
 {
-  "scope": "Admin warranty: create warranty references an authored policy",
+  "scope": "Admin catalog: bulk CSV import of product models + indicative quote ranges",
   "headed": true,
   "tool": "Playwright MCP browser (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "Warranty creation now selects an authored policy (server-derived snapshot + expiry)",
+    "subject": "Import a CSV of product models with indicative quote ranges; missing categories/brands are created and re-running is idempotent by slug",
     "steps": [
-      "sign in as demo admin",
-      "open /warranty",
-      "author a policy (6-month hardware, 180 days)",
-      "verify it appears in the Authored policies list",
-      "verify the Create warranty Policy select is populated from ACTIVE policies (no Ends at field)"
+      "sign in as demo admin (email + password + development MFA code 123456)",
+      "open /catalog",
+      "click the Import CSV tab",
+      "paste a CSV with header category,brand,name,model_code,low_value,high_value and one data row",
+      "submit and verify the banner reads Imported 1 model, skipped 0",
+      "re-submit the same CSV and verify the banner reads Imported 0 models, skipped 1 (idempotent)",
+      "verify no console errors during the flow"
     ]
   },
-  "ranAt": "2026-09-01T05:18:20.484Z"
+  "notes": "Server derives slugs, creates missing categories/brands, and records an indicative price targeting exactly the product model. No console errors observed.",
+  "ranAt": "2026-09-01T05:45:00.000Z"
 }

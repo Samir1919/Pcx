@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { catalogApi } from "../../../lib/catalog-api";
 import SellFlowPanel from "./sell-flow-panel";
 import QuoteConfigPanel from "./quote-config-panel";
+import ImportCsvPanel from "./import-csv-panel";
 
 const resources = [{ key: "categories", label: "Categories" }, { key: "brands", label: "Brands" }, { key: "models", label: "Product models" }, { key: "definitions", label: "Attributes" }];
 const plural = { categories: "categories", brands: "brands", models: "product-models", definitions: "attribute-definitions" };
@@ -264,8 +265,13 @@ export default function CatalogWorkspace() {
         <button role="tab" aria-selected={active === "quotes"} onClick={() => setActive("quotes")}>
           Quotes
         </button>
+        <button role="tab" aria-selected={active === "import"} onClick={() => setActive("import")}>
+          Import CSV
+        </button>
       </div>
-      {active === "quotes" ? (
+      {active === "import" ? (
+        <ImportCsvPanel onImported={load} />
+      ) : active === "quotes" ? (
         <QuoteConfigPanel />
       ) : active === "sellflow" ? (
         <SellFlowPanel categories={data.categories} />

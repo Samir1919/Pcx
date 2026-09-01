@@ -14,6 +14,7 @@ import { createPostgresCatalogRepository } from "../catalog/postgres-catalog-rep
 import { createCatalogService } from "../catalog/catalog-service.mjs";
 import { createPostgresCatalogCommandRepository } from "../catalog/postgres-catalog-command-repository.mjs";
 import { createCatalogCommandService } from "../catalog/catalog-command-service.mjs";
+import { createCatalogImportService } from "../catalog/catalog-import-service.mjs";
 import { createPostgresCatalogSpecCommandRepository } from "../catalog/postgres-catalog-spec-command-repository.mjs";
 import { createCatalogSpecCommandService } from "../catalog/catalog-spec-command-service.mjs";
 import { createPostgresSellRequestRepository } from "../acquisition/postgres-sell-request-repository.mjs";
@@ -185,6 +186,7 @@ export function createAuthRuntime({ pool, allowedOrigins, adminOrigins, abuseCon
   const catalogCommandService = createCatalogCommandService({ authService, repository: createPostgresCatalogCommandRepository({ pool }) });
   const catalogSpecCommandService = createCatalogSpecCommandService({ authService, repository: createPostgresCatalogSpecCommandRepository({ pool }) });
   const indicativePriceService = createIndicativePriceService({ authService, repository: createPostgresIndicativePriceRepository({ pool }) });
+  const catalogImportService = createCatalogImportService({ authService, catalogCommandService, catalogService, indicativePriceService });
   const notificationRepository = createPostgresNotificationRepository({ pool });
   const emitterRepository = createPostgresNotificationRepository({ pool });
   const notificationEmitter = createNotificationEmitter({ repository: emitterRepository });
@@ -261,6 +263,7 @@ export function createAuthRuntime({ pool, allowedOrigins, adminOrigins, abuseCon
     addressService,
     catalogService,
     catalogCommandService,
+    catalogImportService,
     catalogSpecCommandService,
     sellRequestService,
     acquisitionService,
