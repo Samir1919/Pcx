@@ -130,6 +130,15 @@ Re-verified 2026-09-01: several "remaining" items were confirmed complete and mo
 13. **Container scanner** — install/authenticate a real container scanner (docker scout login or trivy) to produce an actual image vulnerability report.
 14. **Production deployment and real provider credentials** remain human-approval hard stops.
 
+## Admin full CRUD + data retention (2026-09-01)
+
+- ~~**Catalog hard delete**~~ — **COMPLETE 2026-09-01** (`DELETE /admin/:kind/:id?purge=1`, FK RESTRICT → 409 `CATALOG_IN_USE`, Delete + Archive buttons).
+- ~~**Listings pause/unpublish/archive**~~ — **COMPLETE 2026-09-01** (domain `pauseListing`/`unpublishListing`/`archiveListing` + repo/service/HTTP + status-aware UI; archive is soft-delete, RESERVED/SOLD never archived).
+- ~~**Provider config delete**~~ — **COMPLETE 2026-09-01** (payment + notification `DELETE /admin/:providers/:provider/config/:mode`).
+- ~~**Scheduled export delete**~~ — **COMPLETE 2026-09-01** (`DELETE /admin/scheduled-exports/:id`).
+- ~~**Data retention**~~ — **COMPLETE 2026-09-01** (ADR 0015; worker 24h-throttled retention job purges closed reservations, delivered notifications, expired/revoked sessions, closed offers — never financial/legal, inventory, inspections, or audit events).
+- Handoff: `docs/handoffs/ADMIN_FULL_CRUD_RETENTION.md`.
+
 
 
 
