@@ -38,10 +38,12 @@ remaining gaps, ordered by dependency.
   developer.bka.sh) + `bkash-http-gateway.mjs` wired into `order-payment-service`
   `resolveGateway`; LIVE mode fails closed (hard stop). Admin payments workspace
   surfaces the sandbox endpoint. Handoff: `docs/handoffs/BKASH_HTTP_ADAPTER.md`.
-- Remaining follow-up: webhook/IPN handling and bKash refund wiring into the
-  returns module. (Redirect callback + execute/query reconciliation is done —
-  `GET /api/v1/payments/bkash/callback?paymentID=…` reconciles server-side via
-  the gateway `execute()` and confirms only on CONFIRMED.)
+- Remaining follow-up: **DONE (2026-09-01)** — server-to-server IPN
+  (`POST /api/v1/payments/bkash/ipn`, same server-authoritative reconcile as the
+  redirect callback) and bKash refund wiring into returns: migration 0046 stores
+  `payments.provider_trx_id`; the returns module resolves the bKash refund gateway
+  from active credentials + the order payment context (`getRefundContextByOrder`)
+  and refunds via bKash when SANDBOX is active, otherwise sandbox fallback.
 
 ## 4. E5 inspection follow-ups
 
@@ -112,15 +114,24 @@ remaining gaps, ordered by dependency.
 
 ## 11. E19 media
 
-- Status: **PARTIAL (2026-09-01)** — S3/MinIO object-storage adapter
+- Status: **COMPLETE (2026-09-01)** — S3/MinIO object-storage adapter
   (`s3-media-storage.mjs`, `minio` client, env-driven via `OBJECT_STORAGE_*`,
-  local-disk fallback) is done; uploads now persist to the `pcx-local` MinIO
-  bucket. Remaining: a real malware gate (ClamAV) at the object-storage level —
-  the E17 fail-closed signature scanner is the current baseline.
+  local-disk fallback) is done; uploads persist to the `pcx-local` MinIO bucket.
+  The **real ClamAV malware gate** is now wired: `clamav-scanner.mjs` speaks the
+  clamd `INSTREAM` protocol and is fail-closed (a composite scanner falls back to
+  the E17 signature scanner when the daemon is unreachable). Opt-in via
+  `CLAMAV_ENDPOINT`; an optional `clamav` service is in docker-compose. The clamd
+  daemon itself is provisioned by the operator (opt-in), not committed.
 
 ## 12. Bulk CSV import
 
-- Scope: catalog models/attributes and indicative quote ranges; parser + mapping + idempotent batch insert.
+- Status: **COMPLETE (2026-09-01)** — `POST /api/v1/admin/catalog/import`
+  (CATALOG_MANAGE + PRICING_MANAGE, CSRF + Origin gated) parses a
+  `category,brand,name,model_code,low_value,high_value` CSV, derives slugs, creates
+  missing categories/brands, skips already-imported models by slug (idempotent),
+  and records a model-level indicative quote range. Admin catalog workspace gains
+  an Import CSV tab (file picker + textarea form) surfacing created/skipped counts.
+  Headed browser evidence: `docs/verify/browser-verify.json`.
 
 ## 13. Container scanner
 
