@@ -131,6 +131,10 @@ export function createListingService({ authService, repository, auditLogService,
       const row = await repository.findPublicPassport(pcxItemId);
       if (!row) return null;
       const specifications = await repository.listModelSpecifications(row.model_id);
+      const gradeLabel = { A_PLUS: "A+", A: "A", B: "B", C: "C", REJECT: "Reject" }[row.condition_grade];
+      const verificationSummary = row.condition_grade != null
+        ? `Independently inspected and verified by PCX: ${gradeLabel ?? row.condition_grade} condition, ${row.current_health_score ?? "n/a"}/100 health.`
+        : null;
       try {
         return createPublicPassport({
           pcxItemId: row.pcx_item_id,
@@ -146,7 +150,8 @@ export function createListingService({ authService, repository, auditLogService,
           status: row.status,
           publishedAt: row.published_at,
           specifications: Array.isArray(specifications) ? specifications : [],
-          mediaIds: Array.isArray(row.media_ids) ? row.media_ids : []
+          mediaIds: Array.isArray(row.media_ids) ? row.media_ids : [],
+          verificationSummary
         });
       } catch (error) {
         console.error("[listing] publicPassport construction failed", { pcxItemId, error });

@@ -52,8 +52,12 @@ remaining gaps, ordered by dependency.
 
 ## 5. E7/E8 passport & storefront
 
-- Scope: listing QR (stable passport URL), verification summary on passport,
-  dedicated search index/recommendation.
+- Status: **PARTIAL COMPLETE (2026-09-01)** — verification summary (server-derived
+  grade + health narrative on the public passport) and listing QR (scan-to-open
+  stable passport URL, `qrcode` SVG rendered on the passport page) are done.
+  Handoff: `docs/handoffs/PASSPORT_QR_SUMMARY.md`.
+- Remaining: dedicated search index / recommendation (large, separate
+  infrastructure feature).
 
 ## 6. E9 order/payment allocation
 

@@ -111,6 +111,9 @@ async function run() {
       await page.waitForLoadState("networkidle");
       const bodyText = await page.locator("body").innerText({ timeout: 15_000 }).catch(() => "");
       record("passport-open", /PCX item|Not graded|Status/.test(bodyText), href);
+      // The passport renders a QR encoding the stable passport URL.
+      const qrCount = await page.locator(".qr svg").count().catch(() => 0);
+      record("passport-qr", qrCount > 0, qrCount > 0 ? "QR rendered" : "QR missing");
       // Buy flow (guest): should offer sign-in, not throw.
       const buyBtn = page.getByRole("button", { name: "Buy Now" });
       if (await buyBtn.count()) {
