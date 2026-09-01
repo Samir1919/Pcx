@@ -109,7 +109,11 @@ remaining gaps, ordered by dependency.
 
 ## 11. E19 media
 
-- Scope: S3/MinIO storage adapter swap (currently local `MEDIA_ROOT`), malware scan integration.
+- Status: **PARTIAL (2026-09-01)** — S3/MinIO object-storage adapter
+  (`s3-media-storage.mjs`, `minio` client, env-driven via `OBJECT_STORAGE_*`,
+  local-disk fallback) is done; uploads now persist to the `pcx-local` MinIO
+  bucket. Remaining: a real malware gate (ClamAV) at the object-storage level —
+  the E17 fail-closed signature scanner is the current baseline.
 
 ## 12. Bulk CSV import
 
