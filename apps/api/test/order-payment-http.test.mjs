@@ -66,6 +66,14 @@ test("bKash redirect callback reconciles via GET with paymentID and maps errors"
   assert.equal(invalidState.status, 409);
 });
 
+test("bKash IPN reconciles via POST with a JSON paymentID body", async () => {
+  const ok = await invoke("/api/v1/payments/bkash/ipn", { method: "POST", body: { paymentID: "pay-1" } });
+  assert.equal(ok.status, 200);
+
+  assert.equal((await invoke("/api/v1/payments/bkash/ipn", { method: "GET" })).status, 405);
+  assert.equal((await invoke("/api/v1/payments/bkash/ipn", { method: "POST", body: {} })).status, 400);
+});
+
 test("order creation maps the double-sell guard to 409 ITEM_UNAVAILABLE", async () => {
   const response = await invoke("/api/v1/orders", {
     body: { items: [{ inventoryItemId: "i", productModelId: "m", pcxItemId: "p", productName: "n", unitPrice: 1 }] },

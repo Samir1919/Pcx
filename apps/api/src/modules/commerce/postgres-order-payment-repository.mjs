@@ -43,6 +43,7 @@ function payment(row) {
     direction: row.payment_direction,
     provider: row.provider,
     providerTransactionId: row.provider_transaction_id,
+    providerTrxId: row.provider_trx_id ?? null,
     method: row.method,
     amount: Number(row.amount),
     status: row.status,
@@ -147,32 +148,42 @@ export function createPostgresOrderPaymentRepository({ pool }) {
     // already proved the money moved, so the server records the provider fact.
     // Still guarded by the same INITIATED -> CONFIRMED transition + double-sell
     // advance (order CONFIRMED, listings SOLD) inside one transaction.
-    async reconcilePayment(providerTransactionId, now) {
-      return markConfirmed(pool, providerTransactionId, now, null);
+    async reconcilePayment(providerTransactionId, now, trxId = null) {
+      return markConfirmed(pool, providerTransactionId, now, null, trxId);
     },
 
     async findPaymentByProviderTransactionId(providerTransactionId) {
       const result = await pool.query(
-        `SELECT id, order_id, payment_direction, provider, provider_transaction_id, method, amount, status, initiated_at, confirmed_at
+        `SELECT id, order_id, payment_direction, provider, provider_transaction_id, provider_trx_id, method, amount, status, initiated_at, confirmed_at
          FROM payments WHERE provider_transaction_id = $1`,
         [providerTransactionId]
+      );
+      return result.rows[0] ? payment(result.rows[0]) : null;
+    },
+
+    async findPaymentByOrderId(orderId) {
+      const result = await pool.query(
+        `SELECT id, order_id, payment_direction, provider, provider_transaction_id, provider_trx_id, method, amount, status, initiated_at, confirmed_at
+         FROM payments WHERE order_id::text = $1 AND direction = 'INBOUND'
+         ORDER BY initiated_at DESC LIMIT 1`,
+        [orderId]
       );
       return result.rows[0] ? payment(result.rows[0]) : null;
     }
   });
 }
 
-async function markConfirmed(pool, providerTransactionId, now, userId) {
+async function markConfirmed(pool, providerTransactionId, now, userId, trxId = null) {
   return transaction(pool, async (client) => {
     const where = userId != null
       ? "provider_transaction_id = $1 AND status = 'INITIATED' AND order_id IN (SELECT id FROM orders WHERE user_id = $2)"
       : "provider_transaction_id = $1 AND status = 'INITIATED'";
     const params = userId != null ? [providerTransactionId, userId, now] : [providerTransactionId, now];
     const updated = await client.query(
-      `UPDATE payments SET status = 'CONFIRMED', confirmed_at = $${params.length}
+      `UPDATE payments SET status = 'CONFIRMED', confirmed_at = $${params.length}, provider_trx_id = COALESCE(provider_trx_id, $${params.length + 1})
        WHERE ${where}
-       RETURNING id, order_id, payment_direction, provider, provider_transaction_id, method, amount, status, initiated_at, confirmed_at`,
-      params
+       RETURNING id, order_id, payment_direction, provider, provider_transaction_id, provider_trx_id, method, amount, status, initiated_at, confirmed_at`,
+      [...params, trxId]
     );
     if (updated.rowCount !== 1) return { status: "not_confirmable" };
     const orderId = updated.rows[0].order_id;

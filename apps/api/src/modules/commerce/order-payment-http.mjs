@@ -74,6 +74,7 @@ export async function handleOrderPaymentRequest(request, response, { orderPaymen
   const isPaymentCreate = url.pathname === paymentsPrefix;
   const isPaymentConfirm = url.pathname === `${paymentsPrefix}/confirm`;
   const isBkashCallback = url.pathname === `${paymentsPrefix}/bkash/callback`;
+  const isBkashIpn = url.pathname === `${paymentsPrefix}/bkash/ipn`;
 
   // bKash redirect callback: GET with ?paymentID=... after the customer completes
   // the checkout. No auth/CSRF — the gateway execute() is server-authoritative.
@@ -81,6 +82,25 @@ export async function handleOrderPaymentRequest(request, response, { orderPaymen
     if (!orderPaymentService) { send(response, 503, failure("ORDER_PAYMENT_UNAVAILABLE", "Orders and payments are temporarily unavailable", requestId)); return true; }
     if (request.method !== "GET") { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
     const paymentId = url.searchParams.get("paymentID");
+    if (!paymentId || typeof paymentId !== "string") { send(response, 400, failure("INVALID_REQUEST", "paymentID is required", requestId)); return true; }
+    try {
+      send(response, 200, { data: await orderPaymentService.reconcileBkashPayment(paymentId) });
+    } catch (error) {
+      const [status, code, message] = map(error);
+      send(response, status, failure(code, message, requestId));
+    }
+    return true;
+  }
+
+  // bKash IPN (server-to-server instant payment notification): POST with a JSON
+  // body carrying the paymentID. Same server-authoritative reconciliation as the
+  // redirect callback, just delivered machine-to-machine.
+  if (isBkashIpn) {
+    if (!orderPaymentService) { send(response, 503, failure("ORDER_PAYMENT_UNAVAILABLE", "Orders and payments are temporarily unavailable", requestId)); return true; }
+    if (request.method !== "POST") { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
+    let body = null;
+    try { body = await jsonBody(request); } catch { body = null; }
+    const paymentId = body?.paymentID;
     if (!paymentId || typeof paymentId !== "string") { send(response, 400, failure("INVALID_REQUEST", "paymentID is required", requestId)); return true; }
     try {
       send(response, 200, { data: await orderPaymentService.reconcileBkashPayment(paymentId) });

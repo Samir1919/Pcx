@@ -8,7 +8,7 @@ export class ReturnRequestError extends Error {
 
 const createFields = new Set(["orderItemId", "reasonCode", "customerNotes"]);
 
-export function createReturnRequestService({ authService, repository, id = randomUUID, clock = () => new Date(), refundGateway = createSandboxRefundGateway() }) {
+export function createReturnRequestService({ authService, repository, id = randomUUID, clock = () => new Date(), refundGateway = createSandboxRefundGateway(), refundResolver = null }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
   for (const method of ["create", "approve", "markReceived", "settleRefund", "findById", "findRefundableByOrderItem", "orderItemInventoryId", "findPrimarySerialByOrderItem", "list"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
   if (!refundGateway || typeof refundGateway.refund !== "function") throw new TypeError("refundGateway.refund is required");
@@ -34,6 +34,18 @@ export function createReturnRequestService({ authService, repository, id = rando
   function exact(input, allowed) {
     for (const key of Object.keys(input ?? {})) if (!allowed.has(key)) throw new ReturnRequestError("invalid_input");
     return input ?? {};
+  }
+
+  // Resolve the refund through the injected resolver (bKash from active
+  // credentials + payment context) or fall back to the sandbox gateway. The
+  // resolver returns the server-authoritative { provider, providerTransactionId,
+  // providerStatus } recorded on the return.
+  async function resolveRefund({ orderId, amount, reference }) {
+    if (!refundResolver) {
+      const outcome = await refundGateway.refund({ amount, currency: "BDT", reference });
+      return { provider: "SANDBOX", providerTransactionId: outcome.providerTransactionId, providerStatus: outcome.status };
+    }
+    return refundResolver({ orderId, amount, reference });
   }
 
   return Object.freeze({
@@ -106,10 +118,10 @@ export function createReturnRequestService({ authService, repository, id = rando
       // return + amount, so a client retry reuses the same reference and the
       // gateway dedupes it instead of issuing a duplicate disbursement.
       const reference = `refund-${returnId}-${amount}`;
+      const orderId = typeof repository.orderIdByOrderItem === "function" ? await repository.orderIdByOrderItem(existing.orderItemId) : null;
       let provider = { provider: "SANDBOX", providerTransactionId: null, providerStatus: "FAILED" };
       try {
-        const outcome = await refundGateway.refund({ amount, currency: "BDT", reference });
-        provider = { provider: "SANDBOX", providerTransactionId: outcome.providerTransactionId, providerStatus: outcome.status };
+        provider = await resolveRefund({ orderId, amount, reference });
       } catch {
         // Gateway failure never rolls back the REFUNDED transition: the
         // authorized financial fact persists and the FAILED provider status is

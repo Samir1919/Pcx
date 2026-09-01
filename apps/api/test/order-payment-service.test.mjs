@@ -14,6 +14,7 @@ function fixture(overrides = {}) {
     async createPayment(record) { calls.payments.push(record); return record; },
     async confirmPayment(txn, userId, now) { calls.confirms.push({ txn, userId, now }); return { status: "confirmed", record: { id: "p1", providerTransactionId: txn, status: PaymentStatus.CONFIRMED } }; },
     async findPaymentByProviderTransactionId(txn) { return txn === "bkash-pay-1" ? { id: "p1", providerTransactionId: txn, status: PaymentStatus.INITIATED } : null; },
+    async findPaymentByOrderId() { return null; },
     async reconcilePayment(txn, now) { calls.reconciles = (calls.reconciles ?? []).concat([{ txn, now }]); return { status: "confirmed", record: { id: "p1", providerTransactionId: txn, status: PaymentStatus.CONFIRMED } }; },
     ...overrides.repository
   };

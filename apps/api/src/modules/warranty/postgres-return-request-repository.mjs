@@ -112,6 +112,13 @@ export function createPostgresReturnRequestRepository({ pool }) {
       return result.rows[0]?.inventory_item_id ?? null;
     },
 
+    // Resolve the order id for an order item so the returns module can ask the
+    // commerce module for the payment refund context (never a raw cross-module query).
+    async orderIdByOrderItem(orderItemId) {
+      const result = await pool.query("SELECT order_id FROM order_items WHERE id::text = $1", [orderItemId]);
+      return result.rows[0]?.order_id ?? null;
+    },
+
     // Resolve the sold unit's primary serial through order_items → inventory_items
     // → serial_identifiers. The normalized value is the authoritative match key;
     // full display serials never cross the public boundary.

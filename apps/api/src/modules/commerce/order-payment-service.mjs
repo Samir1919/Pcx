@@ -16,7 +16,7 @@ const paymentFields = new Set(["orderId", "direction", "method", "amount"]);
 
 export function createOrderPaymentService({ authService, repository, id = randomUUID, clock = () => new Date(), gateway = createSandboxPaymentGateway(), paymentProviderConfigService, notificationEmitter = null, provider = PaymentProvider.BKASH, bkashGatewayFactory = (credentials) => createBkashHttpGateway({ adapter: createBkashHttpAdapter({ credentials }) }) }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  for (const method of ["createOrderWithItems", "createPayment", "confirmPayment", "reconcilePayment", "findPaymentByProviderTransactionId"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  for (const method of ["createOrderWithItems", "createPayment", "confirmPayment", "reconcilePayment", "findPaymentByProviderTransactionId", "findPaymentByOrderId"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
   if (!gateway || typeof gateway.charge !== "function") throw new TypeError("gateway.charge is required");
 
   // When a payment provider config service is injected, build a real gateway
@@ -209,9 +209,18 @@ export function createOrderPaymentService({ authService, repository, id = random
         throw new OrderPaymentError("invalid_state");
       }
       if (executed.status !== "CONFIRMED") throw new OrderPaymentError("invalid_state");
-      const result = await repository.reconcilePayment(providerTransactionId, clock().toISOString());
+      const result = await repository.reconcilePayment(providerTransactionId, clock().toISOString(), executed.trxID ?? null);
       if (result.status !== "confirmed") throw new OrderPaymentError("invalid_state");
       return result.record;
+    },
+
+    // Composition-root only (never exposed over HTTP): returns the bKash refund
+    // context (paymentID + trxID) for an order so the returns module can reverse
+    // the exact transaction without reaching into the commerce tables directly.
+    async getRefundContextByOrder(orderId) {
+      const payment = await repository.findPaymentByOrderId(orderId);
+      if (!payment) return null;
+      return Object.freeze({ paymentId: payment.providerTransactionId, trxId: payment.providerTrxId });
     },
 
     // Composition-root only (never exposed over HTTP): the logistics module

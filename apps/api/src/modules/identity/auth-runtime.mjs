@@ -65,6 +65,9 @@ import { createPostgresAuditLogRepository } from "../audit/postgres-audit-log-re
 import { createAuditLogService } from "../audit/audit-log-service.mjs";
 import { createPostgresPaymentProviderConfigRepository } from "../payment/postgres-payment-provider-config-repository.mjs";
 import { createPaymentProviderConfigService } from "../payment/payment-provider-config-service.mjs";
+import { PaymentProvider, createSandboxRefundGateway } from "@pcx/domain";
+import { createBkashHttpAdapter } from "../payment/bkash-http-adapter.mjs";
+import { createBkashHttpGateway } from "../payment/bkash-http-gateway.mjs";
 import { createPostgresIndicativePriceRepository } from "../pricing/postgres-indicative-price-repository.mjs";
 import { createIndicativePriceService } from "../pricing/indicative-price-service.mjs";
 import { createPostgresSellTaxonomyRepository } from "../catalog/postgres-sell-taxonomy-repository.mjs";
@@ -222,7 +225,28 @@ export function createAuthRuntime({ pool, allowedOrigins, adminOrigins, abuseCon
     orderUserResolver: async ({ orderId }) => orderPaymentService.getUserIdByOrder(orderId)
   });
 
-  const returnRequestService = createReturnRequestService({ authService, repository: createPostgresReturnRequestRepository({ pool }) });
+  const returnRequestService = createReturnRequestService({
+    authService,
+    repository: createPostgresReturnRequestRepository({ pool }),
+    // The returns module resolves a refund through bKash when its SANDBOX
+    // credentials are active AND the order's payment has a completed trxID,
+    // otherwise it falls back to the sandbox refund gateway. The payment refund
+    // context is read through the commerce module's public method (never a raw
+    // cross-module query).
+    refundResolver: async ({ orderId, amount, reference }) => {
+      const active = await paymentProviderConfigService.getActiveCredentials(PaymentProvider.BKASH);
+      if (active?.mode === "SANDBOX" && orderId) {
+        const context = await orderPaymentService.getRefundContextByOrder(orderId);
+        if (context?.paymentId && context?.trxId) {
+          const gateway = createBkashHttpGateway({ adapter: createBkashHttpAdapter({ credentials: active.credentials }) });
+          const outcome = await gateway.refund({ amount, currency: "BDT", reference, paymentId: context.paymentId, trxId: context.trxId });
+          return { provider: "BKASH", providerTransactionId: outcome.providerTransactionId, providerStatus: outcome.status };
+        }
+      }
+      const outcome = await createSandboxRefundGateway().refund({ amount, currency: "BDT", reference });
+      return { provider: "SANDBOX", providerTransactionId: outcome.providerTransactionId, providerStatus: outcome.status };
+    }
+  });
   const warrantyPolicyRepository = createPostgresWarrantyPolicyRepository({ pool });
   const warrantyClaimService = createWarrantyClaimService({ authService, repository: createPostgresWarrantyClaimRepository({ pool }), policyRepository: warrantyPolicyRepository });
   const warrantyPolicyService = createWarrantyPolicyService({ authService, repository: warrantyPolicyRepository });
