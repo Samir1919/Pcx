@@ -37,7 +37,9 @@ test("order creation is customer-gated and derives totals from server-owned unit
     ]
   });
   assert.equal(result.subtotal, 1500);
-  assert.equal(result.totalAmount, 1500);
+  assert.equal(result.shippingAmount, 60);
+  assert.equal(result.taxAmount, 75);
+  assert.equal(result.totalAmount, 1635); // 1500 + 60 shipping + 75 VAT
   assert.equal(calls.items.length, 2);
   assert.equal(calls.orders[0].userId, "customer-1");
 

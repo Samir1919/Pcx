@@ -59,20 +59,22 @@ function optionalMoney(value, name) {
 }
 
 // Order totals are server-computed: the client never authors price/totals.
-// Shipping and discount are non-negative; total = subtotal + shipping - discount.
+// Shipping and discount are non-negative; total = subtotal + shipping + tax - discount.
 export function createOrder({
   id,
   userId,
   subtotal,
   shippingAmount = 0,
+  taxAmount = 0,
   discountAmount = 0,
   currency = "BDT",
   placedAt = new Date()
 }) {
   const sub = money(subtotal, "subtotal");
   const ship = optionalMoney(shippingAmount, "shippingAmount");
+  const tax = optionalMoney(taxAmount, "taxAmount");
   const disc = optionalMoney(discountAmount, "discountAmount");
-  const total = sub + ship - disc;
+  const total = sub + ship + tax - disc;
   if (total < 0) throw new TypeError("order total cannot be negative");
   return Object.freeze({
     id: requiredString(id, "id"),
@@ -82,10 +84,22 @@ export function createOrder({
     currency: requiredString(currency, "currency"),
     subtotal: sub,
     shippingAmount: ship,
+    taxAmount: tax,
     discountAmount: disc,
     totalAmount: total,
     placedAt: timestamp(placedAt, "placedAt")
   });
+}
+
+// Server-owned shipping/tax allocation, derived from the subtotal — never client-
+// supplied. Shipping is a flat rate, free above a threshold; tax is a flat VAT
+// percentage of the subtotal. The service wires this into createOrder so the
+// totals are always computed by the server, not re-derived by the UI.
+export function deriveOrderAllocation(subtotal, { shippingRate = 60, freeShippingThreshold = 5000, taxRate = 0.05 } = {}) {
+  const sub = money(subtotal, "subtotal");
+  const shippingAmount = sub >= freeShippingThreshold ? 0 : shippingRate;
+  const taxAmount = Math.round(sub * taxRate * 100) / 100;
+  return Object.freeze({ shippingAmount, taxAmount });
 }
 
 export function createOrderItemSnapshot({

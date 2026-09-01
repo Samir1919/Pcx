@@ -1,13 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { confirmPayment, createOrder, createOrderItemSnapshot, createPayment, OrderStatus, PaymentDirection, PaymentMethod, PaymentStatus } from "../src/index.mjs";
+import { confirmPayment, createOrder, createOrderItemSnapshot, createPayment, deriveOrderAllocation, OrderStatus, PaymentDirection, PaymentMethod, PaymentStatus } from "../src/index.mjs";
 
 test("order totals are server-computed and never negative", () => {
-  const order = createOrder({ id: "o1", userId: "u1", subtotal: 1000, shippingAmount: 100, discountAmount: 50, placedAt: "2026-08-16T12:00:00.000Z" });
-  assert.equal(order.totalAmount, 1050);
+  const order = createOrder({ id: "o1", userId: "u1", subtotal: 1000, shippingAmount: 100, taxAmount: 50, discountAmount: 50, placedAt: "2026-08-16T12:00:00.000Z" });
+  assert.equal(order.totalAmount, 1100); // 1000 + 100 + 50 - 50
+  assert.equal(order.taxAmount, 50);
   assert.equal(order.status, OrderStatus.PENDING_PAYMENT);
   assert.throws(() => createOrder({ id: "o", userId: "u", subtotal: 100, discountAmount: 500 }), /negative/);
   assert.throws(() => createOrder({ id: "o", userId: "u", subtotal: -1 }), /non-negative/);
+});
+
+test("deriveOrderAllocation computes server-owned shipping and tax from subtotal", () => {
+  // Free shipping above the threshold; 5% VAT rounded to 2 decimals.
+  assert.deepEqual(deriveOrderAllocation(1500), { shippingAmount: 60, taxAmount: 75 });
+  assert.deepEqual(deriveOrderAllocation(6000), { shippingAmount: 0, taxAmount: 300 });
+  assert.deepEqual(deriveOrderAllocation(100), { shippingAmount: 60, taxAmount: 5 });
 });
 
 test("order item snapshot preserves sold facts and rejects negative price", () => {

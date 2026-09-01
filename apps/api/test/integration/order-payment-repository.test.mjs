@@ -41,7 +41,7 @@ test("order/payment repository persists order, snapshot items, and idempotent pa
     );
 
     const { order, items: createdItems } = await repository.createOrderWithItems(
-      { id: orderId, userId: customer, currency: "BDT", subtotal: 1500, shippingAmount: 0, discountAmount: 0, totalAmount: 1500, placedAt: now },
+      { id: orderId, userId: customer, currency: "BDT", subtotal: 1500, shippingAmount: 0, taxAmount: 0, discountAmount: 0, totalAmount: 1500, placedAt: now },
       [{ id: snapshotId, orderId, inventoryItemId: itemA, listingId: null, productModelId, pcxItemId: "PCX-TEST-ORDER", productName: "GPU", grade: null, healthScore: null, unitPrice: 1500, specs: [] }]
     );
     assert.equal(order.userId, customer);
@@ -55,7 +55,7 @@ test("order/payment repository persists order, snapshot items, and idempotent pa
     // A second order for the same physical item must be rejected atomically.
     await assert.rejects(
       repository.createOrderWithItems(
-        { id: "9e000000-0000-4000-8000-000000000010", userId: customer, currency: "BDT", subtotal: 1500, shippingAmount: 0, discountAmount: 0, totalAmount: 1500, placedAt: now },
+        { id: "9e000000-0000-4000-8000-000000000010", userId: customer, currency: "BDT", subtotal: 1500, shippingAmount: 0, taxAmount: 0, discountAmount: 0, totalAmount: 1500, placedAt: now },
         [{ id: "9e000000-0000-4000-8000-000000000011", orderId: "9e000000-0000-4000-8000-000000000010", inventoryItemId: itemA, listingId: null, productModelId, pcxItemId: "PCX-TEST-ORDER", productName: "GPU", grade: null, healthScore: null, unitPrice: 1500, specs: [] }]
       ),
       (error) => error.code === "item_unavailable"

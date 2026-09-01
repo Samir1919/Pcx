@@ -27,6 +27,7 @@ function order(row) {
     currency: row.currency,
     subtotal: Number(row.subtotal),
     shippingAmount: Number(row.shipping_amount),
+    taxAmount: Number(row.tax_amount),
     discountAmount: Number(row.discount_amount),
     totalAmount: Number(row.total_amount),
     placedAt: row.placed_at ? new Date(row.placed_at).toISOString() : null,
@@ -69,10 +70,10 @@ export function createPostgresOrderPaymentRepository({ pool }) {
       return transaction(pool, async (client) => {
         const orderNo = await client.query("SELECT 'ORD-' || to_char(nextval('orders_no_seq'), 'FM000000') AS no");
         const inserted = await client.query(
-          `INSERT INTO orders(id, order_no, user_id, status, currency, subtotal, shipping_amount, discount_amount, total_amount, placed_at, created_at, updated_at)
-           VALUES ($1, $2, $3, 'PENDING_PAYMENT', $4, $5, $6, $7, $8, $9, $9, $9)
-           RETURNING id, order_no, user_id, status, currency, subtotal, shipping_amount, discount_amount, total_amount, placed_at, created_at, updated_at`,
-          [record.id, orderNo.rows[0].no, record.userId, record.currency, record.subtotal, record.shippingAmount, record.discountAmount, record.totalAmount, record.placedAt]
+          `INSERT INTO orders(id, order_no, user_id, status, currency, subtotal, shipping_amount, tax_amount, discount_amount, total_amount, placed_at, created_at, updated_at)
+           VALUES ($1, $2, $3, 'PENDING_PAYMENT', $4, $5, $6, $7, $8, $9, $10, $10, $10)
+           RETURNING id, order_no, user_id, status, currency, subtotal, shipping_amount, tax_amount, discount_amount, total_amount, placed_at, created_at, updated_at`,
+          [record.id, orderNo.rows[0].no, record.userId, record.currency, record.subtotal, record.shippingAmount, record.taxAmount, record.discountAmount, record.totalAmount, record.placedAt]
         );
         const orderItems = [];
         for (const snapshot of items) {

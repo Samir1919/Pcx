@@ -973,6 +973,36 @@ a {
   line-height: 1.5;
 }
 
+/* ---------- Order breakdown (server-derived totals) ---------- */
+.orderBreakdown {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+}
+
+.orderBreakdown div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: .875rem;
+}
+
+.orderBreakdown dt {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.orderBreakdown dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.orderBreakdown .orderTotal {
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-1);
+  font-weight: 800;
+}
+
 /* ---------- Buy box ---------- */
 .buyBox {
   margin-top: var(--space-4);

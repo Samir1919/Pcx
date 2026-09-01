@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createOrder, createOrderItemSnapshot, createPayment } from "@pcx/domain";
+import { createOrder, createOrderItemSnapshot, createPayment, deriveOrderAllocation } from "@pcx/domain";
 import { createSandboxPaymentGateway, PaymentMethod, PaymentProvider, Role } from "@pcx/domain";
 import { createBkashHttpAdapter } from "../payment/bkash-http-adapter.mjs";
 import { createBkashHttpGateway } from "../payment/bkash-http-gateway.mjs";
@@ -100,9 +100,10 @@ export function createOrderPaymentService({ authService, repository, id = random
       }
 
       const subtotal = items.reduce((sum, item) => sum + item.unitPrice, 0);
+      const allocation = deriveOrderAllocation(subtotal);
       let order;
       try {
-        order = createOrder({ id: orderId, userId: identity.userId, subtotal, placedAt: clock() });
+        order = createOrder({ id: orderId, userId: identity.userId, subtotal, shippingAmount: allocation.shippingAmount, taxAmount: allocation.taxAmount, placedAt: clock() });
       } catch {
         throw new OrderPaymentError("invalid_input");
       }

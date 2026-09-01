@@ -61,8 +61,11 @@ remaining gaps, ordered by dependency.
 
 ## 6. E9 order/payment allocation
 
-- Scope: server-derived shipping/tax allocation on orders; rendered read-only
-  on admin + customer surfaces (no UI re-derivation).
+- Status: **COMPLETE (2026-09-01)** — server-derived shipping/tax on orders
+  (`deriveOrderAllocation`: flat shipping free above ৳5000 + 5% VAT, migration
+  `0039_orders_tax.sql` incl. `orders_check` totals-invariant update), rendered
+  read-only in the customer order breakdown (subtotal/shipping/tax/total).
+  Handoff: `docs/handoffs/ORDER_TAX_ALLOCATION.md`.
 
 ## 7. E11 fulfilment
 

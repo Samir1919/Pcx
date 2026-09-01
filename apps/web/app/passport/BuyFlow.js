@@ -13,6 +13,7 @@ export default function BuyFlow({ listing, onDone }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [placedOrder, setPlacedOrder] = useState(null);
   const [showLogin, setShowLogin] = useState(false);
   const [contact, setContact] = useState("");
   const [password, setPassword] = useState("");
@@ -75,6 +76,7 @@ export default function BuyFlow({ listing, onDone }) {
         amount: order.data.totalAmount
       });
       setSuccess(`Order placed: ${order.data.orderNo ?? order.data.id}. Pay cash on delivery.`);
+      setPlacedOrder(order.data);
       if (onDone) onDone(order.data);
     } catch (err) {
       setError(err.message);
@@ -111,6 +113,14 @@ export default function BuyFlow({ listing, onDone }) {
       <p className="meta">Signed in as <b>{identity.email ?? identity.phone ?? "customer"}</b></p>
       {message("error", error)}
       {message("", success)}
+      {placedOrder && (
+        <dl className="orderBreakdown">
+          <div><dt>Subtotal</dt><dd>{money(placedOrder.subtotal)}</dd></div>
+          <div><dt>Shipping</dt><dd>{money(placedOrder.shippingAmount)}</dd></div>
+          <div><dt>Tax (VAT)</dt><dd>{money(placedOrder.taxAmount)}</dd></div>
+          <div className="orderTotal"><dt>Total</dt><dd>{money(placedOrder.totalAmount)}</dd></div>
+        </dl>
+      )}
       {!success && (
         <button className="primary" type="button" disabled={busy} onClick={handleBuy}>
           {busy ? "Processing…" : `Buy Now · ${money(listing.price)}`}

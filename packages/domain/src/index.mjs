@@ -23,7 +23,7 @@ export { approveInspection, computeHealthScore, ConditionGrade, createInspection
 export { createListing, createListingPrice, createPublicListing, createPublicPassport, ListingStatus, publishListing } from "./listing/listing.mjs";
 export { convertReservation, createReservation, isExpiredReservation, ReservationStatus } from "./commerce/reservation.mjs";
 export { CartStatus, createCart, createCartItem } from "./commerce/cart.mjs";
-export { confirmPayment, createOrder, createOrderItemSnapshot, createPayment, OrderStatus, PaymentDirection, PaymentMethod, PaymentStatus } from "./commerce/order-payment.mjs";
+export { confirmPayment, createOrder, createOrderItemSnapshot, createPayment, deriveOrderAllocation, OrderStatus, PaymentDirection, PaymentMethod, PaymentStatus } from "./commerce/order-payment.mjs";
 export { createNotification, markNotificationFailed, markNotificationSent, NotificationChannel, NotificationStatus } from "./notification/notification.mjs";
 export { createShipment, createShipmentEvent, markDelivered, markReturned, markShipped, ShipmentStatus } from "./logistics/shipment.mjs";
 export { createPaymentProviderConfig, maskCredentials, normalizeCredentials, PaymentProvider, PaymentProviderMode } from "./payment/payment-provider-config.mjs";
