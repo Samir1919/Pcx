@@ -82,10 +82,11 @@ remaining gaps, ordered by dependency.
   CRUD + archive), claim inspections (`claims.inspection_id`,
   `linkClaimInspection`, `POST /api/v1/admin/claims/:id/inspection`), and carrier
   pickup (`claims.shipment_id`, `linkClaimShipment`, `POST
-  /api/v1/admin/claims/:id/shipment`). Cost accounting already exists via
+  /api/v1/admin/claims/:id/shipment`). `createWarranty` now references an authored
+  policy (`policyId`) and the server derives the snapshot + expiry via
+  `createWarrantyFromPolicy` (server-owned, client never supplies
+  `policySnapshot`/`endsAt`). Cost accounting already exists via
   `claim_resolutions.cost_amount`. Handoff: `docs/handoffs/E13_WARRANTY_POLICY.md`.
-- Remaining (minor): wiring `createWarranty` to reference an authored policy
-  instead of the manual `{}` snapshot.
 
 ## 9. E14/E16 reporting & audit
 
