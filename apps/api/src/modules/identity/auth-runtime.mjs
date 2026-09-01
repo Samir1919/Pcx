@@ -37,6 +37,7 @@ import { createReservationService } from "../commerce/reservation-service.mjs";
 import { createPostgresCartRepository } from "../commerce/postgres-cart-repository.mjs";
 import { createCartService } from "../commerce/cart-service.mjs";
 import { createLocalMediaStorage } from "../media/local-media-storage.mjs";
+import { createS3MediaStorageFromEnv } from "../media/s3-media-storage.mjs";
 import { createPostgresMediaRepository } from "../media/postgres-media-repository.mjs";
 import { createSignatureMalwareScanner } from "../media/malware-scanner.mjs";
 import { createMediaService } from "../media/media-service.mjs";
@@ -199,7 +200,10 @@ export function createAuthRuntime({ pool, allowedOrigins, adminOrigins, abuseCon
   const merchantListingService = createMerchantListingService({ authService, repository: createMerchantListingRepository({ pool }) });
   const reservationService = createReservationService({ authService, listingRepository, reservationRepository: createPostgresReservationRepository({ pool }) });
   const cartService = createCartService({ authService, listingRepository, cartRepository: createPostgresCartRepository({ pool }) });
-  const mediaService = createMediaService({ authService, repository: createPostgresMediaRepository({ pool }), storage: createLocalMediaStorage(), malwareScanner: createSignatureMalwareScanner() });
+  // Media storage: object storage (S3/MinIO) when OBJECT_STORAGE_ENDPOINT is
+  // configured, otherwise local disk. The media service is storage-agnostic.
+  const mediaStorage = createS3MediaStorageFromEnv() ?? createLocalMediaStorage();
+  const mediaService = createMediaService({ authService, repository: createPostgresMediaRepository({ pool }), storage: mediaStorage, malwareScanner: createSignatureMalwareScanner() });
   const paymentProviderConfigRepository = createPostgresPaymentProviderConfigRepository({ pool });
   const paymentProviderConfigService = createPaymentProviderConfigService({ authService, repository: paymentProviderConfigRepository });
   const sellTaxonomyService = createSellTaxonomyService({ authService, readRepository: createPostgresSellTaxonomyRepository({ pool }), commandRepository: createPostgresSellTaxonomyCommandRepository({ pool }) });
