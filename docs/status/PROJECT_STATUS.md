@@ -1,7 +1,7 @@
 # PCX Project Status
 
 - Updated: 2026-09-01
-- Current main evidence commit: `3841956` (HSTS + permissions-policy security headers, E17, merged into `origin/main`)
+- Current main evidence commit: `12530e9` (server-authored warranty policies, E13, merged into `origin/main`)
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: Stage 3 control-plane completion and next dependency-ready work
 - Current autonomy maturity: Stage 2 in progress; Stage 3 control plane complete for bounded local/CI parallel orchestration (ADR 0008)
