@@ -46,6 +46,7 @@ test("ship + deliver emits PENDING SHIPMENT_SHIPPED then ORDER_DELIVERED rows", 
     await pool.query("DELETE FROM orders WHERE user_id::text = $1", [customer]);
     await pool.query("DELETE FROM listings WHERE inventory_item_id::text = $1", [itemA]);
     await pool.query("DELETE FROM serial_identifiers WHERE inventory_item_id::text = $1", [itemA]);
+    await pool.query("DELETE FROM item_costs WHERE inventory_item_id::text = $1", [itemA]);
     await pool.query("DELETE FROM inventory_items WHERE id::text = $1", [itemA]);
     await pool.query("DELETE FROM users WHERE id::text = $1", [customer]);
 

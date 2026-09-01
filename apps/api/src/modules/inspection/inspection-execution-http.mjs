@@ -133,6 +133,8 @@ export async function handleInspectionExecutionRequest(request, response, { insp
       send(response, 200, { data: await inspectionExecutionService.approve(cookies.pcx_access, inspectionIdValue) });
     } else if (method === "POST" && actionName === "reject") {
       send(response, 200, { data: await inspectionExecutionService.reject(cookies.pcx_access, inspectionIdValue) });
+    } else if (method === "POST" && actionName === "override") {
+      send(response, 200, { data: await inspectionExecutionService.override(cookies.pcx_access, inspectionIdValue, await jsonBody(request)) });
     } else {
       send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId));
       return true;

@@ -18,6 +18,7 @@ test("inventory intake persists item and blocks duplicate serial identifier", { 
   const now = "2026-08-16T00:00:00.000Z";
   try {
     await pool.query("DELETE FROM serial_identifiers WHERE inventory_item_id IN ($1,$2)", [itemA, itemB]);
+    await pool.query("DELETE FROM item_costs WHERE inventory_item_id IN ($1,$2)", [itemA, itemB]);
     await pool.query("DELETE FROM inventory_items WHERE id IN ($1,$2)", [itemA, itemB]);
 
     const first = await repository.createWithIdentifiers(

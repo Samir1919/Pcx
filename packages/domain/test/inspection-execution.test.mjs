@@ -9,7 +9,9 @@ import {
   submitInspection,
   suggestGrade,
   approveInspection,
-  rejectInspection
+  rejectInspection,
+  overrideInspection,
+  supersedeInspection
 } from "../src/inspection/inspection-execution.mjs";
 
 const items = [
@@ -71,4 +73,35 @@ test("approveInspection requires derived health/grade and rejects non-finalizabl
 
   const rejected = rejectInspection({ ...submitted, healthScore: submitted.healthScore, grade: submitted.grade }, { supervisorUserId: "sup" });
   assert.equal(rejected.status, InspectionStatus.REJECTED);
+});
+
+test("overrideInspection only clears an ESCALATED inspection with a reasoned grade", () => {
+  const draft = createInspection({ id: "insp", inventoryItemId: "item", inspectionTemplateId: "tpl", technicianUserId: "tech" });
+  const escalated = submitInspection(draft, { results: [result("i-cpu", "FAIL"), result("i-ram", "PASS")], items });
+  assert.equal(escalated.status, InspectionStatus.ESCALATED);
+
+  // A plain approve cannot clear a critical failure.
+  assert.throws(() => approveInspection({ ...escalated, healthScore: escalated.healthScore, grade: escalated.grade }, { supervisorUserId: "sup" }), /not finalizable/);
+
+  const overridden = overrideInspection(escalated, { supervisorUserId: "sup", grade: ConditionGrade.B, reason: "Cosmetic scratch only; core tests pass" });
+  assert.equal(overridden.status, InspectionStatus.APPROVED);
+  assert.equal(overridden.grade, ConditionGrade.B);
+  assert.equal(overridden.notes, "Cosmetic scratch only; core tests pass");
+
+  // Reason and grade are mandatory.
+  assert.throws(() => overrideInspection(escalated, { supervisorUserId: "sup", grade: ConditionGrade.B, reason: "" }), /reason/);
+  assert.throws(() => overrideInspection(escalated, { supervisorUserId: "sup", grade: "EXCELLENT", reason: "x" }), /grade/);
+  assert.throws(() => overrideInspection({ ...escalated, status: InspectionStatus.SUBMITTED }, { supervisorUserId: "sup", grade: ConditionGrade.A, reason: "x" }), /ESCALATED/);
+});
+
+test("supersedeInspection preserves history and only supersedes SUBMITTED/ESCALATED", () => {
+  const draft = createInspection({ id: "insp", inventoryItemId: "item", inspectionTemplateId: "tpl", technicianUserId: "tech" });
+  assert.throws(() => supersedeInspection(draft), /SUBMITTED or ESCALATED/);
+
+  const submitted = submitInspection(draft, { results: [result("i-cpu", "PASS"), result("i-ram", "PASS")], items });
+  const superseded = supersedeInspection(submitted, { supersededAt: "2026-01-02T00:00:00Z" });
+  assert.equal(superseded.status, InspectionStatus.SUPERSEDED);
+  assert.equal(superseded.finalizedAt, "2026-01-02T00:00:00.000Z");
+  // The original record is untouched (history preserved).
+  assert.equal(submitted.status, InspectionStatus.SUBMITTED);
 });

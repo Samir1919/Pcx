@@ -43,9 +43,12 @@ remaining gaps, ordered by dependency.
 
 ## 4. E5 inspection follow-ups
 
-- Scope: reinspection/supersede of a submitted inspection; reasoned supervisor
-  override of a critical-fail (privileged + audited); technician autosave/draft.
-- Invariants: submitted inspection history preserved; critical overrides reasoned + audited.
+- Status: **COMPLETE (2026-09-01)** — reinspection/supersede (a new inspection
+  supersedes SUBMITTED/ESCALATED, history preserved) and reasoned, audited
+  supervisor override of a critical-fail (ESCALATED → APPROVED requires a grade +
+  reason, `POST /api/v1/inspections/:id/override`, audit `INSPECTION_OVERRIDDEN`).
+  Technician autosave/draft was already satisfied by the incremental result upsert.
+  Handoff: `docs/handoffs/INSPECTION_FOLLOWUPS.md`.
 
 ## 5. E7/E8 passport & storefront
 

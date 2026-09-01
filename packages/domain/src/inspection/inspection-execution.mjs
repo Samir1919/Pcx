@@ -173,3 +173,38 @@ export function rejectInspection(inspection, { supervisorUserId, finalizedAt = n
     finalizedAt: timestamp(finalizedAt, "finalizedAt")
   });
 }
+
+const conditionGrades = new Set(Object.values(ConditionGrade));
+
+// A critical-failure (ESCALATED) inspection cannot be cleared by a plain approve;
+// it requires a separate, reasoned, audited supervisor override. The supervisor
+// picks the final grade (which may differ from the suggested REJECT) and must
+// provide a non-empty reason, recorded as the inspection notes.
+export function overrideInspection(inspection, { supervisorUserId, grade, reason, finalizedAt = new Date() }) {
+  if (inspection.status !== InspectionStatus.ESCALATED) throw new TypeError("only an ESCALATED inspection can be overridden");
+  if (!conditionGrades.has(grade)) throw new TypeError("override grade is invalid");
+  const reasonValue = requiredString(reason, "reason");
+  return Object.freeze({
+    ...inspection,
+    status: InspectionStatus.APPROVED,
+    supervisorUserId: requiredString(supervisorUserId, "supervisorUserId"),
+    grade,
+    notes: reasonValue,
+    finalizedAt: timestamp(finalizedAt, "finalizedAt")
+  });
+}
+
+// A new inspection supersedes a prior SUBMITTED/ESCALATED inspection without
+// overwriting it (submitted history is preserved). Only a finalized-but-not-yet
+// decided (SUBMITTED) or escalated inspection is superseded; a DRAFT is still in
+// progress and cannot be superseded.
+export function supersedeInspection(inspection, { supersededAt = new Date() } = {}) {
+  if (inspection.status !== InspectionStatus.SUBMITTED && inspection.status !== InspectionStatus.ESCALATED) {
+    throw new TypeError("only a SUBMITTED or ESCALATED inspection can be superseded");
+  }
+  return Object.freeze({
+    ...inspection,
+    status: InspectionStatus.SUPERSEDED,
+    finalizedAt: timestamp(supersededAt, "supersededAt")
+  });
+}

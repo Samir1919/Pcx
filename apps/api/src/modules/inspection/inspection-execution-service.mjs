@@ -5,6 +5,7 @@ import {
   createTestResult,
   hasPermission,
   InspectionStatus,
+  overrideInspection,
   Permission,
   rejectInspection,
   submitInspection
@@ -20,7 +21,7 @@ export function createInspectionExecutionService({ authService, inventoryReposit
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
   for (const method of ["findById"]) if (!inventoryRepository || typeof inventoryRepository[method] !== "function") throw new TypeError(`inventoryRepository.${method} is required`);
   for (const method of ["findById", "listItems"]) if (!inspectionTemplateRepository || typeof inspectionTemplateRepository[method] !== "function") throw new TypeError(`inspectionTemplateRepository.${method} is required`);
-  for (const method of ["create", "findById", "findActiveByItem", "listByItem", "upsertResult", "listResults", "submit", "finalize"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  for (const method of ["create", "findById", "findActiveByItem", "listByItem", "upsertResult", "listResults", "submit", "finalize", "supersede"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
 
   async function technician(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -61,7 +62,12 @@ export function createInspectionExecutionService({ authService, inventoryReposit
       const item = await inventoryRepository.findById(fields.inventoryItemId);
       if (!item) throw new InspectionExecutionError("item_not_found");
       const active = await repository.findActiveByItem(fields.inventoryItemId);
-      if (active) throw new InspectionExecutionError("already_in_progress");
+      if (active) {
+        // A DRAFT is still in progress. A SUBMITTED/ESCALATED inspection is
+        // superseded (history preserved) so the item can be re-inspected.
+        if (active.status === InspectionStatus.DRAFT) throw new InspectionExecutionError("already_in_progress");
+        await repository.supersede(active.id, { supersededAt: clock().toISOString() });
+      }
       const { template } = await loadTemplateItems(fields.inspectionTemplateId);
       const now = clock().toISOString();
       let record;
@@ -173,6 +179,29 @@ export function createInspectionExecutionService({ authService, inventoryReposit
       const result = await repository.finalize(inspectionId, { status: finalized.status, supervisorUserId: finalized.supervisorUserId, finalizedAt: finalized.finalizedAt, grade: null, score: health?.score ?? null }, now);
       if (result.status !== "finalized") throw new InspectionExecutionError("invalid_state");
       await record("INSPECTION_REJECTED", inspectionId, identity.userId, { status: "REJECTED" });
+      return Object.freeze(finalized);
+    },
+
+    // A critical-failure (ESCALATED) inspection is cleared only through a
+    // separate, reasoned, audited supervisor override — never a plain approve.
+    async override(accessCredential, inspectionId, input) {
+      const identity = await supervisor(accessCredential);
+      const fields = exact(input, new Set(["grade", "reason"]));
+      const inspection = await repository.findById(inspectionId);
+      if (!inspection) throw new InspectionExecutionError("not_found");
+      if (inspection.status !== InspectionStatus.ESCALATED) throw new InspectionExecutionError("invalid_state");
+      const health = await repository.findHealthScore(inspectionId);
+      if (!health) throw new InspectionExecutionError("invalid_state");
+      const now = clock().toISOString();
+      let finalized;
+      try {
+        finalized = overrideInspection(inspection, { supervisorUserId: identity.userId, grade: fields.grade, reason: fields.reason, finalizedAt: now });
+      } catch {
+        throw new InspectionExecutionError("invalid_input");
+      }
+      const result = await repository.finalize(inspectionId, { status: finalized.status, supervisorUserId: finalized.supervisorUserId, finalizedAt: finalized.finalizedAt, grade: finalized.grade, score: health.score, notes: finalized.notes }, now);
+      if (result.status !== "finalized") throw new InspectionExecutionError("invalid_state");
+      await record("INSPECTION_OVERRIDDEN", inspectionId, identity.userId, { status: "APPROVED", grade: finalized.grade, reason: finalized.notes });
       return Object.freeze(finalized);
     },
 

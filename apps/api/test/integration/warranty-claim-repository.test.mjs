@@ -32,6 +32,7 @@ test("warranty/claim repository persists warranty, claim, resolution, and settle
     await pool.query("DELETE FROM order_items WHERE id::text = $1", [orderItemId]);
     await pool.query("DELETE FROM orders WHERE id::text = $1", [orderId]);
     await pool.query("DELETE FROM serial_identifiers WHERE inventory_item_id::text = $1", [inventoryItemId]);
+    await pool.query("DELETE FROM item_costs WHERE inventory_item_id::text = $1", [inventoryItemId]);
     await pool.query("DELETE FROM inventory_items WHERE id::text = $1", [inventoryItemId]);
     await pool.query("DELETE FROM users WHERE email = 'warranty-approver@example.com'");
     await pool.query("INSERT INTO users(id,email,status) VALUES ($1,'warranty-approver@example.com','ACTIVE')", [approver]);

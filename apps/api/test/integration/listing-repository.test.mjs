@@ -22,6 +22,7 @@ test("listing repository persists draft, publishes with unique active constraint
     await pool.query("DELETE FROM listing_prices WHERE listing_id::text = $1", [second]);
     await pool.query("DELETE FROM listings WHERE inventory_item_id::text = $1", [itemId]);
     await pool.query("DELETE FROM serial_identifiers WHERE inventory_item_id::text = $1", [itemId]);
+    await pool.query("DELETE FROM item_costs WHERE inventory_item_id::text = $1", [itemId]);
     await pool.query("DELETE FROM inventory_items WHERE id::text = $1", [itemId]);
     await pool.query("DELETE FROM acquisitions WHERE accepted_offer_id::text = $1", ["9c000000-0000-4000-8000-000000000099"]);
     await pool.query("DELETE FROM users WHERE email = 'list-admin@example.com'");

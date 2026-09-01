@@ -18,6 +18,7 @@ export const opsApi = Object.freeze({
   submitInspection: (id) => apiRequest(`/api/v1/inspections/${encodeURIComponent(id)}/submit`, { method: "POST", body: {} }),
   approveInspection: (id) => apiRequest(`/api/v1/inspections/${encodeURIComponent(id)}/approve`, { method: "POST", body: {} }),
   rejectInspection: (id) => apiRequest(`/api/v1/inspections/${encodeURIComponent(id)}/reject`, { method: "POST", body: {} }),
+  overrideInspection: (id, body) => apiRequest(`/api/v1/inspections/${encodeURIComponent(id)}/override`, { method: "POST", body }),
   auditLogs: () => apiRequest("/api/v1/admin/audit-logs"),
   uploadInspectionMedia: async (inspectionId, file) => {
     const token = csrfToken();

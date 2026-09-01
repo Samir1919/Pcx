@@ -13,6 +13,8 @@ export default function InspectionModal({ item, onClose }) {
   const [answers, setAnswers] = useState({});
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
+  const [overrideGrade, setOverrideGrade] = useState("A");
+  const [overrideReason, setOverrideReason] = useState("");
 
   // Auto-detect the category-scoped inspection templates for this item's model
   // so the technician never copies a raw template UUID. The template is only a
@@ -110,6 +112,20 @@ export default function InspectionModal({ item, onClose }) {
     try { await opsApi.rejectInspection(inspection.id); onClose(); } catch (err) { setNotice({ kind: "error", message: err.message }); } finally { setBusy(false); }
   }
 
+  async function override(event) {
+    event.preventDefault();
+    setBusy(true);
+    setNotice(null);
+    try {
+      await opsApi.overrideInspection(inspection.id, { grade: overrideGrade, reason: overrideReason.trim() });
+      onClose();
+    } catch (err) {
+      setNotice({ kind: "error", message: err.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function uploadEvidence(event) {
     setBusy(true);
     setNotice(null);
@@ -130,7 +146,7 @@ export default function InspectionModal({ item, onClose }) {
 
   return createPortal(
     <div className="modalOverlay" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <div className="modalDialog" role="dialog" aria-modal="true" aria-labelledby="inspection-title">
+      <div className="modalDialog wide" role="dialog" aria-modal="true" aria-labelledby="inspection-title">
         <button type="button" className="modalClose" aria-label="Close" onClick={onClose}>×</button>
         <h2 id="inspection-title">Inspect item {item.pcxItemId ?? item.id.slice(0, 8)}</h2>
         {notice ? <div className={`banner ${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}><span>{notice.message}</span></div> : null}
@@ -184,9 +200,25 @@ export default function InspectionModal({ item, onClose }) {
               </div>
             )}
 
+            {inspection.status === "ESCALATED" && (
+              <form onSubmit={override} style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                <p className="eyebrow">CRITICAL FAILURE OVERRIDE</p>
+                <p>A critical failure cannot be cleared by a plain approve. Choose the final grade and record a reasoned justification (audited).</p>
+                <label><span>Override grade</span>
+                  <select value={overrideGrade} onChange={(e) => setOverrideGrade(e.target.value)} required>
+                    {["A_PLUS", "A", "B", "C"].map((g) => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                </label>
+                <label><span>Reason (required)</span>
+                  <input value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} required placeholder="Reasoned justification for overriding the critical failure" />
+                </label>
+                <button type="submit" className="primary" disabled={busy || !overrideReason.trim()}>{busy ? "Overriding…" : "Override critical failure"}</button>
+              </form>
+            )}
+
             <div className="modalActions">
               {inspection.status === "DRAFT" && <button type="button" className="primary" disabled={busy} onClick={submit}>{busy ? "Submitting…" : "Submit"}</button>}
-              {(inspection.status === "SUBMITTED" || inspection.status === "ESCALATED") && (
+              {inspection.status === "SUBMITTED" && (
                 <>
                   <button type="button" className="primary" disabled={busy} onClick={approve}>Approve</button>
                   <button type="button" disabled={busy} onClick={reject}>Reject</button>

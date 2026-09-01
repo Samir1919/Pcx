@@ -28,6 +28,7 @@ test("order/payment repository persists order, snapshot items, and idempotent pa
     await pool.query("DELETE FROM orders WHERE id::text IN ($1,$2)", [orderId, "9e000000-0000-4000-8000-000000000010"]);
     await pool.query("DELETE FROM listings WHERE inventory_item_id::text IN ($1,$2)", [itemA, itemB]);
     await pool.query("DELETE FROM serial_identifiers WHERE inventory_item_id::text IN ($1,$2)", [itemA, itemB]);
+    await pool.query("DELETE FROM item_costs WHERE inventory_item_id::text IN ($1,$2)", [itemA, itemB]);
     await pool.query("DELETE FROM inventory_items WHERE id::text IN ($1,$2)", [itemA, itemB]);
     await pool.query("DELETE FROM users WHERE email = 'order-customer@example.com'");
     await pool.query("INSERT INTO users(id,email,status) VALUES ($1,'order-customer@example.com','ACTIVE')", [customer]);

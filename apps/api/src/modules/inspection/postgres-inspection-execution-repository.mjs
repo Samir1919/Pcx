@@ -141,14 +141,15 @@ export function createPostgresInspectionExecutionRepository({ pool }) {
     },
 
     // Finalize APPROVED/REJECTED and record the verified grade/health directly
-    // on the physical inventory item (server-owned, inspection-derived).
-    async finalize(inspectionId, { status, supervisorUserId, finalizedAt, grade, score }, now) {
+    // on the physical inventory item (server-owned, inspection-derived). An
+    // override reason (for ESCALATED) is recorded in notes.
+    async finalize(inspectionId, { status, supervisorUserId, finalizedAt, grade, score, notes = null }, now) {
       return transaction(pool, async (client) => {
         const updated = await client.query(
-          `UPDATE inspections SET status = $2, supervisor_user_id = $3, finalized_at = $4
+          `UPDATE inspections SET status = $2, supervisor_user_id = $3, finalized_at = $4, notes = COALESCE($5, notes)
            WHERE id::text = $1 AND status IN ('SUBMITTED','ESCALATED')
            RETURNING inventory_item_id`,
-          [inspectionId, status, supervisorUserId, finalizedAt]
+          [inspectionId, status, supervisorUserId, finalizedAt, notes]
         );
         if (updated.rowCount !== 1) return { status: "not_finalizable", itemId: null };
         const itemId = updated.rows[0].inventory_item_id;
@@ -161,6 +162,18 @@ export function createPostgresInspectionExecutionRepository({ pool }) {
         );
         return { status: "finalized", itemId };
       });
+    },
+
+    // Mark a SUBMITTED/ESCALATED inspection SUPERSEDED (history preserved) so a
+    // new inspection can be started for the same physical item.
+    async supersede(inspectionId, { supersededAt }) {
+      const updated = await pool.query(
+        `UPDATE inspections SET status = 'SUPERSEDED', finalized_at = $2
+         WHERE id::text = $1 AND status IN ('SUBMITTED','ESCALATED')
+         RETURNING id`,
+        [inspectionId, supersededAt]
+      );
+      return updated.rowCount === 1 ? { status: "superseded" } : { status: "not_supersedable" };
     }
   });
 }

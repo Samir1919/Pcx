@@ -18,6 +18,7 @@ test("reservation repository enforces one-active-per-item and converts atomicall
   try {
     await pool.query("DELETE FROM reservations WHERE inventory_item_id::text = $1", [itemId]);
     await pool.query("DELETE FROM serial_identifiers WHERE inventory_item_id::text = $1", [itemId]);
+    await pool.query("DELETE FROM item_costs WHERE inventory_item_id::text = $1", [itemId]);
     await pool.query("DELETE FROM inventory_items WHERE id::text = $1", [itemId]);
     await pool.query("DELETE FROM users WHERE email = 'res-customer@example.com'");
     await pool.query("INSERT INTO users(id,email,status) VALUES ($1,'res-customer@example.com','ACTIVE')", [userId]);
