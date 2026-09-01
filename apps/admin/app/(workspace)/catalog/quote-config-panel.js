@@ -53,6 +53,7 @@ export default function QuoteConfigPanel() {
 
   async function handleSubmit(event) {
     event.preventDefault();
+    const formElement = event.currentTarget;
     setBusy(true);
     setNotice(null);
     try {
@@ -61,7 +62,7 @@ export default function QuoteConfigPanel() {
         : { productModelId, lowValue: Number(lowValue), highValue: Number(highValue) };
       await quotesApi.setQuote(body);
       setNotice({ kind: "success", message: "Quote range saved. The previous active range is archived." });
-      event.currentTarget.reset();
+      formElement.reset();
       setTargetType("CATEGORY");
       setCategoryId("");
       setModelCategoryId("");

@@ -38,4 +38,25 @@ if (conflicts.length > 0) {
   process.exit(1);
 }
 
+// 3. Async `event.currentTarget` guard. React nullifies SyntheticEvent.currentTarget
+// after the synchronous part of a handler, so a call like `event.currentTarget.reset()`
+// placed after an `await` throws "Cannot read properties of null" (the admin
+// create/save forms failed this way — the config saved, then the reset threw and
+// the UI showed an error instead of refreshing). The safe pattern captures the
+// element synchronously (const formElement = event.currentTarget). Flag the direct
+// `.reset()` call so the bug cannot be re-introduced.
+const currentTargetResetRegex = /event\.currentTarget\.reset\s*\(/;
+const asyncCurrentTargetViolations = [];
+for (const dir of ["apps/admin", "apps/web"]) {
+  for await (const file of walk(dir)) {
+    const text = await readFile(file, "utf8");
+    if (currentTargetResetRegex.test(text)) asyncCurrentTargetViolations.push(relative(".", file));
+  }
+}
+
+if (asyncCurrentTargetViolations.length > 0) {
+  process.stderr.write(`Async event.currentTarget.reset() found (capture the element synchronously instead):\n  ${asyncCurrentTargetViolations.join("\n  ")}\n`);
+  process.exit(1);
+}
+
 process.stdout.write("Lint policy check passed\n");

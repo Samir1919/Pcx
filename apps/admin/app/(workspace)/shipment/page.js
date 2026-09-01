@@ -83,7 +83,8 @@ export default function ShipmentPage() {
 
   async function create(event) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     await run(() => shipmentApi.create({
       orderId: form.get("orderId"),
       courier: form.get("courier"),
@@ -92,7 +93,7 @@ export default function ShipmentPage() {
       codAmount: form.get("codAmount") ? Number(form.get("codAmount")) : null,
       shippingCharge: form.get("shippingCharge") ? Number(form.get("shippingCharge")) : null
     }), setBusy, setNotice);
-    event.currentTarget.reset();
+    formElement.reset();
     await load();
   }
 

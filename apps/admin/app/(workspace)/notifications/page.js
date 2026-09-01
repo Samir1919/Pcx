@@ -32,7 +32,8 @@ export default function NotificationsPage() {
     event.preventDefault();
     setBusy(true);
     setNotice(null);
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     try {
       await notificationApi.create({
         userId: form.get("userId") || null,
@@ -43,7 +44,7 @@ export default function NotificationsPage() {
         payloadSnapshot: {},
         scheduledAt: null
       });
-      event.currentTarget.reset();
+      formElement.reset();
       setNotice({ kind: "success", message: "Notification created (PENDING)." });
       await load();
     } catch (error) {

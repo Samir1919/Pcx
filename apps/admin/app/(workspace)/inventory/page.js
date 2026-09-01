@@ -152,13 +152,14 @@ export default function InventoryPage() {
     event.preventDefault();
     setBusy(true);
     setNotice(null);
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     try {
       await opsApi.intakeInventory({
         productModelId: form.get("productModelId"),
         identifiers: [{ identifierType: "SERIAL", value: form.get("serial"), isPrimary: true }]
       });
-      event.currentTarget.reset();
+      formElement.reset();
       setNotice({ kind: "success", message: "Physical item received and registered." });
       await load();
     } catch (err) {

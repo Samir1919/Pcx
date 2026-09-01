@@ -1,18 +1,19 @@
 {
-  "scope": "Admin reports: delete scheduled export (cancel)",
+  "scope": "Admin forms: fix async event.currentTarget.reset() bug (real MFA provider save + all create/save forms)",
   "headed": true,
   "tool": "Playwright MCP browser (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "Scheduled exports list now offers a Delete action (DELETE /admin/scheduled-exports/:id) that hard-removes a scheduled export so future runs stop",
+    "subject": "Real MFA (Email Resend / SMS bdBulksms) provider credentials now save correctly; all admin create/save forms no longer throw after a successful save",
     "steps": [
       "sign in as demo admin",
-      "open /reports",
-      "create a scheduled export",
-      "verify the Delete button appears on the row",
-      "click Delete and confirm the row is removed (list shows 'No scheduled exports configured')"
+      "open /notifications (Email & SMS credentials = real MFA delivery providers)",
+      "switch to Live (real) mode and save Email credentials -> PUT 200, masked value shown",
+      "save Live SMS credentials -> PUT 200, masked token shown",
+      "activate Live SMS -> LIVE ACTIVE pill",
+      "delete the test credentials via Delete credentials"
     ]
   },
-  "notes": "DELETE /admin/scheduled-exports/:id removes the registry row; the worker only reads enabled rows, so future runs stop. No console errors from the flow.",
-  "ranAt": "2026-09-01T07:15:00.000Z"
+  "notes": "Root cause was event.currentTarget.reset() called after await (React nullifies currentTarget), throwing and suppressing the refresh. Fixed in 8 admin form files and a lint guard (scripts/lint-check.mjs) now blocks the pattern from re-appearing.",
+  "ranAt": "2026-09-01T07:40:00.000Z"
 }

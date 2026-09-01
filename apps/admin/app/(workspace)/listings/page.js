@@ -95,13 +95,14 @@ export default function ListingsPage() {
   async function createDraft(event) {
     event.preventDefault();
     setBusy(true);
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     try {
       await listingApi.createDraft({
         inventoryItemId: form.get("inventoryItemId"),
         publicSlug: slug(form.get("publicSlug") || "") || null
       });
-      event.currentTarget.reset();
+      formElement.reset();
       setNotice({ kind: "success", message: "Listing draft created." });
       await load();
     } catch (error) {
