@@ -1,19 +1,20 @@
 import { randomUUID } from "node:crypto";
-import { createWarranty, createClaim, createClaimResolution, linkClaimInspection, linkClaimShipment } from "@pcx/domain";
+import { createWarrantyFromPolicy, createClaim, createClaimResolution, linkClaimInspection, linkClaimShipment } from "@pcx/domain";
 import { hasPermission, Permission, Role } from "@pcx/domain";
 
 export class WarrantyClaimError extends Error {
   constructor(code) { super(code); this.name = "WarrantyClaimError"; this.code = code; }
 }
 
-const warrantyFields = new Set(["orderItemId", "inventoryItemId", "policySnapshot", "startsAt", "endsAt"]);
+const warrantyFields = new Set(["orderItemId", "inventoryItemId", "policyId", "startsAt"]);
 const claimFields = new Set(["warrantyId", "orderItemId", "reasonCode", "symptoms"]);
 const resolutionFields = new Set(["claimId", "resolutionType", "notes", "costAmount"]);
 
-export function createWarrantyClaimService({ authService, repository, id = randomUUID, clock = () => new Date() }) {
+export function createWarrantyClaimService({ authService, repository, policyRepository, id = randomUUID, clock = () => new Date() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
   for (const method of ["createWarranty", "createClaim", "createResolution", "findWarrantyById", "findWarrantyOwnerUserId", "markClaimResolved", "listWarranties", "listClaims", "findClaimById", "linkInspection", "linkShipment"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
   if (typeof repository.listWarranties !== "function" || typeof repository.listClaims !== "function") throw new TypeError("repository warranty/claim list methods are required");
+  if (!policyRepository || typeof policyRepository.findById !== "function") throw new TypeError("policyRepository.findById is required");
 
   async function actor(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -36,9 +37,20 @@ export function createWarrantyClaimService({ authService, repository, id = rando
     async createWarranty(accessCredential, input) {
       await actor(accessCredential);
       const fields = exact(input, warrantyFields);
+      // The server references an authored policy and derives the snapshot + expiry;
+      // the client never supplies policySnapshot or endsAt.
+      const policy = await policyRepository.findById(fields.policyId);
+      if (!policy) throw new WarrantyClaimError("invalid_reference");
+      if (policy.status !== "ACTIVE") throw new WarrantyClaimError("invalid_state");
       let record;
       try {
-        record = createWarranty({ id: id(), ...fields });
+        record = createWarrantyFromPolicy({
+          id: id(),
+          orderItemId: fields.orderItemId,
+          inventoryItemId: fields.inventoryItemId,
+          policy,
+          startsAt: fields.startsAt ?? clock()
+        });
       } catch {
         throw new WarrantyClaimError("invalid_input");
       }

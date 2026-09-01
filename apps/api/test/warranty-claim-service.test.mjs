@@ -18,23 +18,37 @@ function fixture(overrides = {}) {
     async linkShipment(id, shipmentId) { calls.shipped.push({ id, shipmentId }); return { id, shipmentId, status: ClaimStatus.IN_REVIEW }; },
     ...overrides.repository
   };
+  const policyRepository = {
+    async findById(id) { return id === "p1" ? { id: "p1", name: "12-month hardware", durationDays: 365, coverageSummary: "Parts & labor", terms: null, status: "ACTIVE" } : null; },
+    ...overrides.policyRepository
+  };
   const service = createWarrantyClaimService({
     authService: { async authenticateAccess() { return { userId: "admin-1", status: "ACTIVE", roles: ["ADMIN"] }; }, ...overrides.authService },
     repository,
+    policyRepository,
     id: (() => { let n = 0; return () => `id-${++n}`; })(),
     clock: () => new Date("2026-08-16T12:00:00.000Z")
   });
   return { service, calls };
 }
 
-test("warranty creation requires inventory/system permission", async () => {
+test("warranty creation references an authored policy and derives the snapshot", async () => {
   const { service, calls } = fixture();
-  const result = await service.createWarranty("access", { orderItemId: "oi1", inventoryItemId: "inv-1", endsAt: "2027-08-16T00:00:00.000Z" });
+  const result = await service.createWarranty("access", { orderItemId: "oi1", inventoryItemId: "inv-1", policyId: "p1" });
   assert.equal(result.status, WarrantyStatus.ACTIVE);
+  assert.equal(result.policySnapshot.policyId, "p1");
+  assert.equal(result.policySnapshot.durationDays, 365);
   assert.equal(calls.warranties.length, 1);
 
+  await assert.rejects(service.createWarranty("access", { orderItemId: "oi1", inventoryItemId: "inv-1", policyId: "missing" }), (error) => error.code === "invalid_reference");
+
   const denied = fixture({ authService: { async authenticateAccess() { return { userId: "u", status: "ACTIVE", roles: ["CUSTOMER"] }; } } });
-  await assert.rejects(denied.service.createWarranty("access", { orderItemId: "oi", inventoryItemId: "inv", endsAt: "2027-01-01T00:00:00.000Z" }), (error) => error.code === "forbidden");
+  await assert.rejects(denied.service.createWarranty("access", { orderItemId: "oi", inventoryItemId: "inv", policyId: "p1" }), (error) => error.code === "forbidden");
+});
+
+test("warranty creation rejects an archived policy", async () => {
+  const { service } = fixture({ policyRepository: { async findById() { return { id: "p1", name: "x", durationDays: 30, coverageSummary: "c", terms: null, status: "ARCHIVED" }; } } });
+  await assert.rejects(service.createWarranty("access", { orderItemId: "oi1", inventoryItemId: "inv-1", policyId: "p1" }), (error) => error.code === "invalid_state");
 });
 
 test("customer can open a claim on their own warranty with ownership enforced", async () => {

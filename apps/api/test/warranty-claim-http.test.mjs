@@ -38,16 +38,16 @@ async function invoke(path, { method = "POST", body, headers = {}, warrantyClaim
 function csrf() { return { cookie: "pcx_csrf=token", "x-csrf-token": "token" }; }
 
 test("warranty/claims write endpoints require CSRF and return proper status", async () => {
-  const noCsrf = await invoke("/api/v1/admin/warranties", { body: { orderItemId: "oi1", inventoryItemId: "inv-1", endsAt: "2027-08-16T00:00:00.000Z" } });
+  const noCsrf = await invoke("/api/v1/admin/warranties", { body: { orderItemId: "oi1", inventoryItemId: "inv-1", policyId: "p1" } });
   assert.equal(noCsrf.status, 403);
 
-  assert.equal((await invoke("/api/v1/admin/warranties", { body: { orderItemId: "oi1", inventoryItemId: "inv-1", endsAt: "2027-08-16T00:00:00.000Z" }, headers: csrf() })).status, 201);
+  assert.equal((await invoke("/api/v1/admin/warranties", { body: { orderItemId: "oi1", inventoryItemId: "inv-1", policyId: "p1" }, headers: csrf() })).status, 201);
   assert.equal((await invoke("/api/v1/admin/claims", { body: { warrantyId: "w1", orderItemId: "oi1", reasonCode: "DEAD" }, headers: csrf() })).status, 201);
   assert.equal((await invoke("/api/v1/admin/claims/resolve", { body: { claimId: "c1", resolutionType: "REPLACE" }, headers: csrf() })).status, 200);
 });
 
 test("warranty/claims map forbidden and invalid state", async () => {
-  const forbidden = await invoke("/api/v1/admin/warranties", { body: { orderItemId: "oi", inventoryItemId: "inv", endsAt: "2027-01-01T00:00:00.000Z" }, headers: csrf(), warrantyClaimService: service({ async createWarranty() { throw new WarrantyClaimError("forbidden"); } }) });
+  const forbidden = await invoke("/api/v1/admin/warranties", { body: { orderItemId: "oi", inventoryItemId: "inv", policyId: "p1" }, headers: csrf(), warrantyClaimService: service({ async createWarranty() { throw new WarrantyClaimError("forbidden"); } }) });
   assert.equal(forbidden.status, 403);
 
   const invalidState = await invoke("/api/v1/admin/claims/resolve", { body: { claimId: "c1", resolutionType: "REPLACE" }, headers: csrf(), warrantyClaimService: service({ async resolveClaim() { throw new WarrantyClaimError("invalid_state"); } }) });

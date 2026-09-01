@@ -1,17 +1,17 @@
 {
-  "scope": "Admin listing photo upload via MinIO object storage",
+  "scope": "Admin warranty: create warranty references an authored policy",
   "headed": true,
   "tool": "Playwright MCP browser (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "Media upload path now persists to MinIO (S3-compatible) and reads back",
+    "subject": "Warranty creation now selects an authored policy (server-derived snapshot + expiry)",
     "steps": [
       "sign in as demo admin",
-      "open /listings and open a listing Photos modal",
-      "select a PNG and click Upload",
-      "verify the uploaded image renders back from storage",
-      "verify MinIO pcx-local bucket contains public/<key> + <key>_thumb"
+      "open /warranty",
+      "author a policy (6-month hardware, 180 days)",
+      "verify it appears in the Authored policies list",
+      "verify the Create warranty Policy select is populated from ACTIVE policies (no Ends at field)"
     ]
   },
-  "ranAt": "2026-09-01T04:56:47.359Z"
+  "ranAt": "2026-09-01T05:18:20.484Z"
 }

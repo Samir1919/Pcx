@@ -7,14 +7,11 @@ import { warrantyApi } from "../../../lib/warranty-api.js";
 function Banner({ notice, onClose }) { if (!notice) return null; return <div className={`banner ${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}><span>{notice.message}</span><button type="button" onClick={onClose} aria-label="Dismiss message">×</button></div>; }
 function Field({ label, name, ...props }) { return <label><span>{label}</span><input name={name} {...props} /></label>; }
 
-// UI convenience defaults for the warranty window. The server remains
-// authoritative for warranty eligibility and never accepts a client-authored
-// expiration as business truth. One year is a safe, reversible default; the
-// operator can still adjust both datetimes before creating.
-function defaultWarrantyWindow() {
-  const starts = new Date();
-  const ends = new Date(starts.getTime() + 365 * 24 * 60 * 60 * 1000);
-  return { startsAt: starts.toISOString().slice(0, 16), endsAt: ends.toISOString().slice(0, 16) };
+// The warranty starts now by default; the expiry is derived server-side from the
+// selected policy's duration. The operator never types an expiry — the server
+// owns the coverage window from the authored policy.
+function defaultStart() {
+  return new Date().toISOString().slice(0, 16);
 }
 
 const RESOLUTION_TYPES = ["REPAIR", "REPLACE", "REFUND", "REJECT"];
@@ -104,28 +101,29 @@ export default function WarrantyPage() {
 
   async function createWarranty(event) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     await run(() => warrantyApi.createWarranty({
-      orderItemId: form.get("orderItemId"),
-      inventoryItemId: form.get("inventoryItemId"),
-      policySnapshot: {},
-      startsAt: form.get("startsAt"),
-      endsAt: form.get("endsAt")
+      orderItemId: data.get("orderItemId"),
+      inventoryItemId: data.get("inventoryItemId"),
+      policyId: data.get("policyId"),
+      startsAt: data.get("startsAt")
     }), setBusy, setNotice);
-    event.currentTarget.reset();
+    form.reset();
     await load();
   }
 
   async function createClaim(event) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     await run(() => warrantyApi.createClaim({
-      warrantyId: form.get("warrantyId"),
-      orderItemId: form.get("orderItemId"),
-      reasonCode: form.get("reasonCode"),
-      symptoms: form.get("symptoms") || null
+      warrantyId: data.get("warrantyId"),
+      orderItemId: data.get("orderItemId"),
+      reasonCode: data.get("reasonCode"),
+      symptoms: data.get("symptoms") || null
     }), setBusy, setNotice);
-    event.currentTarget.reset();
+    form.reset();
     await load();
   }
 
@@ -137,14 +135,15 @@ export default function WarrantyPage() {
 
   async function createPolicy(event) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     await run(() => warrantyApi.createPolicy({
-      name: form.get("name"),
-      durationDays: Number(form.get("durationDays")),
-      coverageSummary: form.get("coverageSummary"),
-      terms: form.get("terms") || null
+      name: data.get("name"),
+      durationDays: Number(data.get("durationDays")),
+      coverageSummary: data.get("coverageSummary"),
+      terms: data.get("terms") || null
     }), setBusy, setNotice);
-    event.currentTarget.reset();
+    form.reset();
     await load();
   }
 
@@ -286,8 +285,16 @@ export default function WarrantyPage() {
           <form onSubmit={createWarranty}>
             <Field label="Order item ID" name="orderItemId" required />
             <Field label="Inventory item ID" name="inventoryItemId" required />
-            <Field label="Starts at" name="startsAt" type="datetime-local" defaultValue={defaultWarrantyWindow().startsAt} required />
-            <Field label="Ends at" name="endsAt" type="datetime-local" defaultValue={defaultWarrantyWindow().endsAt} required />
+            <label>
+              <span>Policy</span>
+              <select name="policyId" required defaultValue="">
+                <option value="" disabled>Select a policy…</option>
+                {policies.filter((p) => p.status === "ACTIVE").map((p) => (
+                  <option key={p.id} value={p.id}>{p.name} ({p.durationDays} days)</option>
+                ))}
+              </select>
+            </label>
+            <Field label="Starts at" name="startsAt" type="datetime-local" defaultValue={defaultStart()} required />
             <button className="primary" disabled={busy}>Create warranty</button>
           </form>
         </section>

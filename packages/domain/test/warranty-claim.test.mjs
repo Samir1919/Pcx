@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ClaimStatus, createClaim, createClaimResolution, createWarranty, createWarrantyPolicy, archiveWarrantyPolicy, toWarrantyPolicySnapshot, linkClaimInspection, linkClaimShipment, ResolutionType, WarrantyPolicyStatus, WarrantyStatus } from "../src/index.mjs";
+import { ClaimStatus, createClaim, createClaimResolution, createWarranty, createWarrantyFromPolicy, createWarrantyPolicy, archiveWarrantyPolicy, toWarrantyPolicySnapshot, linkClaimInspection, linkClaimShipment, ResolutionType, WarrantyPolicyStatus, WarrantyStatus } from "../src/index.mjs";
 
 test("warranty policy is authored ACTIVE, archives immutably, and snapshots coverage", () => {
   const policy = createWarrantyPolicy({ id: "p1", name: "12-month hardware", durationDays: 365, coverageSummary: "Parts & labor", terms: "Covers defects" });
@@ -46,6 +46,21 @@ test("warranty is ACTIVE with a valid time window and unique per item", () => {
   assert.equal(warranty.status, WarrantyStatus.ACTIVE);
   assert.equal(warranty.policySnapshot.days, 365);
   assert.throws(() => createWarranty({ id: "w", orderItemId: "oi", inventoryItemId: "inv", endsAt: "2026-08-16T00:00:00.000Z", startsAt: "2027-08-16T00:00:00.000Z" }), /after/);
+});
+
+test("warranty is derived from an ACTIVE policy with a server-owned expiry", () => {
+  const policy = createWarrantyPolicy({ id: "p1", name: "12-month hardware", durationDays: 365, coverageSummary: "Parts & labor", terms: "Covers defects" });
+  const warranty = createWarrantyFromPolicy({ id: "w1", orderItemId: "oi1", inventoryItemId: "inv-1", policy, startsAt: "2026-08-16T00:00:00.000Z" });
+
+  assert.equal(warranty.status, WarrantyStatus.ACTIVE);
+  assert.equal(warranty.policySnapshot.policyId, "p1");
+  assert.equal(warranty.policySnapshot.name, "12-month hardware");
+  assert.equal(warranty.policySnapshot.durationDays, 365);
+  assert.equal(warranty.endsAt, "2027-08-16T00:00:00.000Z");
+
+  // An archived policy cannot issue a new warranty.
+  const archived = archiveWarrantyPolicy(policy, { archivedAt: "2026-09-01T00:00:00.000Z" });
+  assert.throws(() => createWarrantyFromPolicy({ id: "w2", orderItemId: "oi2", inventoryItemId: "inv-2", policy: archived }), /ACTIVE/);
 });
 
 test("claim is REQUESTED with server-owned lifecycle and resolution is typed", () => {

@@ -190,4 +190,21 @@ export function toWarrantyPolicySnapshot(policy) {
   });
 }
 
+// Derive a warranty from an authored policy. The server owns the snapshot and
+// the expiry: the client never supplies policySnapshot or endsAt — the snapshot
+// comes from the referenced ACTIVE policy and endsAt is startsAt + durationDays.
+export function createWarrantyFromPolicy({ id, orderItemId, inventoryItemId, policy, startsAt = new Date() }) {
+  if (!policy || typeof policy !== "object" || policy.status !== WarrantyPolicyStatus.ACTIVE) throw new TypeError("policy must be ACTIVE");
+  const start = timestamp(startsAt, "startsAt");
+  const endsAt = new Date(new Date(start).getTime() + Number(policy.durationDays) * 86400000).toISOString();
+  return createWarranty({
+    id,
+    orderItemId,
+    inventoryItemId,
+    policySnapshot: toWarrantyPolicySnapshot(policy),
+    startsAt: start,
+    endsAt
+  });
+}
+
 export { claimStatuses as _claimStatuses, resolutionTypes as _resolutionTypes };

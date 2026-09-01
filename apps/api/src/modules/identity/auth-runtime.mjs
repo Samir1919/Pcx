@@ -223,8 +223,9 @@ export function createAuthRuntime({ pool, allowedOrigins, adminOrigins, abuseCon
   });
 
   const returnRequestService = createReturnRequestService({ authService, repository: createPostgresReturnRequestRepository({ pool }) });
-  const warrantyClaimService = createWarrantyClaimService({ authService, repository: createPostgresWarrantyClaimRepository({ pool }) });
-  const warrantyPolicyService = createWarrantyPolicyService({ authService, repository: createPostgresWarrantyPolicyRepository({ pool }) });
+  const warrantyPolicyRepository = createPostgresWarrantyPolicyRepository({ pool });
+  const warrantyClaimService = createWarrantyClaimService({ authService, repository: createPostgresWarrantyClaimRepository({ pool }), policyRepository: warrantyPolicyRepository });
+  const warrantyPolicyService = createWarrantyPolicyService({ authService, repository: warrantyPolicyRepository });
   const operationsReportService = createOperationsReportService({ authService, repository: createPostgresOperationsReportRepository({ pool }) });
   const scheduledExportService = createScheduledExportService({ authService, repository: createPostgresScheduledExportRepository({ pool }) });
   const notificationService = createNotificationService({ authService, repository: notificationRepository });

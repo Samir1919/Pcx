@@ -8,7 +8,7 @@ test("warranty writes use correct paths and resolve body carries only typed fiel
   const calls = [];
   global.fetch = async (...args) => { calls.push(args); return { ok: true, status: 201, async json() { return { data: {} }; } }; };
   try {
-    await warrantyApi.createWarranty({ orderItemId: "oi-1", inventoryItemId: "inv-1", policySnapshot: {}, startsAt: "2026-08-18T00:00:00.000Z", endsAt: "2027-08-18T00:00:00.000Z" });
+    await warrantyApi.createWarranty({ orderItemId: "oi-1", inventoryItemId: "inv-1", policyId: "p-1", startsAt: "2026-08-18T00:00:00.000Z" });
     await warrantyApi.createClaim({ warrantyId: "w-1", orderItemId: "oi-1", reasonCode: "BROKEN" });
     await warrantyApi.resolveClaim({ claimId: "c-1", resolutionType: "REPLACE", notes: "x", costAmount: 500 });
 

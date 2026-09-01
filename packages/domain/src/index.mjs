@@ -29,6 +29,6 @@ export { createShipment, createShipmentEvent, markDelivered, markReturned, markS
 export { createPaymentProviderConfig, maskCredentials, normalizeCredentials, PaymentProvider, PaymentProviderMode } from "./payment/payment-provider-config.mjs";
 
 export { approveReturn, createReturnRequest, markReturnReceived, ReturnRequestStatus, settleRefund } from "./warranty/return-refund.mjs";
-export { createClaim, createClaimResolution, createWarranty, createWarrantyPolicy, archiveWarrantyPolicy, toWarrantyPolicySnapshot, linkClaimInspection, linkClaimShipment, ClaimStatus, ResolutionType, WarrantyPolicyStatus, WarrantyStatus } from "./warranty/warranty-claim.mjs";
+export { createClaim, createClaimResolution, createWarranty, createWarrantyPolicy, createWarrantyFromPolicy, archiveWarrantyPolicy, toWarrantyPolicySnapshot, linkClaimInspection, linkClaimShipment, ClaimStatus, ResolutionType, WarrantyPolicyStatus, WarrantyStatus } from "./warranty/warranty-claim.mjs";
 export { archiveIndicativePrice, createIndicativePrice, IndicativePriceStatus, toPublicQuoteRange } from "./pricing/indicative-price.mjs";
 export { createBkashGateway, createSandboxCourier, createSandboxNotificationDispatcher, createSandboxPaymentGateway, createSandboxRefundGateway } from "./vendor/vendor-adapters.mjs";
