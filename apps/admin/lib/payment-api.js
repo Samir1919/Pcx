@@ -7,5 +7,6 @@ export { ApiError as PaymentApiError, csrfToken } from "./api-client.js";
 export const paymentApi = Object.freeze({
   configs: (provider) => apiRequest(`/api/v1/admin/payment-providers/${encodeURIComponent(provider)}/config`),
   saveConfig: (provider, body) => apiRequest(`/api/v1/admin/payment-providers/${encodeURIComponent(provider)}/config`, { method: "PUT", body }),
-  activate: (provider, body) => apiRequest(`/api/v1/admin/payment-providers/${encodeURIComponent(provider)}/activate`, { method: "POST", body })
+  activate: (provider, body) => apiRequest(`/api/v1/admin/payment-providers/${encodeURIComponent(provider)}/activate`, { method: "POST", body }),
+  remove: (provider, mode) => apiRequest(`/api/v1/admin/payment-providers/${encodeURIComponent(provider)}/config/${encodeURIComponent(mode)}`, { method: "DELETE" })
 });

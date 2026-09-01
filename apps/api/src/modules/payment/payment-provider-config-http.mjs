@@ -65,28 +65,34 @@ export async function handlePaymentProviderConfigRequest(request, response, { pa
   // Expected shapes:
   //   [provider, "config"]            -> GET list / PUT save
   //   [provider, "activate"]          -> POST activate
-  if (rest.length !== 2) { send(response, 404, failure("NOT_FOUND", "Resource not found", requestId)); return true; }
-  const [provider, action] = rest;
-  if (action !== "config" && action !== "activate") { send(response, 404, failure("NOT_FOUND", "Resource not found", requestId)); return true; }
+  //   [provider, "config", mode]      -> DELETE remove
+  const isConfig = rest.length === 2 && rest[1] === "config";
+  const isActivate = rest.length === 2 && rest[1] === "activate";
+  const isRemove = rest.length === 3 && rest[1] === "config";
+  if (!isConfig && !isActivate && !isRemove) { send(response, 404, failure("NOT_FOUND", "Resource not found", requestId)); return true; }
+  const provider = rest[0];
   if (url.searchParams.size > 0) { send(response, 400, failure("INVALID_REQUEST", "Query parameters are not supported", requestId)); return true; }
 
-  const isList = action === "config" && request.method === "GET";
-  const isSave = action === "config" && request.method === "PUT";
-  const isActivate = action === "activate" && request.method === "POST";
-  if (!isList && !isSave && !isActivate) { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
+  const isList = isConfig && request.method === "GET";
+  const isSave = isConfig && request.method === "PUT";
+  const isActivateOp = isActivate && request.method === "POST";
+  const isDelete = isRemove && request.method === "DELETE";
+  if (!isList && !isSave && !isActivateOp && !isDelete) { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
 
   const parsed = cookies(request);
   try {
     // GET (list) is a same-origin read; browsers do not send an Origin header
     // on same-origin GETs, so only mutating requests run the Origin + CSRF
     // double-submit gate. Authorization is still enforced by the service.
-    if (isSave || isActivate) security(request, allowedOrigins, parsed);
+    if (isSave || isActivateOp || isDelete) security(request, allowedOrigins, parsed);
     if (isList) {
       send(response, 200, { data: await paymentProviderConfigService.listConfigs(parsed.pcx_access, provider) });
     } else if (isSave) {
       send(response, 200, { data: await paymentProviderConfigService.saveConfig(parsed.pcx_access, { provider, ...(await body(request)) }) });
-    } else {
+    } else if (isActivateOp) {
       send(response, 200, { data: await paymentProviderConfigService.setActiveMode(parsed.pcx_access, { provider, ...(await body(request)) }) });
+    } else {
+      send(response, 200, { data: await paymentProviderConfigService.removeConfig(parsed.pcx_access, { provider, mode: rest[2] }) });
     }
   } catch (error) {
     const [status, code, message] = mapped(error);

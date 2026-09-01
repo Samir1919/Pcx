@@ -62,27 +62,33 @@ export async function handleNotificationProviderConfigRequest(request, response,
   if (!notificationProviderConfigService) { send(response, 503, failure("NOTIFICATION_PROVIDER_UNAVAILABLE", "Notification provider configuration is temporarily unavailable", requestId)); return true; }
 
   const rest = url.pathname.slice(prefix.length).split("/").filter(Boolean);
-  // [provider, "config"]   -> GET list / PUT save
-  // [provider, "activate"] -> POST activate
-  if (rest.length !== 2) { send(response, 404, failure("NOT_FOUND", "Resource not found", requestId)); return true; }
-  const [provider, action] = rest;
-  if (action !== "config" && action !== "activate") { send(response, 404, failure("NOT_FOUND", "Resource not found", requestId)); return true; }
+  // [provider, "config"]       -> GET list / PUT save
+  // [provider, "activate"]     -> POST activate
+  // [provider, "config", mode] -> DELETE remove
+  const isConfig = rest.length === 2 && rest[1] === "config";
+  const isActivate = rest.length === 2 && rest[1] === "activate";
+  const isRemove = rest.length === 3 && rest[1] === "config";
+  if (!isConfig && !isActivate && !isRemove) { send(response, 404, failure("NOT_FOUND", "Resource not found", requestId)); return true; }
+  const provider = rest[0];
   if (url.searchParams.size > 0) { send(response, 400, failure("INVALID_REQUEST", "Query parameters are not supported", requestId)); return true; }
 
-  const isList = action === "config" && request.method === "GET";
-  const isSave = action === "config" && request.method === "PUT";
-  const isActivate = action === "activate" && request.method === "POST";
-  if (!isList && !isSave && !isActivate) { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
+  const isList = isConfig && request.method === "GET";
+  const isSave = isConfig && request.method === "PUT";
+  const isActivateOp = isActivate && request.method === "POST";
+  const isDelete = isRemove && request.method === "DELETE";
+  if (!isList && !isSave && !isActivateOp && !isDelete) { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
 
   const parsed = cookies(request);
   try {
-    if (isSave || isActivate) security(request, allowedOrigins, parsed);
+    if (isSave || isActivateOp || isDelete) security(request, allowedOrigins, parsed);
     if (isList) {
       send(response, 200, { data: await notificationProviderConfigService.listConfigs(parsed.pcx_access, provider) });
     } else if (isSave) {
       send(response, 200, { data: await notificationProviderConfigService.saveConfig(parsed.pcx_access, { provider, ...(await body(request)) }) });
-    } else {
+    } else if (isActivateOp) {
       send(response, 200, { data: await notificationProviderConfigService.setActiveMode(parsed.pcx_access, { provider, ...(await body(request)) }) });
+    } else {
+      send(response, 200, { data: await notificationProviderConfigService.removeConfig(parsed.pcx_access, { provider, mode: rest[2] }) });
     }
   } catch (error) {
     const [status, code, message] = mapped(error);

@@ -44,7 +44,8 @@ export default function NotificationProvidersPanel() {
   async function save(event) {
     event.preventDefault();
     setBusy(true);
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const credentials = {};
     for (const field of provider.fields) {
       const value = form.get(field.key);
@@ -52,7 +53,7 @@ export default function NotificationProvidersPanel() {
     }
     try {
       await notificationProviderApi.saveConfig(providerKey, { mode, credentials });
-      event.currentTarget.reset();
+      formElement.reset();
       setNotice({ kind: "success", message: `${mode === "SANDBOX" ? "Sandbox" : "Live"} credentials saved and encrypted.` });
       await load();
     } catch (error) {
@@ -68,6 +69,20 @@ export default function NotificationProvidersPanel() {
     try {
       await notificationProviderApi.activate(providerKey, { mode: target });
       setNotice({ kind: "success", message: `${target === "SANDBOX" ? "Sandbox" : "Live"} mode is now active.` });
+      await load();
+    } catch (error) {
+      setNotice({ kind: "error", message: error.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    if (!window.confirm(`Delete ${mode === "SANDBOX" ? "sandbox" : "live"} ${provider.label} credentials? If active, delivery will fail closed until you configure another mode.`)) return;
+    setBusy(true);
+    try {
+      await notificationProviderApi.remove(providerKey, mode);
+      setNotice({ kind: "success", message: `${mode === "SANDBOX" ? "Sandbox" : "Live"} credentials removed.` });
       await load();
     } catch (error) {
       setNotice({ kind: "error", message: error.message });
@@ -128,6 +143,7 @@ export default function NotificationProvidersPanel() {
             <button className="primary" type="button" disabled={busy || !current} onClick={() => activate(mode)}>
               {activeConfig?.mode === mode ? "Already active" : "Activate this mode"}
             </button>
+            {current && <button className="danger" type="button" disabled={busy} onClick={remove}>Delete credentials</button>}
           </div>
         </section>
 

@@ -65,6 +65,16 @@ export function createPostgresNotificationProviderConfigRepository({ pool }) {
         [provider, mode, now]
       );
       return result.rows.map(row);
+    },
+
+    async remove(provider, mode) {
+      const result = await pool.query(
+        `DELETE FROM notification_provider_config
+         WHERE provider = $1 AND mode = $2
+         RETURNING id, provider, mode, encrypted_credentials, active, created_at, updated_at`,
+        [provider, mode]
+      );
+      return result.rowCount === 1 ? row(result.rows[0]) : null;
     }
   });
 }

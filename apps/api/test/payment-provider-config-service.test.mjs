@@ -19,6 +19,12 @@ function fixture(overrides = {}) {
       for (const record of records) record.active = record.mode === mode;
       return records;
     },
+    async remove(provider, mode) {
+      const key = `${provider}:${mode}`;
+      const record = store.get(key);
+      if (record) store.delete(key);
+      return record ?? null;
+    },
     ...overrides.repository
   };
   const service = createPaymentProviderConfigService({
@@ -126,4 +132,13 @@ test("saveConfig preserves omitted credentials on a partial update", async () =>
 test("getActiveCredentials returns null when nothing is configured", async () => {
   const { service } = fixture();
   assert.equal(await service.getActiveCredentials("bkash"), null);
+});
+
+test("removeConfig hard-deletes a stored provider+mode and rejects missing config", async () => {
+  const { service } = fixture();
+  await service.saveConfig("access", { provider: "bkash", mode: "SANDBOX", credentials: { appKey: "k", appSecret: "s", username: "u", password: "p" } });
+  const removed = await service.removeConfig("access", { provider: "bkash", mode: "SANDBOX" });
+  assert.deepEqual(removed, { provider: "bkash", mode: "SANDBOX", removed: true });
+  assert.equal(await service.getActiveCredentials("bkash"), null);
+  await assert.rejects(service.removeConfig("access", { provider: "bkash", mode: "SANDBOX" }), (error) => error.code === "not_found");
 });

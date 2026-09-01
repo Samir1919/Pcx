@@ -1,18 +1,18 @@
 {
-  "scope": "Admin listings: pause/unpublish/archive lifecycle actions",
+  "scope": "Admin payment/notification providers: delete credentials (hard delete)",
   "headed": true,
   "tool": "Playwright MCP browser (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "Listings rows now offer Pause (PUBLISHED), Unpublish (PUBLISHED/PAUSED), and Archive (DRAFT/PUBLISHED/PAUSED) alongside Publish/price/photos",
+    "subject": "Provider config panels now offer Delete credentials (DELETE /admin/:providers/:provider/config/:mode) that hard-removes a stored provider+mode config",
     "steps": [
       "sign in as demo admin",
-      "open /listings",
-      "verify Pause/Unpublish/Archive buttons render per listing status",
-      "click Archive on a listing and confirm POST /api/v1/admin/listings/:id/archive returns 200",
-      "click Unpublish on a listing and confirm POST /api/v1/admin/listings/:id/unpublish returns 200"
+      "open /payments",
+      "save sandbox bKash credentials via the form",
+      "verify the Delete credentials button appears",
+      "click Delete credentials and confirm the config is removed (button gone, 'No sandbox credentials configured yet')"
     ]
   },
-  "notes": "Archive is a soft-delete (status -> ARCHIVED, never a hard delete because listings reference inventory + reservations/orders). Terminal RESERVED/SOLD listings cannot be archived. No console errors from the flows.",
-  "ranAt": "2026-09-01T06:40:00.000Z"
+  "notes": "Removing an active config leaves the provider with no active credentials (consumers fail closed). Same DELETE route + UI pattern added to notification providers. Fixed a pre-existing async currentTarget.reset() bug in both provider save forms.",
+  "ranAt": "2026-09-01T07:10:00.000Z"
 }

@@ -49,7 +49,8 @@ export default function PaymentsWorkspace() {
   async function save(event) {
     event.preventDefault();
     setBusy(true);
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const credentials = {};
     for (const field of fields) {
       const value = form.get(field.key);
@@ -57,7 +58,7 @@ export default function PaymentsWorkspace() {
     }
     try {
       await paymentApi.saveConfig(provider, { mode, credentials });
-      event.currentTarget.reset();
+      formElement.reset();
       setNotice({ kind: "success", message: `${mode === "SANDBOX" ? "Sandbox" : "Live"} credentials saved and encrypted.` });
       await load();
     } catch (error) {
@@ -73,6 +74,20 @@ export default function PaymentsWorkspace() {
     try {
       await paymentApi.activate(provider, { mode: target });
       setNotice({ kind: "success", message: `${target === "SANDBOX" ? "Sandbox" : "Live"} mode is now active.` });
+      await load();
+    } catch (error) {
+      setNotice({ kind: "error", message: error.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    if (!window.confirm(`Delete ${mode === "SANDBOX" ? "sandbox" : "live"} bKash credentials? If active, payments will fail closed until you configure another mode.`)) return;
+    setBusy(true);
+    try {
+      await paymentApi.remove(provider, mode);
+      setNotice({ kind: "success", message: `${mode === "SANDBOX" ? "Sandbox" : "Live"} credentials removed.` });
       await load();
     } catch (error) {
       setNotice({ kind: "error", message: error.message });
@@ -131,6 +146,7 @@ export default function PaymentsWorkspace() {
             <button className="primary" type="button" disabled={busy || !current} onClick={() => activate(mode)}>
               {activeConfig?.mode === mode ? "Already active" : "Activate this mode"}
             </button>
+            {current && <button className="danger" type="button" disabled={busy} onClick={remove}>Delete credentials</button>}
           </div>
         </section>
         <section className="panel formPanel">

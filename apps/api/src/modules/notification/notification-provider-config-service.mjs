@@ -55,7 +55,7 @@ function maskCredentials(provider, credentials) {
 
 export function createNotificationProviderConfigService({ authService, repository, cipher = createCredentialsCipher(), id = randomUUID, clock = () => new Date() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  for (const method of ["upsert", "findByProviderAndMode", "listByProvider", "setActive"]) {
+  for (const method of ["upsert", "findByProviderAndMode", "listByProvider", "setActive", "remove"]) {
     if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
   }
   if (!cipher || typeof cipher.encrypt !== "function" || typeof cipher.decrypt !== "function") throw new TypeError("cipher.encrypt/decrypt is required");
@@ -146,6 +146,18 @@ export function createNotificationProviderConfigService({ authService, repositor
         try { credentials = JSON.parse(cipher.decrypt(record.encryptedCredentials)); } catch { credentials = {}; }
         return publicConfig(record, credentials);
       }));
+    },
+
+    // Hard-delete a stored provider+mode config. Removing an active config means
+    // the provider has no active credentials afterward (delivery fails closed).
+    async removeConfig(accessCredential, input) {
+      await admin(accessCredential);
+      const fields = exact(input, new Set(["provider", "mode"]));
+      const provider = safeProvider(fields.provider);
+      const mode = safeMode(fields.mode);
+      const deleted = await repository.remove(provider, mode);
+      if (!deleted) throw new NotificationProviderConfigError("not_found");
+      return Object.freeze({ provider, mode, removed: true });
     },
 
     // Internal: returns the decrypted credentials for the active mode of a

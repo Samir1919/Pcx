@@ -37,6 +37,11 @@ function repository() {
     async setActive(provider, mode, now) {
       for (const r of rows) if (r.provider === provider) r.active = r.mode === mode;
       return rows.filter((r) => r.provider === provider);
+    },
+    async remove(provider, mode) {
+      const index = rows.findIndex((r) => r.provider === provider && r.mode === mode);
+      if (index < 0) return null;
+      return rows.splice(index, 1)[0];
     }
   };
 }
@@ -80,4 +85,14 @@ test("rejects unknown credential fields and non-admin", async () => {
   await assert.rejects(service.saveConfig("cred", { provider: "SMS", mode: "SANDBOX", credentials: { token: "x", extra: "y" } }), /invalid_input/);
   const deniedService = createNotificationProviderConfigService({ authService: auth(false), repository: repo, cipher: fakeCipher(), id: () => "id-1" });
   await assert.rejects(deniedService.saveConfig("cred", { provider: "SMS", mode: "SANDBOX", credentials: { token: "x" } }), /forbidden/);
+});
+
+test("removeConfig hard-deletes a stored provider+mode and rejects missing config", async () => {
+  const repo = repository();
+  const service = createNotificationProviderConfigService({ authService: auth(), repository: repo, cipher: fakeCipher(), id: () => "id-1" });
+  await service.saveConfig("cred", { provider: "EMAIL", mode: "SANDBOX", credentials: { apiKey: "k", from: "no-reply@pcx.example" } });
+  const removed = await service.removeConfig("cred", { provider: "EMAIL", mode: "SANDBOX" });
+  assert.deepEqual(removed, { provider: "EMAIL", mode: "SANDBOX", removed: true });
+  assert.equal(await service.getActiveCredentials("EMAIL"), null);
+  await assert.rejects(service.removeConfig("cred", { provider: "EMAIL", mode: "SANDBOX" }), /not_found/);
 });

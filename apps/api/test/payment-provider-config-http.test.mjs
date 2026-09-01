@@ -10,6 +10,7 @@ function service(overrides = {}) {
     async listConfigs() { return [{ id: "cfg-1", provider: "bkash", mode: "SANDBOX", active: false, credentials: { appKey: "••••••••" } }]; },
     async saveConfig() { return { id: "cfg-1", provider: "bkash", mode: "SANDBOX", active: false, credentials: { appKey: "••••••••" } }; },
     async setActiveMode() { return [{ id: "cfg-1", provider: "bkash", mode: "SANDBOX", active: true, credentials: { appKey: "••••••••" } }]; },
+    async removeConfig() { return { provider: "bkash", mode: "SANDBOX", removed: true }; },
     ...overrides
   };
 }
@@ -67,6 +68,19 @@ test("payment provider config mutations still require Origin + CSRF", async () =
 test("payment provider route rejects unknown methods and missing service", async () => {
   assert.equal((await invoke("/api/v1/admin/payment-providers/bkash/config", { method: "DELETE" })).status, 405);
   assert.equal((await invoke("/api/v1/admin/payment-providers/bkash/config", { paymentProviderConfigService: null })).status, 503);
+});
+
+test("payment provider DELETE /config/:mode removes with Origin + CSRF", async () => {
+  let call;
+  const response = await invoke("/api/v1/admin/payment-providers/bkash/config/SANDBOX", {
+    method: "DELETE",
+    headers: { cookie: "pcx_access=access; pcx_csrf=token", "x-csrf-token": "token", "x-request-id": "req-pay" },
+    paymentProviderConfigService: service({ async removeConfig(...args) { call = args; return { provider: "bkash", mode: "SANDBOX", removed: true }; } })
+  });
+  assert.equal(response.status, 200);
+  assert.equal(call[0], "access");
+  assert.deepEqual(call[1], { provider: "bkash", mode: "SANDBOX" });
+  assert.equal((await invoke("/api/v1/admin/payment-providers/bkash/config/SANDBOX", { method: "DELETE" })).status, 403);
 });
 
 test("payment provider list surfaces forbidden as 403", async () => {
