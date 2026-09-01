@@ -11,7 +11,7 @@ const createFields = new Set(["name", "report", "format", "cadence", "enabled"])
 
 export function createScheduledExportService({ authService, repository, id = () => crypto.randomUUID?.() ?? "export-1", clock = () => new Date() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  for (const method of ["list", "create", "findDue", "markRun"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  for (const method of ["list", "create", "findDue", "markRun", "remove"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
 
   async function reader(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -46,6 +46,16 @@ export function createScheduledExportService({ authService, repository, id = () 
         createdAt: clock().toISOString()
       };
       return Object.freeze(await repository.create(record));
+    },
+
+    // Hard-delete a scheduled export registry entry (cancel). Safe: the worker
+    // only reads enabled rows, so removing it stops future runs.
+    async remove(accessCredential, exportId) {
+      await reader(accessCredential);
+      if (typeof exportId !== "string" || exportId.length === 0 || exportId.length > 128) throw new ScheduledExportError("not_found");
+      const deleted = await repository.remove(exportId);
+      if (!deleted) throw new ScheduledExportError("not_found");
+      return Object.freeze({ id: exportId, removed: true });
     },
 
     // Worker entry point: run every enabled export whose cadence window has

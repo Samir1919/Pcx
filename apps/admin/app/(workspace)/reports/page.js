@@ -50,6 +50,17 @@ export default function ReportsPage() {
     }
   }
 
+  async function removeScheduled(record) {
+    if (!window.confirm(`Cancel and delete the scheduled export "${record.name}"? Future runs will stop.`)) return;
+    try {
+      await opsApi.removeScheduledExport(record.id);
+      setNotice({ kind: "success", message: "Scheduled export deleted." });
+      await load();
+    } catch (err) {
+      setNotice({ kind: "error", message: err.message });
+    }
+  }
+
   const revenue = bi?.revenue ?? { orderCount: 0, revenue: 0, averageOrder: 0 };
   const inventoryCost = bi?.inventoryCost ?? { totalCost: 0, acquisition: 0, allocated: 0 };
 
@@ -101,7 +112,7 @@ export default function ReportsPage() {
             {scheduled.length === 0 ? <p className="state">No scheduled exports configured.</p> : (
               <div className="tableWrap">
                 <table>
-                  <thead><tr><th>Name</th><th>Report</th><th>Format</th><th>Cadence</th><th>Last run</th><th>Rows</th></tr></thead>
+                  <thead><tr><th>Name</th><th>Report</th><th>Format</th><th>Cadence</th><th>Last run</th><th>Rows</th><th><span className="sr">Actions</span></th></tr></thead>
                   <tbody>
                     {scheduled.map((e) => (
                       <tr key={e.id}>
@@ -111,6 +122,7 @@ export default function ReportsPage() {
                         <td>{e.cadence}</td>
                         <td>{e.lastRunAt ? new Date(e.lastRunAt).toLocaleString() : "—"}</td>
                         <td>{e.lastRowCount ?? "—"}</td>
+                        <td><div className="actions"><button className="danger" type="button" onClick={() => removeScheduled(e)}>Delete</button></div></td>
                       </tr>
                     ))}
                   </tbody>

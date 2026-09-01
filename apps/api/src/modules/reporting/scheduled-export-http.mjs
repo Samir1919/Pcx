@@ -53,6 +53,7 @@ function map(error) {
     if (error.code === "origin_denied") return [403, "ORIGIN_DENIED", "Request origin is not allowed"];
     if (error.code === "csrf_invalid") return [403, "CSRF_INVALID", "CSRF validation failed"];
     if (error.code === "forbidden") return [403, "EXPORT_FORBIDDEN", "Scheduled export operation is not allowed"];
+    if (error.code === "not_found") return [404, "EXPORT_NOT_FOUND", "Scheduled export not found"];
     return [error.code === "invalid_request" ? 400 : 422, error.code === "invalid_request" ? "INVALID_REQUEST" : "INVALID_INPUT", "Scheduled export input is invalid"];
   }
   return [500, "INTERNAL_ERROR", "Unexpected server error"];
@@ -60,12 +61,23 @@ function map(error) {
 
 export async function handleScheduledExportRequest(request, response, { scheduledExportService, allowedOrigins, requestId }) {
   const url = new URL(request.url, "http://pcx.local");
-  if (url.pathname !== "/api/v1/admin/scheduled-exports") return false;
+  const prefix = "/api/v1/admin/scheduled-exports";
+  if (url.pathname !== prefix && !url.pathname.startsWith(`${prefix}/`)) return false;
   if (!scheduledExportService) { send(response, 503, failure("EXPORTS_UNAVAILABLE", "Scheduled exports are temporarily unavailable", requestId)); return true; }
 
   const method = request.method ?? "GET";
   const cookies = parsedCookies(request);
   try {
+    // DELETE /api/v1/admin/scheduled-exports/:id — cancel a scheduled export.
+    if (url.pathname !== prefix) {
+      const exportId = decodeURIComponent(url.pathname.slice(prefix.length + 1));
+      if (!exportId || exportId.includes("/") || url.searchParams.size > 0) { send(response, 404, failure("EXPORT_NOT_FOUND", "Scheduled export not found", requestId)); return true; }
+      if (method !== "DELETE") { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
+      requireWriteSecurity(request, allowedOrigins, cookies);
+      send(response, 200, { data: await scheduledExportService.remove(cookies.pcx_access, exportId) });
+      return true;
+    }
+
     if (method === "GET") {
       if (url.searchParams.size > 0) { send(response, 400, failure("INVALID_REQUEST", "Query parameters are not supported", requestId)); return true; }
       send(response, 200, { data: await scheduledExportService.list(cookies.pcx_access) });

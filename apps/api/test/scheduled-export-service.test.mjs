@@ -7,7 +7,8 @@ function repository(rows = []) {
     async list() { return rows; },
     async create(record) { return record; },
     async findDue() { return rows; },
-    async markRun(id, lastRunAt, lastRowCount) { return { id, lastRunAt, lastRowCount }; }
+    async markRun(id, lastRunAt, lastRowCount) { return { id, lastRunAt, lastRowCount }; },
+    async remove(id) { return { id }; }
   };
 }
 
@@ -44,7 +45,8 @@ test("runDue marks each due export with an injected row count", async () => {
       async list() { return []; },
       async create(record) { return record; },
       async findDue() { return rows; },
-      async markRun(id, lastRunAt, lastRowCount) { marked.push({ id, lastRowCount }); return { id }; }
+      async markRun(id, lastRunAt, lastRowCount) { marked.push({ id, lastRowCount }); return { id }; },
+      async remove(id) { return { id }; }
     },
     clock: () => new Date("2026-09-01T00:00:00.000Z")
   });
@@ -52,4 +54,22 @@ test("runDue marks each due export with an injected row count", async () => {
   const ran = await service.runDue({ now: new Date("2026-09-01T00:00:00.000Z"), countRows: async (report) => (report === "operations" ? 42 : 7) });
   assert.equal(ran.length, 2);
   assert.deepEqual(marked.map((m) => m.lastRowCount), [42, 7]);
+});
+
+test("remove hard-deletes a scheduled export and rejects a missing one", async () => {
+  let removedId = null;
+  const service = createScheduledExportService({
+    authService: { async authenticateAccess() { return { userId: "u", status: "ACTIVE", roles: ["ADMIN"] }; } },
+    repository: { async list() { return []; }, async create(r) { return r; }, async findDue() { return []; }, async markRun() { return null; }, async remove(id) { removedId = id; return { id }; } },
+    clock: () => new Date("2026-09-01T00:00:00.000Z")
+  });
+  const result = await service.remove("access", "export-9");
+  assert.deepEqual(result, { id: "export-9", removed: true });
+  assert.equal(removedId, "export-9");
+
+  const notFound = createScheduledExportService({
+    authService: { async authenticateAccess() { return { userId: "u", status: "ACTIVE", roles: ["ADMIN"] }; } },
+    repository: { async list() { return []; }, async create(r) { return r; }, async findDue() { return []; }, async markRun() { return null; }, async remove() { return null; } }
+  });
+  await assert.rejects(notFound.remove("access", "export-9"), (e) => e.code === "not_found");
 });

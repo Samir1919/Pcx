@@ -58,6 +58,15 @@ export function createPostgresScheduledExportRepository({ pool }) {
         [id, lastRunAt, lastRowCount]
       );
       return result.rows[0] ? row(result.rows[0]) : null;
+    },
+
+    async remove(id) {
+      const result = await pool.query(
+        `DELETE FROM scheduled_exports WHERE id::text = $1
+         RETURNING id, name, report, format, cadence, enabled, last_run_at, last_row_count, created_at`,
+        [id]
+      );
+      return result.rows[0] ? row(result.rows[0]) : null;
     }
   });
 }

@@ -1,18 +1,18 @@
 {
-  "scope": "Admin payment/notification providers: delete credentials (hard delete)",
+  "scope": "Admin reports: delete scheduled export (cancel)",
   "headed": true,
   "tool": "Playwright MCP browser (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "Provider config panels now offer Delete credentials (DELETE /admin/:providers/:provider/config/:mode) that hard-removes a stored provider+mode config",
+    "subject": "Scheduled exports list now offers a Delete action (DELETE /admin/scheduled-exports/:id) that hard-removes a scheduled export so future runs stop",
     "steps": [
       "sign in as demo admin",
-      "open /payments",
-      "save sandbox bKash credentials via the form",
-      "verify the Delete credentials button appears",
-      "click Delete credentials and confirm the config is removed (button gone, 'No sandbox credentials configured yet')"
+      "open /reports",
+      "create a scheduled export",
+      "verify the Delete button appears on the row",
+      "click Delete and confirm the row is removed (list shows 'No scheduled exports configured')"
     ]
   },
-  "notes": "Removing an active config leaves the provider with no active credentials (consumers fail closed). Same DELETE route + UI pattern added to notification providers. Fixed a pre-existing async currentTarget.reset() bug in both provider save forms.",
-  "ranAt": "2026-09-01T07:10:00.000Z"
+  "notes": "DELETE /admin/scheduled-exports/:id removes the registry row; the worker only reads enabled rows, so future runs stop. No console errors from the flow.",
+  "ranAt": "2026-09-01T07:15:00.000Z"
 }

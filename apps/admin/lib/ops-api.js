@@ -29,6 +29,7 @@ export const opsApi = Object.freeze({
   auditExportNdjson: () => downloadExport("/api/v1/admin/audit-logs/export?format=ndjson", "audit-logs.ndjson"),
   scheduledExports: () => apiRequest("/api/v1/admin/scheduled-exports"),
   createScheduledExport: (body) => apiRequest("/api/v1/admin/scheduled-exports", { method: "POST", body }),
+  removeScheduledExport: (id) => apiRequest(`/api/v1/admin/scheduled-exports/${encodeURIComponent(id)}`, { method: "DELETE" }),
   inventory: () => apiRequest("/api/v1/admin/inventory"),
   inventoryItem: (id) => apiRequest(`/api/v1/admin/inventory/${encodeURIComponent(id)}`),
   itemCosts: (id) => apiRequest(`/api/v1/admin/inventory/${encodeURIComponent(id)}/costs`),

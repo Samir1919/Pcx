@@ -9,6 +9,7 @@ function service(overrides = {}) {
   return {
     async list() { return [{ id: "e1", name: "Daily ops", report: "operations" }]; },
     async create(body) { return { id: "e2", ...body }; },
+    async remove(id) { return { id, removed: true }; },
     ...overrides
   };
 }
@@ -53,4 +54,13 @@ test("scheduled export maps forbidden and missing service", async () => {
   assert.equal(forbidden.status, 403);
 
   assert.equal((await invoke("/api/v1/admin/scheduled-exports", { scheduledExportService: null })).status, 503);
+});
+
+test("scheduled export DELETE /:id removes with CSRF and maps not_found", async () => {
+  let call;
+  const ok = await invoke("/api/v1/admin/scheduled-exports/e1", { method: "DELETE", headers: csrf(), scheduledExportService: service({ async remove(...args) { call = args; return { id: "e1", removed: true }; } }) });
+  assert.equal(ok.status, 200);
+  assert.equal(call[1], "e1");
+  assert.equal((await invoke("/api/v1/admin/scheduled-exports/e1", { method: "DELETE" })).status, 403);
+  assert.equal((await invoke("/api/v1/admin/scheduled-exports/e1", { method: "DELETE", headers: csrf(), scheduledExportService: service({ async remove() { throw new ScheduledExportError("not_found"); } }) })).status, 404);
 });
