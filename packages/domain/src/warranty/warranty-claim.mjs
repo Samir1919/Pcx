@@ -4,6 +4,11 @@ export const WarrantyStatus = Object.freeze({
   VOID: "VOID"
 });
 
+export const WarrantyPolicyStatus = Object.freeze({
+  ACTIVE: "ACTIVE",
+  ARCHIVED: "ARCHIVED"
+});
+
 export const ClaimStatus = Object.freeze({
   REQUESTED: "REQUESTED",
   IN_REVIEW: "IN_REVIEW",
@@ -20,6 +25,7 @@ export const ResolutionType = Object.freeze({
 });
 
 const warrantyStatuses = new Set(Object.values(WarrantyStatus));
+const policyStatuses = new Set(Object.values(WarrantyPolicyStatus));
 const claimStatuses = new Set(Object.values(ClaimStatus));
 const resolutionTypes = new Set(Object.values(ResolutionType));
 
@@ -105,6 +111,57 @@ export function createClaimResolution({
     costAmount: costAmount == null ? null : money(costAmount, "costAmount"),
     approvedBy: requiredString(approvedBy, "approvedBy"),
     createdAt: timestamp(createdAt, "createdAt")
+  });
+}
+
+// A warranty policy is a server-authored, reusable coverage template. Warranties
+// reference a policy and snapshot its terms at issuance so the sold coverage
+// facts are preserved even if the policy is later edited or archived.
+export function createWarrantyPolicy({
+  id,
+  name,
+  durationDays,
+  coverageSummary,
+  terms = null,
+  status = WarrantyPolicyStatus.ACTIVE,
+  createdAt = new Date()
+}) {
+  const duration = Number(durationDays);
+  if (!Number.isInteger(duration) || duration <= 0) throw new TypeError("durationDays must be a positive integer");
+  if (!policyStatuses.has(status)) throw new TypeError("warranty policy status is invalid");
+  return Object.freeze({
+    id: requiredString(id, "id"),
+    name: requiredString(name, "name"),
+    durationDays: duration,
+    coverageSummary: requiredString(coverageSummary, "coverageSummary"),
+    terms: optionalString(terms, "terms"),
+    status,
+    createdAt: timestamp(createdAt, "createdAt"),
+    archivedAt: null
+  });
+}
+
+export function archiveWarrantyPolicy(policy, { archivedAt = new Date() } = {}) {
+  if (!policy || typeof policy !== "object") throw new TypeError("warranty policy is required");
+  if (policy.status === WarrantyPolicyStatus.ARCHIVED) return policy;
+  if (policy.status !== WarrantyPolicyStatus.ACTIVE) throw new TypeError("warranty policy has an unknown status");
+  return Object.freeze({
+    ...policy,
+    status: WarrantyPolicyStatus.ARCHIVED,
+    archivedAt: timestamp(archivedAt, "archivedAt")
+  });
+}
+
+// Snapshot of an authored policy's coverage facts, embedded into a warranty so
+// the sold terms are immutable.
+export function toWarrantyPolicySnapshot(policy) {
+  if (!policy || typeof policy !== "object") return null;
+  return Object.freeze({
+    policyId: policy.id,
+    name: policy.name,
+    durationDays: policy.durationDays,
+    coverageSummary: policy.coverageSummary,
+    terms: policy.terms
   });
 }
 

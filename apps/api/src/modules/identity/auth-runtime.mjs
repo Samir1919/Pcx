@@ -47,6 +47,8 @@ import { createPostgresReturnRequestRepository } from "../warranty/postgres-retu
 import { createReturnRequestService } from "../warranty/return-request-service.mjs";
 import { createPostgresWarrantyClaimRepository } from "../warranty/postgres-warranty-claim-repository.mjs";
 import { createWarrantyClaimService } from "../warranty/warranty-claim-service.mjs";
+import { createPostgresWarrantyPolicyRepository } from "../warranty/postgres-warranty-policy-repository.mjs";
+import { createWarrantyPolicyService } from "../warranty/warranty-policy-service.mjs";
 import { createPostgresOperationsReportRepository } from "../reporting/postgres-operations-report-repository.mjs";
 import { createOperationsReportService } from "../reporting/operations-report-service.mjs";
 import { createPostgresNotificationRepository } from "../notification/postgres-notification-repository.mjs";
@@ -215,6 +217,7 @@ export function createAuthRuntime({ pool, allowedOrigins, adminOrigins, abuseCon
 
   const returnRequestService = createReturnRequestService({ authService, repository: createPostgresReturnRequestRepository({ pool }) });
   const warrantyClaimService = createWarrantyClaimService({ authService, repository: createPostgresWarrantyClaimRepository({ pool }) });
+  const warrantyPolicyService = createWarrantyPolicyService({ authService, repository: createPostgresWarrantyPolicyRepository({ pool }) });
   const operationsReportService = createOperationsReportService({ authService, repository: createPostgresOperationsReportRepository({ pool }) });
   const notificationService = createNotificationService({ authService, repository: notificationRepository });
 
@@ -241,6 +244,7 @@ export function createAuthRuntime({ pool, allowedOrigins, adminOrigins, abuseCon
     shipmentService,
     returnRequestService,
     warrantyClaimService,
+    warrantyPolicyService,
     operationsReportService,
     notificationService,
     notificationProviderConfigService,

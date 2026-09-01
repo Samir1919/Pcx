@@ -82,14 +82,16 @@ export default function WarrantyPage() {
   const [loading, setLoading] = useState(true);
   const [warranties, setWarranties] = useState([]);
   const [claims, setClaims] = useState([]);
+  const [policies, setPolicies] = useState([]);
   const [resolveTarget, setResolveTarget] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [warrantyResult, claimResult] = await Promise.all([warrantyApi.warranties(), warrantyApi.claims()]);
+      const [warrantyResult, claimResult, policyResult] = await Promise.all([warrantyApi.warranties(), warrantyApi.claims(), warrantyApi.policies()]);
       setWarranties(warrantyResult.data ?? []);
       setClaims(claimResult.data ?? []);
+      setPolicies(policyResult.data ?? []);
       setNotice(null);
     } catch (error) {
       setNotice({ kind: "error", message: error.status === 401 ? "Sign in to view warranty & claims." : error.message });
@@ -130,6 +132,24 @@ export default function WarrantyPage() {
   async function resolveClaim(claimId, body) {
     await run(() => warrantyApi.resolveClaim({ claimId, ...body }), setBusy, setNotice);
     setResolveTarget(null);
+    await load();
+  }
+
+  async function createPolicy(event) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    await run(() => warrantyApi.createPolicy({
+      name: form.get("name"),
+      durationDays: Number(form.get("durationDays")),
+      coverageSummary: form.get("coverageSummary"),
+      terms: form.get("terms") || null
+    }), setBusy, setNotice);
+    event.currentTarget.reset();
+    await load();
+  }
+
+  async function archivePolicy(policyId) {
+    await run(() => warrantyApi.archivePolicy(policyId), setBusy, setNotice);
     await load();
   }
 
@@ -204,6 +224,43 @@ export default function WarrantyPage() {
           )}
         </section>
       </div>
+      <section className="panel">
+        <div className="panelTitle">
+          <div>
+            <p className="eyebrow">WARRANTY POLICIES</p>
+            <h2>Authored policies</h2>
+          </div>
+        </div>
+        {policies.length === 0 ? <p className="state">No policies authored yet.</p> : (
+          <div className="tableWrap">
+            <table>
+              <thead><tr><th>Name</th><th>Duration</th><th>Coverage</th><th>Status</th><th><span className="sr">Actions</span></th></tr></thead>
+              <tbody>
+                {policies.map((p) => (
+                  <tr key={p.id}>
+                    <td><strong>{p.name}</strong></td>
+                    <td>{p.durationDays} days</td>
+                    <td>{p.coverageSummary}</td>
+                    <td><span className="pill">{p.status}</span></td>
+                    <td>{p.status === "ACTIVE" && <button type="button" disabled={busy} onClick={() => archivePolicy(p.id)}>Archive</button>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+      <section className="panel formPanel">
+        <p className="eyebrow">AUTHOR POLICY</p>
+        <h2>New warranty policy</h2>
+        <form onSubmit={createPolicy}>
+          <Field label="Name" name="name" required />
+          <Field label="Duration (days)" name="durationDays" type="number" min="1" required />
+          <Field label="Coverage summary" name="coverageSummary" required />
+          <Field label="Terms" name="terms" />
+          <button className="primary" disabled={busy}>Author policy</button>
+        </form>
+      </section>
       <div className="grid" style={{ marginTop: 18 }}>
         <section className="panel formPanel">
           <p className="eyebrow">WARRANTY</p>

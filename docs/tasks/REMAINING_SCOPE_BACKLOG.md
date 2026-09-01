@@ -77,8 +77,14 @@ remaining gaps, ordered by dependency.
 
 ## 8. E13 warranty
 
-- Scope: warranty policy authoring (replace manual `policySnapshot: {}`),
-  claim inspections, carrier pickup, cost accounting.
+- Status: **PARTIAL (2026-09-01)** — warranty policy authoring done
+  (`warranty_policies` table + `createWarrantyPolicy`/`archiveWarrantyPolicy`/
+  `toWarrantyPolicySnapshot` + `POST/GET /api/v1/admin/warranty-policies` +
+  archive, SYSTEM_CONFIGURE, admin authoring panel). Handoff:
+  `docs/handoffs/E13_WARRANTY_POLICY.md`.
+- Remaining: claim inspections, carrier pickup, cost accounting (and wiring
+  `createWarranty` to reference an authored policy instead of the manual `{}`
+  snapshot).
 
 ## 9. E14/E16 reporting & audit
 
