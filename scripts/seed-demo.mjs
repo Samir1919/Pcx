@@ -47,6 +47,8 @@ const connectionString = process.env.DATABASE_URL;
 // Seeded references from migrations 0002 (roles) and 0006 (catalog).
 const ROLES = {
   CUSTOMER: "20000000-0000-0000-0000-000000000001",
+  TECHNICIAN: "20000000-0000-0000-0000-000000000003",
+  SUPERVISOR: "20000000-0000-0000-0000-000000000004",
   ADMIN: "20000000-0000-0000-0000-000000000007"
 };
 const CATEGORY_GPU = "80000000-0000-0000-0000-000000000003";
@@ -60,6 +62,8 @@ const DEMO = {
   admin: "a0000000-0000-0000-0000-000000000001",
   customer: "a0000000-0000-0000-0000-000000000002",
   seller: "a0000000-0000-0000-0000-000000000003",
+  technician: "a0000000-0000-0000-0000-000000000004",
+  supervisor: "a0000000-0000-0000-0000-000000000005",
   address: "b0000000-0000-0000-0000-000000000001",
   sellSubmitted: "c0000000-0000-0000-0000-000000000001",
   sellDraft: "c0000000-0000-0000-0000-000000000002",
@@ -97,7 +101,9 @@ const DEMO = {
 const DEMO_PASSWORDS = {
   admin: "DemoAdmin123!",
   customer: "DemoCustomer1!",
-  seller: "DemoSeller12!"
+  seller: "DemoSeller12!",
+  technician: "DemoTech123!",
+  supervisor: "DemoSuper123!"
 };
 
 const seed = async () => {
@@ -115,8 +121,10 @@ const seed = async () => {
     const [
       adminHash,
       customerHash,
-      sellerHash
-    ] = await Promise.all([hashPassword(DEMO_PASSWORDS.admin), hashPassword(DEMO_PASSWORDS.customer), hashPassword(DEMO_PASSWORDS.seller)]);
+      sellerHash,
+      technicianHash,
+      supervisorHash
+    ] = await Promise.all([hashPassword(DEMO_PASSWORDS.admin), hashPassword(DEMO_PASSWORDS.customer), hashPassword(DEMO_PASSWORDS.seller), hashPassword(DEMO_PASSWORDS.technician), hashPassword(DEMO_PASSWORDS.supervisor)]);
 
     const insertUser = (id, email, phone, status, passwordHash) => client.query(
       `INSERT INTO users(id, email, phone, password_hash, status, contact_verified, created_at, updated_at)
@@ -128,11 +136,16 @@ const seed = async () => {
     await insertUser(DEMO.admin, "demo-admin@example.com", "+8801700000001", "ACTIVE", adminHash);
     await insertUser(DEMO.customer, "demo-customer@example.com", "+8801700000002", "ACTIVE", customerHash);
     await insertUser(DEMO.seller, "demo-seller@example.com", "+8801700000003", "ACTIVE", sellerHash);
+    await insertUser(DEMO.technician, "demo-technician@example.com", "+8801700000004", "ACTIVE", technicianHash);
+    await insertUser(DEMO.supervisor, "demo-supervisor@example.com", "+8801700000005", "ACTIVE", supervisorHash);
 
     for (const [userId, roleId] of [
       [DEMO.admin, ROLES.ADMIN],
+      [DEMO.admin, ROLES.SUPERVISOR],
       [DEMO.customer, ROLES.CUSTOMER],
-      [DEMO.seller, ROLES.CUSTOMER]
+      [DEMO.seller, ROLES.CUSTOMER],
+      [DEMO.technician, ROLES.TECHNICIAN],
+      [DEMO.supervisor, ROLES.SUPERVISOR]
     ]) {
       await client.query(
         `INSERT INTO user_roles(user_id, role_id, assigned_at)

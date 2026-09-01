@@ -45,10 +45,10 @@ async function webLogin(page, creds) {
   await page.waitForFunction(() => document.body && document.body.innerText.includes("Sign out"), { timeout: 15_000 }).catch(() => { });
 }
 
-async function adminLogin(page) {
+async function adminLogin(page, creds = ADMIN_CREDS) {
   await page.goto(`${ADMIN}/login`, { waitUntil: "networkidle", timeout: 30_000 });
-  await page.locator('input[name="contact"]').fill(ADMIN_CREDS.contact);
-  await page.locator('input[name="password"]').fill(ADMIN_CREDS.pass);
+  await page.locator('input[name="contact"]').fill(creds.contact);
+  await page.locator('input[name="password"]').fill(creds.pass);
   await Promise.all([
     page.waitForResponse((r) => r.url().endsWith("/api/v1/auth/login") && r.request().method() === "POST", { timeout: 30_000 }),
     page.getByRole("button", { name: "Sign in", exact: true }).click()
@@ -58,28 +58,30 @@ async function adminLogin(page) {
   if (await challenge.count()) {
     await Promise.all([
       page.waitForResponse((r) => r.url().endsWith("/api/v1/auth/verify-mfa") && r.request().method() === "POST", { timeout: 30_000 }),
-      (async () => { await challenge.fill(ADMIN_CREDS.mfa); await page.getByRole("button", { name: "Verify", exact: true }).click(); })()
+      (async () => { await challenge.fill(creds.mfa); await page.getByRole("button", { name: "Verify", exact: true }).click(); })()
     ]);
   }
   await page.waitForFunction(() => document.body && document.body.innerText.includes("Operations dashboard"), { timeout: 15_000 });
 }
 
-async function pageFetchJson(page, path, { method = "GET", body } = {}) {
-  return page.evaluate(async ({ path, method, body }) => {
-    const m = document.cookie.split(";").map((s) => s.trim()).find((s) => s.startsWith("pcx_csrf="));
-    const token = m ? decodeURIComponent(m.slice("pcx_csrf=".length)) : null;
+async function pageFetchJson(page, path, { method = "GET", body, isAdmin = false } = {}) {
+  return page.evaluate(async ({ path, method, body, isAdmin }) => {
+    const csrfName = isAdmin ? "pcx_admin_csrf" : "pcx_csrf";
+    const m = document.cookie.split(";").map((s) => s.trim()).find((s) => s.startsWith(`${csrfName}=`));
+    const token = m ? decodeURIComponent(m.slice(`${csrfName}=`.length)) : null;
     const res = await fetch(path, {
       method,
       headers: {
         accept: "application/json",
         ...(body != null ? { "content-type": "application/json" } : {}),
-        ...(token ? { "x-csrf-token": token } : {})
+        ...(token ? { "x-csrf-token": token } : {}),
+        ...(isAdmin ? { "x-pcx-surface": "admin" } : {})
       },
       credentials: "include",
       body: body == null ? undefined : JSON.stringify(body)
     });
     return { status: res.status, body: await res.json().catch(() => null) };
-  }, { path, method, body });
+  }, { path, method, body, isAdmin });
 }
 
 async function main() {
@@ -174,6 +176,44 @@ async function main() {
   inventoryItemId = intakeJson?.data?.item?.id ?? null;
   pcxItemId = intakeJson?.data?.item?.pcxItemId ?? null;
   rec("provision-intake", !!inventoryItemId, inventoryItemId ? `pcx=${pcxItemId ?? "n/a"}` : `http ${intakeCreated.status()}`);
+
+  // 1.5) Inspect + approve (admin API): the listing draft gate requires an
+  // APPROVED item, so drive the real inspection lifecycle (RECEIVED -> DRAFT ->
+  // SUBMITTED -> APPROVED) before drafting a listing. The demo admin also holds
+  // the SUPERVISOR role so it can submit + override (a plain ADMIN is rejected).
+  let approved = false;
+  if (inventoryItemId) {
+    const modelRes = await pageFetchJson(admin, `/api/v1/product-models/${encodeURIComponent(MODEL_ID)}`);
+    const categoryId = modelRes.body?.data?.categoryId ?? null;
+    let templateId = null;
+    if (categoryId) {
+      const tmplRes = await pageFetchJson(admin, `/api/v1/admin/inspection-templates?categoryId=${encodeURIComponent(categoryId)}`, { isAdmin: true });
+      templateId = tmplRes.body?.data?.[0]?.id ?? null;
+    }
+    const startRes = templateId
+      ? await pageFetchJson(admin, "/api/v1/inspections", { method: "POST", body: { inventoryItemId, inspectionTemplateId: templateId }, isAdmin: true })
+      : null;
+    const inspectionId = startRes?.body?.data?.id ?? null;
+    if (!inspectionId) {
+      rec("provision-inspect-approve", false, templateId ? `start http ${startRes.status}` : "no template for model category");
+    } else {
+      const getRes = await pageFetchJson(admin, `/api/v1/inspections/${encodeURIComponent(inspectionId)}/results`, { isAdmin: true });
+      const items = getRes.body?.data?.items ?? [];
+      for (const it of items) {
+        if (it.isMandatory && it.resultType === "PASS_FAIL") {
+          await pageFetchJson(admin, `/api/v1/inspections/${encodeURIComponent(inspectionId)}/results`, {
+            method: "PUT",
+            body: { inspectionTemplateItemId: it.id, resultStatus: "PASS" },
+            isAdmin: true
+          });
+        }
+      }
+      const submitRes = await pageFetchJson(admin, `/api/v1/inspections/${encodeURIComponent(inspectionId)}/submit`, { method: "POST", body: {}, isAdmin: true });
+      const approveRes = await pageFetchJson(admin, `/api/v1/inspections/${encodeURIComponent(inspectionId)}/approve`, { method: "POST", body: {}, isAdmin: true });
+      approved = approveRes.status === 200;
+      rec("provision-inspect-approve", approved, approved ? "item APPROVED" : `submit=${submitRes.status} approve=${approveRes.status}`);
+    }
+  }
 
   // 2) Listing draft (admin UI).
   let listingId = null;
@@ -272,31 +312,36 @@ async function main() {
     rec("shipment-created-draft", !!shipmentId, shipmentId ? `shipment=${shipmentId.slice(0, 8)}…` : `http ${shipCreated.status()} ${JSON.stringify(shipJson).slice(0, 120)}`);
 
     if (shipmentId) {
-      // Mark shipped (scope to the "Mark shipped" form).
-      const shipForm = admin.locator("form").filter({ has: admin.getByRole("button", { name: "Mark shipped" }) });
+      const shipmentPrefix = shipmentId.slice(0, 8);
+
+      // Mark shipped: click the DRAFT row's button (opens the address dialog),
+      // fill the dialog, then submit.
       const shipResp = admin.waitForResponse(
         (r) => r.url().endsWith(`/api/v1/admin/shipments/${encodeURIComponent(shipmentId)}/ship`) && r.request().method() === "POST",
         { timeout: 30_000 }
       );
-      await shipForm.locator('input[name="shipmentId"]').fill(shipmentId);
-      await shipForm.locator('input[name="recipientName"]').fill("Demo Customer");
-      await shipForm.locator('input[name="phone"]').fill("+8801700000002");
-      await shipForm.locator('input[name="line1"]').fill("House 12, Road 5");
-      await shipForm.locator('input[name="city"]').fill("Dhaka");
-      await shipForm.locator('input[name="postalCode"]').fill("1209");
-      await shipForm.getByRole("button", { name: "Mark shipped" }).click();
+      await admin.goto(`${ADMIN}/shipment`, { waitUntil: "networkidle", timeout: 30_000 });
+      const shipRow = admin.locator("tr").filter({ hasText: shipmentPrefix }).first();
+      await shipRow.getByRole("button", { name: "Mark shipped" }).click();
+      const shipDialog = admin.getByRole("dialog");
+      await shipDialog.locator('input[name="recipientName"]').fill("Demo Customer");
+      await shipDialog.locator('input[name="phone"]').fill("+8801700000002");
+      await shipDialog.locator('input[name="line1"]').fill("House 12, Road 5");
+      await shipDialog.locator('input[name="city"]').fill("Dhaka");
+      await shipDialog.locator('input[name="postalCode"]').fill("1209");
+      await shipDialog.getByRole("button", { name: "Mark shipped" }).click();
       const shipped = await shipResp;
       const shippedJson = await shipped.json().catch(() => null);
       rec("shipment-marked-shipped", shipped.status() === 200 && shippedJson?.data?.status === "SHIPPED", shippedJson?.data?.trackingId ? `tracking=${shippedJson.data.trackingId}` : `http ${shipped.status()}`);
 
-      // Mark delivered (scope to the "Mark delivered" form).
-      const deliverForm = admin.locator("form").filter({ has: admin.getByRole("button", { name: "Mark delivered" }) });
+      // Mark delivered: the SHIPPED row's button delivers directly.
       const deliverResp = admin.waitForResponse(
         (r) => r.url().endsWith(`/api/v1/admin/shipments/${encodeURIComponent(shipmentId)}/deliver`) && r.request().method() === "POST",
         { timeout: 30_000 }
       );
-      await deliverForm.locator('input[name="shipmentId"]').fill(shipmentId);
-      await deliverForm.getByRole("button", { name: "Mark delivered" }).click();
+      await admin.goto(`${ADMIN}/shipment`, { waitUntil: "networkidle", timeout: 30_000 });
+      const deliverRow = admin.locator("tr").filter({ hasText: shipmentPrefix }).first();
+      await deliverRow.getByRole("button", { name: "Mark delivered" }).click();
       const delivered = await deliverResp;
       const deliveredJson = await delivered.json().catch(() => null);
       rec("shipment-marked-delivered", delivered.status() === 200 && deliveredJson?.data?.status === "DELIVERED", `http ${delivered.status()}`);

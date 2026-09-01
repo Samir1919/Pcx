@@ -140,7 +140,11 @@ async function run() {
   // auto-detected from the item model's category (no manual UUID paste).
   try {
     await page.goto(`${BASE_ADMIN}/inventory`, { waitUntil: "networkidle", timeout: 30_000 });
-    const inspectButton = page.getByRole("button", { name: "Inspect" }).first();
+    // Auto-select only applies when the item's category has an inspection
+    // template. The seed ships templates for Desktop PC and GPU, so target one
+    // of those rows (the first row may be an untemplated category such as PSU).
+    const templatedRow = page.locator("tr").filter({ hasText: /Desktop PC|GPU/ }).first();
+    const inspectButton = templatedRow.getByRole("button", { name: "Inspect" });
     if (await inspectButton.count()) {
       await inspectButton.click();
       await page.waitForTimeout(800);
@@ -149,6 +153,16 @@ async function run() {
       record("inventory-inspect-modal", visible > 0, visible > 0 ? "inspect modal opened" : "no dialog");
       if (visible > 0) {
         const select = page.getByLabel("Inspection template");
+        // Template auto-detection performs two sequential fetches (model, then
+        // category templates); poll until it resolves instead of racing a fixed
+        // sleep.
+        await page.waitForFunction(() => {
+          const el = [...document.querySelectorAll("select")].find((s) => {
+            const label = s.closest("label");
+            return label && /Inspection template/i.test(label.innerText ?? "");
+          });
+          return !!el && el.value !== "";
+        }, { timeout: 10_000 }).catch(() => {});
         const selected = await select.count() > 0 ? await select.inputValue() : "";
         record("inventory-inspect-template-autoselect", selected.length > 0, selected ? "template auto-selected" : "no template selected");
         await page.getByRole("button", { name: "Close" }).first().click();
@@ -174,8 +188,11 @@ async function run() {
       await dialog.locator("dt", { hasText: "Status" }).first().waitFor({ state: "visible", timeout: 10_000 });
       const detailText = await dialog.innerText();
       const hasDetail = /SELL REQUEST DETAIL/i.test(detailText) && /Status/i.test(detailText) && /Entry/i.test(detailText);
-      const hasForms = /Create offer/i.test(detailText) && /Create acquisition/i.test(detailText) && /Mark acquisition paid/i.test(detailText);
-      record("acquisition-detail-renders", hasDetail && hasForms, hasDetail && hasForms ? "detail modal opened with status/entry + action forms" : "detail modal content missing");
+      // "Create acquisition" and "Mark paid" only render for an accepted offer /
+      // pending acquisition (state-conditional); "Create offer" is the
+      // always-present action form for the queue's first (SUBMITTED) request.
+      const hasOfferForm = /Create offer/i.test(detailText);
+      record("acquisition-detail-renders", hasDetail && hasOfferForm, hasDetail && hasOfferForm ? "detail modal opened with status/entry + offer form" : "detail modal content missing");
       const prefill = await dialog.locator('input[name="sellRequestId"]').first().inputValue();
       record("acquisition-contextual-prefill", prefill.length > 0, prefill ? `sell request id pre-filled (${prefill.slice(0, 8)}…)` : "no prefill");
       const expiresAt = await dialog.locator('input[name="expiresAt"]').first().inputValue();

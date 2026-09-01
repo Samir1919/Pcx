@@ -11,6 +11,7 @@ const required = [
   "docs/agentic/MULTI_AGENT_SYSTEM.md", "CLAUDE.md", "GEMINI.md", "CONVENTIONS.md", ".clinerules",
   "docs/agentic/AUTONOMY_EVOLUTION_ROADMAP.md",
   "scripts/browser-verify-guard.mjs", "scripts/browser-verify-evidence.mjs", "docs/verify/README.md",
+  "docs/verify/FULLSTACK_VERIFICATION_PLAYBOOK.md",
   ".windsurfrules", ".roo/rules/pcx.md", ".github/copilot-instructions.md", ".cursor/rules/pcx.mdc", ".vscode/tasks.json"
 ];
 

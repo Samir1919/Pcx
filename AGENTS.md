@@ -60,6 +60,8 @@ Agentic infrastructure must evolve according to `docs/agentic/AUTONOMY_EVOLUTION
 
 When the human asks to verify "like a human" — or to verify any completed slice — run this consolidated checklist top to bottom and report every line as PASS / FAIL / N/A with exact evidence (file, selector, screenshot, or command output). It merges the standing invariants, engineering rules, and UI style guide into one definition-of-done; a vague "looks fine" is not evidence.
 
+For the complete A→Z verification flow (all APIs, all admin sections/subsections, all customer-web functions, gap analysis, and the resilience protocol), follow `docs/verify/FULLSTACK_VERIFICATION_PLAYBOOK.md`.
+
 1. Logic continuation (server ↔ admin ↔ web):
    - [ ] Every business rule/state transition in scope is enforced on the server (domain/service/repository/HTTP), not only in the UI.
    - [ ] The same rule is surfaced correctly in BOTH the admin UI and the customer web UI where applicable.

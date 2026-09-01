@@ -84,9 +84,11 @@ The seeder is idempotent (safe to re-run) and never deletes existing data.
 
 | Account | Email | Password | Role |
 |---|---|---|---|
-| Admin | `demo-admin@example.com` | `DemoAdmin123!` | ADMIN (MFA code `123456` in dev) |
+| Admin | `demo-admin@example.com` | `DemoAdmin123!` | ADMIN + SUPERVISOR (MFA code `123456` in dev) |
 | Customer | `demo-customer@example.com` | `DemoCustomer1!` | CUSTOMER |
 | Seller | `demo-seller@example.com` | `DemoSeller12!` | CUSTOMER |
+| Technician | `demo-technician@example.com` | `DemoTech123!` | TECHNICIAN (MFA code `123456` in dev) |
+| Supervisor | `demo-supervisor@example.com` | `DemoSuper123!` | SUPERVISOR (MFA code `123456` in dev) |
 
 These credentials exist only in your local dev database after `npm run seed:demo`.
 Never create them in production. In development the privileged admin completes sign-in

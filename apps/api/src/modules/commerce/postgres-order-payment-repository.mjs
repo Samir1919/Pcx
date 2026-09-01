@@ -97,11 +97,14 @@ export function createPostgresOrderPaymentRepository({ pool }) {
              WHERE inventory_item_id = $1 AND status = 'ACTIVE'`,
             [snapshot.inventoryItemId, record.placedAt]
           );
+          // Snapshot the actually-claimed listing id (server-authoritative),
+          // not the client-supplied value, so a later confirmPayment can find
+          // the claimed row by listing_id even when the client sent none.
           const result = await client.query(
             `INSERT INTO order_items(id, order_id, inventory_item_id, listing_id, product_model_id, pcx_item_id_snapshot, product_name_snapshot, spec_snapshot, grade_snapshot, health_score_snapshot, unit_price)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11)
              RETURNING id`,
-            [snapshot.id, snapshot.orderId, snapshot.inventoryItemId, snapshot.listingId, snapshot.productModelId, snapshot.pcxItemId, snapshot.productName, JSON.stringify(snapshot.specs), snapshot.grade, snapshot.healthScore, snapshot.unitPrice]
+            [snapshot.id, snapshot.orderId, snapshot.inventoryItemId, claimed.rows[0].id, snapshot.productModelId, snapshot.pcxItemId, snapshot.productName, JSON.stringify(snapshot.specs), snapshot.grade, snapshot.healthScore, snapshot.unitPrice]
           );
           orderItems.push({ id: result.rows[0].id });
         }
