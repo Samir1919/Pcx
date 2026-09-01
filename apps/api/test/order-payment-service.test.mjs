@@ -13,6 +13,8 @@ function fixture(overrides = {}) {
     },
     async createPayment(record) { calls.payments.push(record); return record; },
     async confirmPayment(txn, userId, now) { calls.confirms.push({ txn, userId, now }); return { status: "confirmed", record: { id: "p1", providerTransactionId: txn, status: PaymentStatus.CONFIRMED } }; },
+    async findPaymentByProviderTransactionId(txn) { return txn === "bkash-pay-1" ? { id: "p1", providerTransactionId: txn, status: PaymentStatus.INITIATED } : null; },
+    async reconcilePayment(txn, now) { calls.reconciles = (calls.reconciles ?? []).concat([{ txn, now }]); return { status: "confirmed", record: { id: "p1", providerTransactionId: txn, status: PaymentStatus.CONFIRMED } }; },
     ...overrides.repository
   };
   const service = createOrderPaymentService({
@@ -67,6 +69,30 @@ test("payment create derives provider txn id from the gateway and confirm enforc
 
   const invalidState = fixture({ repository: { async confirmPayment() { return { status: "not_confirmable" }; } } });
   await assert.rejects(invalidState.service.confirmPayment("access", "sandbox-pay-id-1"), (error) => error.code === "invalid_state");
+});
+
+test("reconcileBkashPayment executes the gateway and confirms server-authoritatively", async () => {
+  const { service, calls } = fixture({
+    gateway: {
+      async charge() { return { providerTransactionId: "bkash-pay-1", status: "INITIATED" }; },
+      async execute({ paymentId }) { return { status: "CONFIRMED", paymentId, trxID: "trx-1" }; }
+    }
+  });
+  const record = await service.reconcileBkashPayment("bkash-pay-1");
+  assert.equal(record.status, PaymentStatus.CONFIRMED);
+  assert.equal(calls.reconciles.length, 1);
+  assert.equal(calls.reconciles[0].txn, "bkash-pay-1");
+
+  // Unknown payment fails closed.
+  await assert.rejects(service.reconcileBkashPayment("unknown"), (error) => error.code === "invalid_state");
+
+  // A non-CONFIRMED execute result fails closed (never marks the order paid).
+  const failed = fixture({ gateway: { async charge() { return {}; }, async execute() { return { status: "FAILED" }; } } });
+  await assert.rejects(failed.service.reconcileBkashPayment("bkash-pay-1"), (error) => error.code === "invalid_state");
+
+  // A gateway without execute (sandbox) cannot reconcile a bKash redirect.
+  const sandbox = fixture();
+  await assert.rejects(sandbox.service.reconcileBkashPayment("bkash-pay-1"), (error) => error.code === "invalid_state");
 });
 
 test("order creation surfaces the double-sell guard as item_unavailable", async () => {

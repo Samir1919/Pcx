@@ -16,7 +16,7 @@ const paymentFields = new Set(["orderId", "direction", "method", "amount"]);
 
 export function createOrderPaymentService({ authService, repository, id = randomUUID, clock = () => new Date(), gateway = createSandboxPaymentGateway(), paymentProviderConfigService, notificationEmitter = null, provider = PaymentProvider.BKASH, bkashGatewayFactory = (credentials) => createBkashHttpGateway({ adapter: createBkashHttpAdapter({ credentials }) }) }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  for (const method of ["createOrderWithItems", "createPayment", "confirmPayment"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  for (const method of ["createOrderWithItems", "createPayment", "confirmPayment", "reconcilePayment", "findPaymentByProviderTransactionId"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
   if (!gateway || typeof gateway.charge !== "function") throw new TypeError("gateway.charge is required");
 
   // When a payment provider config service is injected, build a real gateway
@@ -187,6 +187,29 @@ export function createOrderPaymentService({ authService, repository, id = random
     async confirmPayment(accessCredential, providerTransactionId) {
       const identity = await customer(accessCredential);
       const result = await repository.confirmPayment(providerTransactionId, identity.userId, clock().toISOString());
+      if (result.status !== "confirmed") throw new OrderPaymentError("invalid_state");
+      return result.record;
+    },
+
+    // Server-authoritative bKash reconciliation after the customer completes the
+    // redirect. The gateway's execute() proves the money moved, so no customer
+    // ownership check applies here (the provider fact is authoritative). The
+    // payment is confirmed only when bKash reports CONFIRMED; otherwise the
+    // reconciliation fails closed.
+    async reconcileBkashPayment(providerTransactionId) {
+      const existing = await repository.findPaymentByProviderTransactionId(providerTransactionId);
+      if (!existing) throw new OrderPaymentError("invalid_state");
+      if (existing.status === "CONFIRMED") return existing; // idempotent
+      const resolved = await resolveGateway();
+      if (typeof resolved.gateway.execute !== "function") throw new OrderPaymentError("invalid_state");
+      let executed;
+      try {
+        executed = await resolved.gateway.execute({ paymentId: providerTransactionId });
+      } catch {
+        throw new OrderPaymentError("invalid_state");
+      }
+      if (executed.status !== "CONFIRMED") throw new OrderPaymentError("invalid_state");
+      const result = await repository.reconcilePayment(providerTransactionId, clock().toISOString());
       if (result.status !== "confirmed") throw new OrderPaymentError("invalid_state");
       return result.record;
     },

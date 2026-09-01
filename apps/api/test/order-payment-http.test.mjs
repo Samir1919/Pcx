@@ -9,6 +9,7 @@ function service(overrides = {}) {
   return {
     async createOrder() { return { id: "o1", orderNo: "ORD-000001", subtotal: 1500, totalAmount: 1500 }; },
     async confirmPayment() { return { id: "p1", status: "CONFIRMED" }; },
+    async reconcileBkashPayment() { return { id: "p1", status: "CONFIRMED" }; },
     ...overrides
   };
 }
@@ -51,6 +52,17 @@ test("payment confirm requires providerTransactionId and maps invalid state", as
   assert.equal(bad.status, 422);
 
   const invalidState = await invoke("/api/v1/payments/confirm", { body: { providerTransactionId: "x" }, headers: csrf(), orderPaymentService: service({ async confirmPayment() { throw new OrderPaymentError("invalid_state"); } }) });
+  assert.equal(invalidState.status, 409);
+});
+
+test("bKash redirect callback reconciles via GET with paymentID and maps errors", async () => {
+  const ok = await invoke("/api/v1/payments/bkash/callback?paymentID=pay-1", { method: "GET" });
+  assert.equal(ok.status, 200);
+
+  assert.equal((await invoke("/api/v1/payments/bkash/callback", { method: "GET" })).status, 400);
+  assert.equal((await invoke("/api/v1/payments/bkash/callback?paymentID=x", { method: "POST" })).status, 405);
+
+  const invalidState = await invoke("/api/v1/payments/bkash/callback?paymentID=x", { method: "GET", orderPaymentService: service({ async reconcileBkashPayment() { throw new OrderPaymentError("invalid_state"); } }) });
   assert.equal(invalidState.status, 409);
 });
 

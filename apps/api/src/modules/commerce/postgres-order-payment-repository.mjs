@@ -139,32 +139,57 @@ export function createPostgresOrderPaymentRepository({ pool }) {
     // could confirm any other customer's payment by guessing/observing a
     // provider transaction id.
     async confirmPayment(providerTransactionId, userId, now) {
-      return transaction(pool, async (client) => {
-        const updated = await client.query(
-          `UPDATE payments SET status = 'CONFIRMED', confirmed_at = $3
-           WHERE provider_transaction_id = $1 AND status = 'INITIATED'
-             AND order_id IN (SELECT id FROM orders WHERE user_id = $2)
-           RETURNING id, order_id, payment_direction, provider, provider_transaction_id, method, amount, status, initiated_at, confirmed_at`,
-          [providerTransactionId, userId, now]
-        );
-        if (updated.rowCount !== 1) return { status: "not_confirmable" };
-        const orderId = updated.rows[0].order_id;
-        // Payment received: advance the order and mark each claimed listing
-        // SOLD (RESERVED -> SOLD) so the sold item can never return to the
-        // sellable pool (spec 5/18/22).
-        await client.query(
-          `UPDATE orders SET status = 'CONFIRMED', updated_at = $2
-           WHERE id = $1 AND status = 'PENDING_PAYMENT'`,
-          [orderId, now]
-        );
-        await client.query(
-          `UPDATE listings SET status = 'SOLD'
-           WHERE id IN (SELECT listing_id FROM order_items WHERE order_id = $1)
-             AND status = 'RESERVED'`,
-          [orderId]
-        );
-        return { status: "confirmed", record: payment(updated.rows[0]) };
-      });
+      return markConfirmed(pool, providerTransactionId, now, userId);
+    },
+
+    // Server-authoritative reconciliation for provider callbacks/IPNs. Unlike
+    // confirmPayment, no ownership filter applies: the gateway's execute/query
+    // already proved the money moved, so the server records the provider fact.
+    // Still guarded by the same INITIATED -> CONFIRMED transition + double-sell
+    // advance (order CONFIRMED, listings SOLD) inside one transaction.
+    async reconcilePayment(providerTransactionId, now) {
+      return markConfirmed(pool, providerTransactionId, now, null);
+    },
+
+    async findPaymentByProviderTransactionId(providerTransactionId) {
+      const result = await pool.query(
+        `SELECT id, order_id, payment_direction, provider, provider_transaction_id, method, amount, status, initiated_at, confirmed_at
+         FROM payments WHERE provider_transaction_id = $1`,
+        [providerTransactionId]
+      );
+      return result.rows[0] ? payment(result.rows[0]) : null;
     }
+  });
+}
+
+async function markConfirmed(pool, providerTransactionId, now, userId) {
+  return transaction(pool, async (client) => {
+    const where = userId != null
+      ? "provider_transaction_id = $1 AND status = 'INITIATED' AND order_id IN (SELECT id FROM orders WHERE user_id = $2)"
+      : "provider_transaction_id = $1 AND status = 'INITIATED'";
+    const params = userId != null ? [providerTransactionId, userId, now] : [providerTransactionId, now];
+    const updated = await client.query(
+      `UPDATE payments SET status = 'CONFIRMED', confirmed_at = $${params.length}
+       WHERE ${where}
+       RETURNING id, order_id, payment_direction, provider, provider_transaction_id, method, amount, status, initiated_at, confirmed_at`,
+      params
+    );
+    if (updated.rowCount !== 1) return { status: "not_confirmable" };
+    const orderId = updated.rows[0].order_id;
+    // Payment received: advance the order and mark each claimed listing
+    // SOLD (RESERVED -> SOLD) so the sold item can never return to the
+    // sellable pool (spec 5/18/22).
+    await client.query(
+      `UPDATE orders SET status = 'CONFIRMED', updated_at = $2
+       WHERE id = $1 AND status = 'PENDING_PAYMENT'`,
+      [orderId, now]
+    );
+    await client.query(
+      `UPDATE listings SET status = 'SOLD'
+       WHERE id IN (SELECT listing_id FROM order_items WHERE order_id = $1)
+         AND status = 'RESERVED'`,
+      [orderId]
+    );
+    return { status: "confirmed", record: payment(updated.rows[0]) };
   });
 }
