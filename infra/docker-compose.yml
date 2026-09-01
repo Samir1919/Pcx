@@ -48,7 +48,8 @@ services:
       NODE_ENV: development
       API_ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001
       API_ADMIN_ORIGINS: http://localhost:3001,http://127.0.0.1:3001
-      # Media object storage (MinIO, S3-compatible). Absent → local disk fallback.
+      # Media object storage (MinIO, S3-compatible). true = MinIO, false = local disk.
+      OBJECT_STORAGE_ENABLED: "false"
       OBJECT_STORAGE_ENDPOINT: http://minio:9000
       OBJECT_STORAGE_BUCKET: pcx-local
       OBJECT_STORAGE_ACCESS_KEY: pcx_local

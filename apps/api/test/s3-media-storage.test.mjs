@@ -60,19 +60,27 @@ test("s3 storage promote copies private -> public via server-side copy", async (
   assert.match(calls.copies[0].sourcePath, /^\/pcx-media\/private\/[0-9a-f-]{36}$/);
 });
 
-test("s3 env factory returns null without OBJECT_STORAGE_ENDPOINT and parses the endpoint", () => {
-  assert.equal(createS3MediaStorageFromEnv({}), null);
-
-  const storage = createS3MediaStorageFromEnv({
+test("s3 env factory is gated by OBJECT_STORAGE_ENABLED", () => {
+  const full = {
     OBJECT_STORAGE_ENDPOINT: "http://localhost:9000",
     OBJECT_STORAGE_BUCKET: "pcx-local",
     OBJECT_STORAGE_ACCESS_KEY: "pcx_local",
     OBJECT_STORAGE_SECRET_KEY: "change_me_local_only"
-  });
+  };
+
+  // No OBJECT_STORAGE_ENABLED → local fallback (null), even with the endpoint set.
+  assert.equal(createS3MediaStorageFromEnv({}), null);
+  assert.equal(createS3MediaStorageFromEnv({ ...full }), null);
+  assert.equal(createS3MediaStorageFromEnv({ OBJECT_STORAGE_ENABLED: "false", ...full }), null);
+
+  // OBJECT_STORAGE_ENABLED=true → MinIO storage.
+  const storage = createS3MediaStorageFromEnv({ OBJECT_STORAGE_ENABLED: "true", ...full });
   assert.ok(storage);
   assert.equal(storage.path(), "s3://pcx-local");
 
+  // enabled=true but missing bucket → loud config error.
   assert.throws(() => createS3MediaStorageFromEnv({
+    OBJECT_STORAGE_ENABLED: "true",
     OBJECT_STORAGE_ENDPOINT: "http://localhost:9000"
-  }), /OBJECT_STORAGE_BUCKET/);
+  }), /are missing/);
 });

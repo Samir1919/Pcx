@@ -104,16 +104,22 @@ export function createS3MediaStorage({ client, bucket }) {
   });
 }
 
-// Build the S3 storage from the `OBJECT_STORAGE_*` environment variables, or
-// return null when object storage is not configured (caller falls back to local).
+function parseBool(value) {
+  if (value == null) return false;
+  return ["true", "1", "yes", "on"].includes(String(value).trim().toLowerCase());
+}
+
+// Build the S3 storage from the `OBJECT_STORAGE_*` environment variables.
+// `OBJECT_STORAGE_ENABLED=true` selects MinIO; anything else (false/unset/empty)
+// returns null so the caller falls back to local disk.
 export function createS3MediaStorageFromEnv(env = process.env) {
+  if (!parseBool(env.OBJECT_STORAGE_ENABLED)) return null;
   const endpoint = env.OBJECT_STORAGE_ENDPOINT;
-  if (!endpoint || endpoint.trim().length === 0) return null;
   const bucket = env.OBJECT_STORAGE_BUCKET;
   const accessKey = env.OBJECT_STORAGE_ACCESS_KEY;
   const secretKey = env.OBJECT_STORAGE_SECRET_KEY;
-  if (!bucket || !accessKey || !secretKey) {
-    throw new TypeError("OBJECT_STORAGE_ENDPOINT is set but OBJECT_STORAGE_BUCKET/ACCESS_KEY/SECRET_KEY are missing");
+  if (!endpoint || !bucket || !accessKey || !secretKey) {
+    throw new TypeError("OBJECT_STORAGE_ENABLED is set but OBJECT_STORAGE_ENDPOINT/BUCKET/ACCESS_KEY/SECRET_KEY are missing");
   }
   const parsed = new URL(endpoint);
   const useSSL = parsed.protocol === "https:";
