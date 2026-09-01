@@ -62,6 +62,13 @@ export function createPostgresMediaRepository({ pool }) {
       );
     },
 
+    async linkShipment(linkId, shipmentId, mediaId, purpose) {
+      await pool.query(
+        "INSERT INTO shipment_media(id, shipment_id, media_id, purpose) VALUES ($1,$2,$3,$4)",
+        [linkId, shipmentId, mediaId, purpose]
+      );
+    },
+
     async findSellRequestOwner(sellRequestId) {
       const result = await pool.query(
         "SELECT user_id FROM sell_requests WHERE id::text = $1",
@@ -108,6 +115,16 @@ export function createPostgresMediaRepository({ pool }) {
          FROM listing_media lm JOIN media m ON m.id = lm.media_id
          WHERE lm.listing_id::text = $1 ORDER BY m.created_at`,
         [listingId]
+      );
+      return result.rows.map(media);
+    },
+
+    async listShipmentMedia(shipmentId) {
+      const result = await pool.query(
+        `SELECT m.id, m.storage_key, m.mime_type, m.size_bytes, m.visibility, m.purpose, m.uploaded_by, m.created_at
+         FROM shipment_media sm JOIN media m ON m.id = sm.media_id
+         WHERE sm.shipment_id::text = $1 ORDER BY m.created_at`,
+        [shipmentId]
       );
       return result.rows.map(media);
     }

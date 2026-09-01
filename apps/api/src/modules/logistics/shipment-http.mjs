@@ -89,7 +89,7 @@ export async function handleShipmentRequest(request, response, { shipmentService
   let op = null;
   if (suffix) {
     const parts = suffix.slice(1).split("/");
-    if (parts.length === 2 && parts[0] && (parts[1] === "ship" || parts[1] === "deliver")) { shipmentId = parts[0]; op = parts[1]; }
+    if (parts.length === 2 && parts[0] && (parts[1] === "ship" || parts[1] === "deliver" || parts[1] === "return")) { shipmentId = parts[0]; op = parts[1]; }
     else { send(response, 404, failure("SHIPMENT_NOT_FOUND", "Shipment not found", requestId)); return true; }
     if (!id(shipmentId)) { send(response, 404, failure("SHIPMENT_NOT_FOUND", "Shipment not found", requestId)); return true; }
   }
@@ -105,6 +105,8 @@ export async function handleShipmentRequest(request, response, { shipmentService
       const body = await jsonBody(request);
       if (!body.address || typeof body.address !== "object" || Array.isArray(body.address)) throw new ShipmentError("invalid_input");
       send(response, 200, { data: await shipmentService.ship(cookies.pcx_access, id(shipmentId), body.address) });
+    } else if (op === "return") {
+      send(response, 200, { data: await shipmentService.return(cookies.pcx_access, id(shipmentId)) });
     } else {
 
       send(response, 200, { data: await shipmentService.deliver(cookies.pcx_access, id(shipmentId)) });

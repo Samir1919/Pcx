@@ -300,6 +300,24 @@ async function run() {
     record("listings-photos-modal", false, e.message);
   }
 
+  // Shipment: verify the packaging evidence Photos button opens the modal.
+  try {
+    await page.goto(`${BASE_ADMIN}/shipment`, { waitUntil: "networkidle", timeout: 30_000 });
+    const photosButton = page.getByRole("button", { name: "Photos" }).first();
+    if (await photosButton.count()) {
+      await photosButton.click();
+      await page.waitForTimeout(400);
+      const modal = page.getByRole("dialog");
+      const visible = await modal.count();
+      record("shipment-photos-modal", visible > 0, visible > 0 ? "packaging evidence modal opened" : "no dialog");
+      if (visible > 0) await page.getByRole("button", { name: "Close" }).first().click();
+    } else {
+      record("shipment-photos-modal", false, "no Photos button");
+    }
+  } catch (e) {
+    record("shipment-photos-modal", false, e.message);
+  }
+
   await browser.close();
   const failed = results.filter((r) => !r.ok);
 

@@ -156,7 +156,46 @@ test("media service promotes a seller photo to a public listing copy and validat
   }
 });
 
+test("media service attaches and lists private shipment packaging evidence", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "pcx-media-"));
+  const storage = createLocalMediaStorage({ root });
+  const saved = await storage.save(PNG, { visibility: "PRIVATE" });
+  const links = [];
+  const repository = {
+    async create(record) { return record; },
+    async findById(id) { return { id, storageKey: saved.storageKey, mimeType: "image/webp", sizeBytes: saved.sizeBytes, visibility: "PRIVATE" }; },
+    async linkShipment(linkId, shipmentId, mediaId, purpose) { links.push({ linkId, shipmentId, mediaId, purpose }); },
+    async listShipmentMedia(shipmentId) { return shipmentId === "s1" ? [{ id: "m1" }] : []; },
+    async linkSellRequest() { },
+    async linkInspection() { },
+    async linkListing() { }
+  };
+  try {
+    const service = createMediaService({
+      authService: { async authenticateAccess() { return { userId: "admin-1", status: "ACTIVE", roles: ["ADMIN"] }; } },
+      repository,
+      storage
+    });
+    const media = await service.addShipmentMedia("access", "s1", PNG);
+    assert.equal(media.visibility, "PRIVATE");
+    assert.equal(links.length, 1);
+    assert.equal(links[0].shipmentId, "s1");
+    assert.equal(links[0].purpose, "PACKAGING");
+    assert.deepEqual(await service.listShipmentMedia("access", "s1"), [{ id: "m1" }]);
+
+    const denied = createMediaService({
+      authService: { async authenticateAccess() { return { userId: "u", status: "ACTIVE", roles: ["CUSTOMER"] }; } },
+      repository,
+      storage
+    });
+    await assert.rejects(denied.listShipmentMedia("access", "s1"), (e) => e.code === "forbidden");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("media service marks seller picker items as promoted by media id", async () => {
+
   const root = await mkdtemp(path.join(os.tmpdir(), "pcx-media-"));
   const storage = createLocalMediaStorage({ root });
   const saved = await storage.save(PNG, { visibility: "PRIVATE" });

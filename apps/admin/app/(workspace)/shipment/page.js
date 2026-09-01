@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { shipmentApi } from "../../../lib/shipment-api.js";
+import ShipmentMediaModal from "./media-modal";
 
 function Banner({ notice, onClose }) { if (!notice) return null; return <div className={`banner ${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}><span>{notice.message}</span><button type="button" onClick={onClose} aria-label="Dismiss message">×</button></div>; }
 function Field({ label, name, defaultValue, ...props }) { return <label><span>{label}</span><input name={name} defaultValue={defaultValue} {...props} /></label>; }
@@ -63,6 +64,7 @@ export default function ShipmentPage() {
   const [loading, setLoading] = useState(true);
   const [shipments, setShipments] = useState([]);
   const [shipTarget, setShipTarget] = useState(null);
+  const [mediaTarget, setMediaTarget] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -105,6 +107,11 @@ export default function ShipmentPage() {
     await load();
   }
 
+  async function returnShipment(shipmentId) {
+    await run(() => shipmentApi.return(shipmentId), setBusy, setNotice);
+    await load();
+  }
+
   return (
     <>
       <header>
@@ -139,6 +146,8 @@ export default function ShipmentPage() {
                       <div className="actions">
                         {s.status === "DRAFT" && <button type="button" disabled={busy} onClick={() => setShipTarget(s)}>Mark shipped</button>}
                         {s.status === "SHIPPED" && <button type="button" disabled={busy} onClick={() => deliver(s.id)}>Mark delivered</button>}
+                        {s.status === "SHIPPED" && <button type="button" disabled={busy} onClick={() => returnShipment(s.id)}>Return to origin</button>}
+                        <button type="button" disabled={busy} onClick={() => setMediaTarget(s)}>Photos</button>
                       </div>
                     </td>
                   </tr>
@@ -169,6 +178,7 @@ export default function ShipmentPage() {
           onConfirm={ship}
         />
       )}
+      {mediaTarget && <ShipmentMediaModal shipment={mediaTarget} onClose={() => setMediaTarget(null)} />}
     </>
   );
 }

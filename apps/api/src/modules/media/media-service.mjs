@@ -32,6 +32,12 @@ export function createMediaService({ authService, repository, storage, id = rand
     return identity;
   }
 
+  async function shipmentActor(accessCredential) {
+    const identity = await authService.authenticateAccess({ accessCredential });
+    if (!hasPermission(identity, Permission.INVENTORY_MANAGE) && !hasPermission(identity, Permission.SYSTEM_CONFIGURE)) throw new MediaError("forbidden");
+    return identity;
+  }
+
   async function persist(buffer, { visibility, purpose, uploadedBy }) {
     const saved = await storage.save(buffer, { visibility });
     const record = await repository.create({
@@ -101,6 +107,20 @@ export function createMediaService({ authService, repository, storage, id = rand
     // internal actor (inspection read / pricing read / admin access).
     async listListingMedia(listingId) {
       return Object.freeze(await repository.listListingMedia(listingId));
+    },
+
+    // Admin attaches private packaging evidence to a shipment (box sealed,
+    // label, contents). Ownership is not applicable: shipments are internal.
+    async addShipmentMedia(accessCredential, shipmentId, buffer, purpose = "PACKAGING") {
+      const identity = await shipmentActor(accessCredential);
+      const media = await persist(buffer, { visibility: "PRIVATE", purpose, uploadedBy: identity.userId });
+      await repository.linkShipment(id(), shipmentId, media.id, purpose);
+      return Object.freeze(media);
+    },
+
+    async listShipmentMedia(accessCredential, shipmentId) {
+      await shipmentActor(accessCredential);
+      return Object.freeze(await repository.listShipmentMedia(shipmentId));
     },
 
     // Admin promotes a seller's private photo onto the listing (pick & promote).

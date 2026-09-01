@@ -87,11 +87,13 @@ export async function handleMediaRequest(request, response, { mediaService, allo
   // Upload + list routes.
   const uploadMatch = url.pathname.match(/^\/api\/v1\/sell-requests\/([^/]+)\/media$/)
     || url.pathname.match(/^\/api\/v1\/inspections\/([^/]+)\/media$/)
-    || url.pathname.match(/^\/api\/v1\/admin\/listings\/([^/]+)\/media$/);
+    || url.pathname.match(/^\/api\/v1\/admin\/listings\/([^/]+)\/media$/)
+    || url.pathname.match(/^\/api\/v1\/admin\/shipments\/([^/]+)\/media$/);
   const readMatch = url.pathname.match(/^\/api\/v1\/media\/([^/]+)$/);
   const listMatch = url.pathname.match(/^\/api\/v1\/sell-requests\/([^/]+)\/media$/)
     || url.pathname.match(/^\/api\/v1\/inspections\/([^/]+)\/media$/)
-    || url.pathname.match(/^\/api\/v1\/admin\/listings\/([^/]+)\/media$/);
+    || url.pathname.match(/^\/api\/v1\/admin\/listings\/([^/]+)\/media$/)
+    || url.pathname.match(/^\/api\/v1\/admin\/shipments\/([^/]+)\/media$/);
   const adminSellMediaListMatch = url.pathname.match(/^\/api\/v1\/admin\/sell-requests\/([^/]+)\/media$/);
   const promoteMatch = url.pathname.match(/^\/api\/v1\/admin\/listings\/([^/]+)\/media\/promote$/);
   const sellerMediaListMatch = url.pathname.match(/^\/api\/v1\/admin\/listings\/([^/]+)\/seller-media$/);
@@ -153,6 +155,7 @@ export async function handleMediaRequest(request, response, { mediaService, allo
       let result;
       if (url.pathname.startsWith("/api/v1/sell-requests/")) result = await mediaService.listSellRequestMedia(cookies.pcx_access, resourceId);
       else if (url.pathname.startsWith("/api/v1/inspections/")) result = await mediaService.listInspectionMedia(cookies.pcx_access, resourceId);
+      else if (url.pathname.startsWith("/api/v1/admin/shipments/")) result = await mediaService.listShipmentMedia(cookies.pcx_access, resourceId);
       else result = await mediaService.listListingMedia(resourceId);
       send(response, 200, { data: result });
     } catch (error) {
@@ -187,6 +190,7 @@ export async function handleMediaRequest(request, response, { mediaService, allo
     let result;
     if (url.pathname.startsWith("/api/v1/sell-requests/")) result = await mediaService.addSellRequestMedia(cookies.pcx_access, resourceId, buffer);
     else if (url.pathname.startsWith("/api/v1/inspections/")) result = await mediaService.addInspectionMedia(cookies.pcx_access, resourceId, buffer);
+    else if (url.pathname.startsWith("/api/v1/admin/shipments/")) result = await mediaService.addShipmentMedia(cookies.pcx_access, resourceId, buffer);
     else result = await mediaService.addListingMedia(cookies.pcx_access, resourceId, buffer);
     send(response, 201, { data: result });
   } catch (error) {

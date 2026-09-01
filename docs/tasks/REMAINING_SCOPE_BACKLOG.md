@@ -69,7 +69,11 @@ remaining gaps, ordered by dependency.
 
 ## 7. E11 fulfilment
 
-- Scope: packaging evidence media (link table + upload UI), return-to-origin shipment flow.
+- Status: **COMPLETE (2026-09-01)** — packaging evidence media (`shipment_media`
+  link table + `POST/GET /api/v1/admin/shipments/:id/media`, PRIVATE, admin-gated
+  upload + admin Photos modal) and return-to-origin admin action (`POST
+  /api/v1/admin/shipments/:id/return`, SHIPPED→RETURNED). Handoff:
+  `docs/handoffs/E11_FULFILMENT.md`.
 
 ## 8. E13 warranty
 

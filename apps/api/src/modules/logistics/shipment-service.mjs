@@ -122,6 +122,18 @@ export function createShipmentService({ authService, repository, id = randomUUID
       return result.record;
     },
 
+    // Return-to-origin: an admin marks a SHIPPED shipment RETURNED when the item
+    // is being returned to PCX (e.g. failed delivery or buyer return). Server-owned
+    // transition; the courier webhook also drives this transition for provider-side
+    // returns.
+    async return(accessCredential, shipmentId) {
+      await actor(accessCredential);
+      const result = await repository.markReturned(shipmentId, clock().toISOString());
+      if (result.status !== "returned") throw new ShipmentError("invalid_state");
+      await repository.recordEvent(createShipmentEvent({ id: id(), shipmentId, status: "RETURNED", occurredAt: clock() }));
+      return result.record;
+    },
+
     // Inbound courier webhook. The signature is validated server-side with a
     // timing-safe comparison. Every webhook is durably enqueued to the outbox
     // before application so a delivery event is never lost between receipt and

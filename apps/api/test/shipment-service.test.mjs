@@ -258,6 +258,16 @@ test("deliver emits ORDER_DELIVERED to the resolved buyer", async () => {
   assert.equal(emitted[0].referenceId, "s1");
 });
 
+test("return marks a SHIPPED shipment RETURNED and records the event", async () => {
+  const { service, calls } = fixture();
+  const returned = await service.return("access", "s1");
+  assert.equal(returned.status, ShipmentStatus.RETURNED);
+  assert.equal(calls.returns.length, 1);
+  assert.equal(calls.returns[0].id, "s1");
+  assert.equal(calls.events.length, 1);
+  assert.equal(calls.events[0].status, "RETURNED");
+});
+
 test("delivery webhook emits ORDER_DELIVERED only for the delivered transition", async () => {
   const { service, emitted } = fixture();
   await service.handleWebhook({ signature: "test-secret", shipmentId: "s1", providerStatus: "DELIVERED" });
