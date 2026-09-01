@@ -194,13 +194,14 @@ export default function CatalogWorkspace() {
   async function create(event) {
     event.preventDefault();
     setBusy(true);
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     try {
       if (active === "categories") await catalogApi.createCategory({ name: form.get("name"), slug: slug(form.get("name")), sortOrder: Number(form.get("sortOrder") || 0) });
       if (active === "brands") await catalogApi.createBrand({ name: form.get("name"), slug: slug(form.get("name")) });
       if (active === "models") await catalogApi.createModel({ name: form.get("name"), slug: slug(form.get("name")), categoryId: form.get("categoryId"), brandId: form.get("brandId"), modelCode: form.get("modelCode") || null, searchAliases: form.get("aliases").split(",").map((v) => v.trim()).filter(Boolean) });
       if (active === "definitions") await catalogApi.createDefinition({ categoryId: form.get("categoryId"), key: form.get("key"), label: form.get("label"), dataType: form.get("dataType"), unit: form.get("unit") || null, filterable: form.get("filterable") === "on", required: form.get("required") === "on", sortOrder: Number(form.get("sortOrder") || 0) });
-      event.currentTarget.reset();
+      formElement.reset();
       setNotice({ kind: "success", message: "Catalog record saved." });
       await load();
     } catch (error) {
@@ -219,6 +220,20 @@ export default function CatalogWorkspace() {
       await load();
     } catch (error) {
       setNotice({ kind: "error", message: error.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(record) {
+    if (!window.confirm(`Permanently delete ${record.name ?? record.label}? This cannot be undone.`)) return;
+    setBusy(true);
+    try {
+      await catalogApi.remove(plural[active], record.id);
+      setNotice({ kind: "success", message: "Record permanently deleted." });
+      await load();
+    } catch (error) {
+      setNotice({ kind: "error", message: error.status === 409 ? "This record is still referenced. Use Archive instead." : error.message });
     } finally {
       setBusy(false);
     }
@@ -324,7 +339,8 @@ export default function CatalogWorkspace() {
                           <td>
                             <div className="actions">
                               <button type="button" disabled={busy} onClick={() => setEditRecord(r)}>Edit</button>
-                              <button className="danger" type="button" disabled={busy} onClick={() => archive(r)}>Archive</button>
+                              {active !== "definitions" && <button className="danger" type="button" disabled={busy} onClick={() => remove(r)}>Delete</button>}
+                              <button type="button" disabled={busy} onClick={() => archive(r)}>Archive</button>
                             </div>
                           </td>
                         </tr>

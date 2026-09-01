@@ -31,6 +31,29 @@ export function createPostgresCatalogCommandRepository({ pool }) {
       return true;
     });
   }
+  // Hard delete for unreferenced records. A referenced record trips the FK
+  // (ON DELETE RESTRICT) and is reported as "in_use" — never cascaded. The
+  // savepoint keeps the transaction valid so the caller can still COMMIT/audit.
+  async function remove(id, kind, auditEvent) {
+    const tables = { category: "categories", brand: "brands", product_model: "product_models" };
+    const table = tables[kind];
+    if (!table) throw new TypeError("catalog kind is invalid");
+    return transaction(pool, async (client) => {
+      await client.query("SAVEPOINT catalog_remove");
+      try {
+        const result = await client.query(`DELETE FROM ${table} WHERE id::text=$1 AND status='ACTIVE' RETURNING id`, [id]);
+        await client.query("RELEASE SAVEPOINT catalog_remove");
+        if (result.rowCount !== 1) return { status: "not_found" };
+        await audit(client, auditEvent);
+        return { status: "deleted" };
+      } catch (error) {
+        await client.query("ROLLBACK TO SAVEPOINT catalog_remove");
+        await client.query("RELEASE SAVEPOINT catalog_remove");
+        if (error?.code === "23503") return { status: "in_use" };
+        throw error;
+      }
+    });
+  }
   async function find(kind, id) {
     const selections = {
       category: ["SELECT id,parent_id,name,slug,status,sort_order,created_at FROM categories WHERE id::text=$1 AND status='ACTIVE'", (row) => ({ id: row.id, parentId: row.parent_id, name: row.name, slug: row.slug, status: row.status, sortOrder: row.sort_order, createdAt: new Date(row.created_at).toISOString() })],
@@ -50,5 +73,5 @@ export function createPostgresCatalogCommandRepository({ pool }) {
     if (!definitions[kind]) throw new TypeError("catalog kind is invalid");
     return transaction(pool, async (client) => { const result=await client.query(...definitions[kind]); if(result.rowCount!==1)return false; await audit(client,auditEvent); return true; });
   }
-  return Object.freeze({ create, find, update, archive });
+  return Object.freeze({ create, find, update, archive, remove });
 }

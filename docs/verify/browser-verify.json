@@ -1,20 +1,20 @@
 {
-  "scope": "Admin catalog: bulk CSV import of product models + indicative quote ranges",
+  "scope": "Admin catalog: hard delete (unreferenced) + archive fallback (referenced)",
   "headed": true,
   "tool": "Playwright MCP browser (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "Import a CSV of product models with indicative quote ranges; missing categories/brands are created and re-running is idempotent by slug",
+    "subject": "Catalog rows now offer Delete (hard delete) alongside Archive; unreferenced records are removed and referenced records are blocked with a clear in-use error",
     "steps": [
       "sign in as demo admin (email + password + development MFA code 123456)",
-      "open /catalog",
-      "click the Import CSV tab",
-      "paste a CSV with header category,brand,name,model_code,low_value,high_value and one data row",
-      "submit and verify the banner reads Imported 1 model, skipped 0",
-      "re-submit the same CSV and verify the banner reads Imported 0 models, skipped 1 (idempotent)",
-      "verify no console errors during the flow"
+      "open /catalog (Categories tab)",
+      "create a fresh unreferenced category via the labeled form",
+      "click Delete on that fresh category and verify it disappears from the list",
+      "click Delete on a referenced category (Import Verify Cat, which has a product model)",
+      "verify the category is NOT deleted and the banner reads \"This record is still referenced. Use Archive instead.\"",
+      "verify the only console error is the expected 409 from the blocked delete"
     ]
   },
-  "notes": "Server derives slugs, creates missing categories/brands, and records an indicative price targeting exactly the product model. No console errors observed.",
-  "ranAt": "2026-09-01T05:45:00.000Z"
+  "notes": "Delete maps to DELETE .../:id?purge=1 (hard delete), blocked by FK RESTRICT -> 409 CATALOG_IN_USE for referenced rows; Archive remains the soft-delete fallback. No cascade delete. Fixed a pre-existing async currentTarget.reset() bug in the create form.",
+  "ranAt": "2026-09-01T06:30:00.000Z"
 }

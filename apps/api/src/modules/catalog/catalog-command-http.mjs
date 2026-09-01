@@ -23,7 +23,7 @@ async function body(request) {
 function mapped(error) {
   if (error instanceof AuthenticationError && error.code === "invalid_access") return [401,"UNAUTHENTICATED","Authentication required"];
   if (!(error instanceof CatalogCommandError)) return [500,"INTERNAL_ERROR","Unexpected server error"];
-  const values={ forbidden:[403,"FORBIDDEN","Operation is not allowed"], origin_denied:[403,"ORIGIN_DENIED","Request origin is not allowed"], csrf_invalid:[403,"CSRF_INVALID","CSRF validation failed"], not_found:[404,"CATALOG_NOT_FOUND","Catalog record not found"], conflict:[409,"CATALOG_CONFLICT","Catalog record conflicts with existing data"], invalid_reference:[422,"INVALID_REFERENCE","Catalog reference is invalid"], invalid_request:[400,"INVALID_REQUEST","Catalog request is invalid"], invalid_input:[422,"INVALID_INPUT","Catalog values are invalid"] };
+  const values={ forbidden:[403,"FORBIDDEN","Operation is not allowed"], origin_denied:[403,"ORIGIN_DENIED","Request origin is not allowed"], csrf_invalid:[403,"CSRF_INVALID","CSRF validation failed"], not_found:[404,"CATALOG_NOT_FOUND","Catalog record not found"], conflict:[409,"CATALOG_CONFLICT","Catalog record conflicts with existing data"], in_use:[409,"CATALOG_IN_USE","Catalog record is still referenced and cannot be deleted"], invalid_reference:[422,"INVALID_REFERENCE","Catalog reference is invalid"], invalid_request:[400,"INVALID_REQUEST","Catalog request is invalid"], invalid_input:[422,"INVALID_INPUT","Catalog values are invalid"] };
   return values[error.code] ?? [500,"INTERNAL_ERROR","Unexpected server error"];
 }
 
@@ -34,15 +34,17 @@ export async function handleCatalogCommandRequest(request,response,{ catalogComm
   const kind=paths.get(parts[0]);
   if(!kind || parts.length>2 || (parts.length===2 && !parts[1])) return false;
   if(!catalogCommandService){send(response,503,failure("CATALOG_ADMIN_UNAVAILABLE","Catalog administration is temporarily unavailable",requestId));return true;}
-  const create=parts.length===1 && request.method==="POST", update=parts.length===2 && request.method==="PATCH", archive=parts.length===2 && request.method==="DELETE";
-  if(!create&&!update&&!archive){send(response,405,failure("METHOD_NOT_ALLOWED","Method not allowed",requestId));return true;}
-  if(url.searchParams.size){send(response,400,failure("INVALID_REQUEST","Query parameters are not supported",requestId));return true;}
+  const purge = request.method === "DELETE" && url.searchParams.get("purge") === "1";
+  const keys = [...url.searchParams.keys()];
+  if (keys.length > 0 && !(keys.length === 1 && keys[0] === "purge" && purge)) { send(response,400,failure("INVALID_REQUEST","Query parameters are not supported",requestId)); return true; }
+  const create=parts.length===1 && request.method==="POST", update=parts.length===2 && request.method==="PATCH", archive=parts.length===2 && request.method==="DELETE" && !purge, remove=parts.length===2 && request.method==="DELETE" && purge;
+  if(!create&&!update&&!archive&&!remove){send(response,405,failure("METHOD_NOT_ALLOWED","Method not allowed",requestId));return true;}
   const parsed=cookies(request);
   try {
     security(request,allowedOrigins,parsed);
     const context={requestId};
     if(create){ const method=kind==="category"?"createCategory":kind==="brand"?"createBrand":"createProductModel"; send(response,201,{data:await catalogCommandService[method](parsed.pcx_access,await body(request),context)}); }
-    else { let id; try{id=decodeURIComponent(parts[1]);}catch{id=null;} if(!id||id.includes("/")||id.length>128) throw new CatalogCommandError("not_found"); if(update) send(response,200,{data:await catalogCommandService.update(parsed.pcx_access,kind,id,await body(request),context)}); else { await catalogCommandService.archive(parsed.pcx_access,kind,id,context); send(response,204); } }
+    else { let id; try{id=decodeURIComponent(parts[1]);}catch{id=null;} if(!id||id.includes("/")||id.length>128) throw new CatalogCommandError("not_found"); if(update) send(response,200,{data:await catalogCommandService.update(parsed.pcx_access,kind,id,await body(request),context)}); else if(remove) { await catalogCommandService.remove(parsed.pcx_access,kind,id,context); send(response,204); } else { await catalogCommandService.archive(parsed.pcx_access,kind,id,context); send(response,204); } }
   } catch(error){const [status,code,message]=mapped(error);send(response,status,failure(code,message,requestId));}
   return true;
 }

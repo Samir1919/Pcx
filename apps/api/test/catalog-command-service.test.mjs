@@ -7,7 +7,7 @@ function fixture(roles = ["ADMIN"]) {
   const calls = [];
   const service = createCatalogCommandService({
     authService: { async authenticateAccess() { return { userId: "actor-1", status: "ACTIVE", roles }; } },
-    repository: { async create(...input) { calls.push(["create", ...input]); return input[0]; }, async find(kind,id) { calls.push(["find",kind,id]); return kind === "brand" ? { id, name:"Old", slug:"old", status:"ACTIVE", createdAt:"2026-08-15T00:00:00.000Z" } : null; }, async update(...input) { calls.push(["update",...input]); return true; }, async archive(...input) { calls.push(["archive", ...input]); return true; } },
+    repository: { async create(...input) { calls.push(["create", ...input]); return input[0]; }, async find(kind,id) { calls.push(["find",kind,id]); return kind === "brand" ? { id, name:"Old", slug:"old", status:"ACTIVE", createdAt:"2026-08-15T00:00:00.000Z" } : null; }, async update(...input) { calls.push(["update",...input]); return true; }, async archive(...input) { calls.push(["archive", ...input]); return true; }, async remove(...input) { calls.push(["remove", ...input]); return { status: "deleted" }; } },
     id: () => `id-${++sequence}`,
     clock: () => new Date("2026-08-16T00:00:00.000Z")
   });
@@ -43,4 +43,31 @@ test("catalog PATCH merges active records while preserving server identity and l
   assert.equal(updated.id,"brand-1"); assert.equal(updated.status,"ACTIVE"); assert.equal(updated.name,"New");
   const update=calls.find(([name])=>name==="update"); assert.equal(update[1].id,"brand-1"); assert.equal(update[4].actorId,"actor-1");
   await assert.rejects(service.update("access","brand","brand-1",{status:"ARCHIVED"}),error=>error.code==="invalid_input");
+});
+
+test("catalog remove hard-deletes unreferenced records with a DELETED audit event", async () => {
+  const { service, calls } = fixture();
+  await service.remove("access", "brand", "brand-1", { requestId: "purge" });
+  const remove = calls.find(([name]) => name === "remove");
+  assert.equal(remove[1], "brand-1");
+  assert.equal(remove[2], "brand");
+  assert.equal(remove[3].action, "CATALOG_BRAND_DELETED");
+  assert.deepEqual(remove[3].changes, { status: "DELETED" });
+  assert.equal(remove[3].actorId, "actor-1");
+});
+
+test("catalog remove maps in_use and not_found outcomes to errors", async () => {
+  const { service } = fixture();
+  const base = { async remove() { return { status: "in_use" }; } };
+  const inUse = createCatalogCommandService({
+    authService: { async authenticateAccess() { return { userId: "a", status: "ACTIVE", roles: ["ADMIN"] }; } },
+    repository: { create() {}, find() {}, update() {}, archive() {}, ...base }
+  });
+  await assert.rejects(inUse.remove("access", "category", "c1"), (e) => e.code === "in_use");
+
+  const notFound = createCatalogCommandService({
+    authService: { async authenticateAccess() { return { userId: "a", status: "ACTIVE", roles: ["ADMIN"] }; } },
+    repository: { create() {}, find() {}, update() {}, archive() {}, async remove() { return { status: "not_found" }; } }
+  });
+  await assert.rejects(notFound.remove("access", "category", "c1"), (e) => e.code === "not_found");
 });

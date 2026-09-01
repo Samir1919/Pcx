@@ -11,7 +11,7 @@ const fields = Object.freeze({
 
 export function createCatalogCommandService({ authService, repository, id = randomUUID, clock = () => new Date() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  if (!repository || ["create","find","update","archive"].some((method) => typeof repository[method] !== "function")) throw new TypeError("catalog command repository is required");
+  if (!repository || ["create","find","update","archive","remove"].some((method) => typeof repository[method] !== "function")) throw new TypeError("catalog command repository is required");
 
   async function actor(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -74,6 +74,26 @@ export function createCatalogCommandService({ authService, repository, id = rand
       const now = clock().toISOString();
       const archived = await repository.archive(targetId, kind, now, event(identity, kind, targetId, context.requestId, `CATALOG_${kind.toUpperCase()}_ARCHIVED`, now));
       if (!archived) throw new CatalogCommandError("not_found");
+    },
+
+    // Hard delete (unreferenced only). A referenced record yields `in_use` so the
+    // caller can fall back to archive — never a destructive cascade.
+    async remove(accessCredential, kind, targetId, context = {}) {
+      if (!fields[kind] || typeof targetId !== "string" || !targetId) throw new CatalogCommandError("not_found");
+      const identity = await actor(accessCredential);
+      const now = clock().toISOString();
+      const outcome = await repository.remove(targetId, kind, {
+        id: id(),
+        actorId: identity.userId,
+        action: `CATALOG_${kind.toUpperCase()}_DELETED`,
+        targetType: kind.toUpperCase(),
+        targetId,
+        requestId: context.requestId ?? "unavailable",
+        changes: { status: "DELETED" },
+        occurredAt: now
+      });
+      if (outcome.status === "in_use") throw new CatalogCommandError("in_use");
+      if (outcome.status !== "deleted") throw new CatalogCommandError("not_found");
     }
   });
 }

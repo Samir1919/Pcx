@@ -36,3 +36,41 @@ test("catalog commands commit create/archive with actor audit atomically", { ski
     assert.equal(events.rows.every(({ actor_id }) => actor_id === actorId), true);
   } finally { await pool.end(); }
 });
+
+test("catalog remove hard-deletes unreferenced rows and reports in_use for referenced", { skip: !connectionString }, async () => {
+  await runMigrations({ connectionString });
+  const pool = new pg.Pool({ connectionString });
+  const repository = createPostgresCatalogCommandRepository({ pool });
+  const actorId = "76000000-0000-0000-0000-000000000009";
+  const catFree = "76000000-0000-0000-0000-000000000001";
+  const catUsed = "76000000-0000-0000-0000-000000000002";
+  const brandId = "76000000-0000-0000-0000-000000000003";
+  const modelId = "76000000-0000-0000-0000-000000000004";
+  const now = "2026-08-16T00:00:00.000Z";
+  const audit = (id, targetId) => ({ id, actorId, action: "CATALOG_CATEGORY_DELETED", targetType: "CATEGORY", targetId, requestId: "purge", changes: { status: "DELETED" }, occurredAt: now });
+  try {
+    await pool.query("DELETE FROM auth_audit_events WHERE actor_id=$1", [actorId]);
+    await pool.query("DELETE FROM product_models WHERE id=$1", [modelId]);
+    await pool.query("DELETE FROM brands WHERE id=$1", [brandId]);
+    await pool.query("DELETE FROM categories WHERE id IN ($1,$2)", [catFree, catUsed]);
+    await pool.query("DELETE FROM users WHERE id=$1", [actorId]);
+    await pool.query("INSERT INTO users(id,email,status,contact_verified) VALUES ($1,'catalog-delete@example.com','ACTIVE',true)", [actorId]);
+    await pool.query("INSERT INTO categories(id,name,slug,status) VALUES ($1,'Free','free-test','ACTIVE'),($2,'Used','used-test','ACTIVE')", [catFree, catUsed]);
+    await pool.query("INSERT INTO brands(id,name,slug,status) VALUES ($1,'B','b-test','ACTIVE')", [brandId]);
+    await pool.query("INSERT INTO product_models(id,category_id,brand_id,name,slug,status) VALUES ($1,$2,$3,'M','m-test','ACTIVE')", [modelId, catUsed, brandId]);
+
+    assert.deepEqual(await repository.remove(catUsed, "category", audit("76000000-0000-0000-0000-000000000005", catUsed)), { status: "in_use" });
+    assert.deepEqual(await repository.remove(catFree, "category", audit("76000000-0000-0000-0000-000000000006", catFree)), { status: "deleted" });
+    assert.deepEqual(await repository.remove(catFree, "category", audit("76000000-0000-0000-0000-000000000007", catFree)), { status: "not_found" });
+
+    const deletedEvents = await pool.query("SELECT action FROM auth_audit_events WHERE target_id=$1", [catFree]);
+    assert.deepEqual(deletedEvents.rows.map(({ action }) => action), ["CATALOG_CATEGORY_DELETED"]);
+  } finally {
+    await pool.query("DELETE FROM product_models WHERE id=$1", [modelId]);
+    await pool.query("DELETE FROM brands WHERE id=$1", [brandId]);
+    await pool.query("DELETE FROM categories WHERE id IN ($1,$2)", [catFree, catUsed]);
+    await pool.query("DELETE FROM auth_audit_events WHERE actor_id=$1", [actorId]);
+    await pool.query("DELETE FROM users WHERE id=$1", [actorId]);
+    await pool.end();
+  }
+});
