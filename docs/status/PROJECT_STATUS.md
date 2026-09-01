@@ -1,7 +1,7 @@
 # PCX Project Status
 
 - Updated: 2026-09-01
-- Current main evidence commit: `96853a6` (real bKash HTTP adapter, sandbox-only, E10, merged into `origin/main`)
+- Current main evidence commit: `fe3ce41` (inspection reinspection supersede + reasoned supervisor override, E5, merged into `origin/main`)
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: Stage 3 control-plane completion and next dependency-ready work
 - Current autonomy maturity: Stage 2 in progress; Stage 3 control plane complete for bounded local/CI parallel orchestration (ADR 0008)
