@@ -52,12 +52,13 @@ remaining gaps, ordered by dependency.
 
 ## 5. E7/E8 passport & storefront
 
-- Status: **PARTIAL COMPLETE (2026-09-01)** — verification summary (server-derived
-  grade + health narrative on the public passport) and listing QR (scan-to-open
-  stable passport URL, `qrcode` SVG rendered on the passport page) are done.
-  Handoff: `docs/handoffs/PASSPORT_QR_SUMMARY.md`.
-- Remaining: dedicated search index / recommendation (large, separate
-  infrastructure feature).
+- Status: **COMPLETE (2026-09-01)** — verification summary (server-derived
+  grade + health narrative), listing QR (scan-to-open stable passport URL),
+  dedicated Postgres full-text search index (weighted `search_vector` tsvector +
+  GIN index, `websearch_to_tsquery` + `ts_rank` relevance ranking, rank-aware
+  cursor; migration 0044), and related-listing recommendations (same category,
+  same brand first, excluding self; `GET /api/v1/passport/:pcxId/related` +
+  "You may also like" on the passport page).
 
 ## 6. E9 order/payment allocation
 
@@ -88,14 +89,23 @@ remaining gaps, ordered by dependency.
 
 ## 9. E14/E16 reporting & audit
 
-- Scope: full BI/reporting UI, scheduled exports, external SIEM.
+- Status: **COMPLETE (2026-09-01)** — BI dashboard (`GET /api/v1/admin/reports/bi`:
+  revenue by status + inventory value by grade, all server-derived), CSV export
+  (`GET /api/v1/admin/reports/operations/export?format=csv`), external-SIEM NDJSON
+  export (`GET /api/v1/admin/audit-logs/export?format=ndjson`), and scheduled
+  exports (`scheduled_exports` registry, migration 0045, with admin list/create +
+  a worker `runDue` job). Admin Reports workspace (`/reports`) surfaces the KPIs,
+  download buttons, and the scheduled-export list.
 
 ## 10. E17 security
 
-- Status: **PARTIAL (2026-09-01)** — HSTS + `permissions-policy` on the API, and
+- Status: **PARTIAL (2026-09-01)** — HSTS + `permissions-policy` on the API,
   CSP allow-listing (plus HSTS/nosniff/DENY/referrer) on the admin + storefront
-  Next.js apps via `next.config.mjs` are done. Remaining: upload scanning, and
-  MFA gates (real MFA provider is a hard stop).
+  Next.js apps, and **upload malware scanning** (pluggable scanner interface +
+  fail-closed signature scanner: EICAR test signature, executable magic bytes,
+  embedded PHP/script/shell payloads; wired into the media upload path as
+  `MALWARE_DETECTED` 422) are done. Remaining: MFA gates (real MFA provider is a
+  hard stop).
 
 ## 11. E19 media
 
