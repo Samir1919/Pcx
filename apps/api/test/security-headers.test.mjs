@@ -21,4 +21,6 @@ test("API responses include baseline security headers", async () => {
   assert.equal(headers["x-frame-options"], "DENY");
   assert.equal(headers["referrer-policy"], "no-referrer");
   assert.equal(headers["content-security-policy"], "default-src 'none'; frame-ancestors 'none'");
+  assert.equal(headers["strict-transport-security"], "max-age=31536000; includeSubDomains");
+  assert.equal(headers["permissions-policy"], "camera=(), microphone=(), geolocation=()");
 });

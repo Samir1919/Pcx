@@ -81,6 +81,8 @@ export function createRequestHandler({ readiness = () => ({ ok: true }), catalog
     response.setHeader("x-frame-options", "DENY");
     response.setHeader("referrer-policy", "no-referrer");
     response.setHeader("content-security-policy", "default-src 'none'; frame-ancestors 'none'");
+    response.setHeader("strict-transport-security", "max-age=31536000; includeSubDomains");
+    response.setHeader("permissions-policy", "camera=(), microphone=(), geolocation=()");
     const url = new URL(request.url, "http://pcx.local");
     const method = request.method ?? "GET";
     normalizeCookieHeader(request, adminOrigins);
