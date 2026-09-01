@@ -59,6 +59,7 @@ function map(error) {
     if (error.code === "forbidden") return [403, "WARRANTY_FORBIDDEN", "Warranty/claim operation is not allowed"];
     if (error.code === "conflict") return [409, "WARRANTY_CONFLICT", "Warranty already exists for this item"];
     if (error.code === "invalid_state") return [409, "INVALID_WARRANTY_STATE", "Warranty/claim is not in an acceptable state"];
+    if (error.code === "not_found") return [404, "CLAIM_NOT_FOUND", "Claim not found"];
     if (error.code === "invalid_reference") return [422, "INVALID_REFERENCE", "Warranty/claim reference is invalid"];
     return [error.code === "invalid_request" ? 400 : 422, error.code === "invalid_request" ? "INVALID_REQUEST" : "INVALID_INPUT", "Warranty/claim request is invalid"];
   }
@@ -70,15 +71,33 @@ export async function handleWarrantyClaimRequest(request, response, { warrantyCl
   const warranties = "/api/v1/admin/warranties";
   const claims = "/api/v1/admin/claims";
   const customerClaim = "/api/v1/claims";
+  const claimInspectionMatch = url.pathname.match(/^\/api\/v1\/admin\/claims\/([^/]+)\/inspection$/);
   let op = null;
   if (url.pathname === warranties) op = "createWarranty";
   else if (url.pathname === claims) op = "createClaim";
   else if (url.pathname === `${claims}/resolve`) op = "resolveClaim";
   else if (url.pathname === customerClaim) op = "createClaimCustomer";
-  else return false;
+  else if (!claimInspectionMatch) return false;
 
   if (!warrantyClaimService) { send(response, 503, failure("WARRANTY_UNAVAILABLE", "Warranty/claims are temporarily unavailable", requestId)); return true; }
   if (url.searchParams.size > 0) { send(response, 400, failure("INVALID_REQUEST", "Query parameters are not supported", requestId)); return true; }
+
+  // Claim → inspection link: POST /api/v1/admin/claims/:id/inspection
+  if (claimInspectionMatch) {
+    if (request.method !== "POST") { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
+    const claimId = id(claimInspectionMatch[1]);
+    if (!claimId) { send(response, 404, failure("CLAIM_NOT_FOUND", "Claim not found", requestId)); return true; }
+    const cookies = parsedCookies(request);
+    try {
+      requireWriteSecurity(request, allowedOrigins, cookies);
+      const body = await jsonBody(request);
+      send(response, 200, { data: await warrantyClaimService.linkInspection(cookies.pcx_access, claimId, body.inspectionId) });
+    } catch (error) {
+      const [status, code, message] = map(error);
+      send(response, status, failure(code, message, requestId));
+    }
+    return true;
+  }
 
   const method = request.method ?? "GET";
   if (method === "GET" && (op === "createWarranty" || op === "createClaim")) {

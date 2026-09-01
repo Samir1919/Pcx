@@ -153,6 +153,13 @@ export default function WarrantyPage() {
     await load();
   }
 
+  async function linkInspection(claimId) {
+    const inspectionId = window.prompt("Enter the inspection ID to link to this claim:");
+    if (!inspectionId) return;
+    await run(() => warrantyApi.linkInspection(claimId, inspectionId.trim()), setBusy, setNotice);
+    await load();
+  }
+
   return (
     <>
       <header>
@@ -201,17 +208,19 @@ export default function WarrantyPage() {
           {loading ? <p className="state" role="status">Loading claims…</p> : claims.length === 0 ? <p className="state">No claims yet.</p> : (
             <div className="tableWrap">
               <table>
-                <thead><tr><th>Claim</th><th>Warranty</th><th>Reason</th><th>Status</th><th><span className="sr">Actions</span></th></tr></thead>
+                <thead><tr><th>Claim</th><th>Warranty</th><th>Reason</th><th>Inspection</th><th>Status</th><th><span className="sr">Actions</span></th></tr></thead>
                 <tbody>
                   {claims.map((c) => (
                     <tr key={c.id}>
                       <td><strong>{c.id.slice(0, 8)}…</strong></td>
                       <td>{c.warrantyId.slice(0, 8)}…</td>
                       <td>{c.reasonCode}</td>
+                      <td>{c.inspectionId ? c.inspectionId.slice(0, 8) : "—"}</td>
                       <td><span className="pill">{c.status}</span></td>
                       <td>
-                        {c.status === "REQUESTED" && (
+                        {(c.status === "REQUESTED" || c.status === "IN_REVIEW") && (
                           <div className="actions">
+                            {c.status === "REQUESTED" && <button type="button" disabled={busy} onClick={() => linkInspection(c.id)}>Link inspection</button>}
                             <button type="button" disabled={busy} onClick={() => setResolveTarget(c)}>Resolve</button>
                           </div>
                         )}

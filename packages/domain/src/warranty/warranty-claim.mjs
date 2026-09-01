@@ -89,7 +89,20 @@ export function createClaim({
     symptoms: optionalString(symptoms, "symptoms"),
     requestedAt: timestamp(requestedAt, "requestedAt"),
     receivedAt: null,
-    resolvedAt: null
+    resolvedAt: null,
+    inspectionId: null
+  });
+}
+
+// Link a claim to the inspection of the returned item, moving it REQUESTED →
+// IN_REVIEW so the resolution is grounded in a real inspection.
+export function linkClaimInspection(claim, inspectionId) {
+  if (!claim || typeof claim !== "object") throw new TypeError("claim is required");
+  if (claim.status !== ClaimStatus.REQUESTED) throw new TypeError("only a REQUESTED claim can be inspected");
+  return Object.freeze({
+    ...claim,
+    inspectionId: requiredString(inspectionId, "inspectionId"),
+    status: ClaimStatus.IN_REVIEW
   });
 }
 

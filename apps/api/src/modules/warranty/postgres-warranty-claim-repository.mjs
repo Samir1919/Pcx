@@ -35,9 +35,12 @@ function claim(row) {
     symptoms: row.symptoms,
     requestedAt: new Date(row.requested_at).toISOString(),
     receivedAt: row.received_at ? new Date(row.received_at).toISOString() : null,
-    resolvedAt: row.resolved_at ? new Date(row.resolved_at).toISOString() : null
+    resolvedAt: row.resolved_at ? new Date(row.resolved_at).toISOString() : null,
+    inspectionId: row.inspection_id ?? null
   });
 }
+
+const claimColumns = "id, warranty_id, order_item_id, status, reason_code, symptoms, requested_at, received_at, resolved_at, inspection_id";
 
 function resolution(row) {
   return Object.freeze({
@@ -69,7 +72,7 @@ export function createPostgresWarrantyClaimRepository({ pool }) {
       const result = await pool.query(
         `INSERT INTO claims(id, warranty_id, order_item_id, status, reason_code, symptoms, requested_at)
          VALUES ($1, $2, $3, 'REQUESTED', $4, $5, $6)
-         RETURNING id, warranty_id, order_item_id, status, reason_code, symptoms, requested_at, received_at, resolved_at`,
+         RETURNING ${claimColumns}`,
         [record.id, record.warrantyId, record.orderItemId, record.reasonCode, record.symptoms, record.requestedAt]
       );
       return claim(result.rows[0]);
@@ -95,7 +98,7 @@ export function createPostgresWarrantyClaimRepository({ pool }) {
 
     async listClaims() {
       const result = await pool.query(
-        "SELECT id, warranty_id, order_item_id, status, reason_code, symptoms, requested_at, received_at, resolved_at FROM claims ORDER BY requested_at DESC LIMIT 100",
+        `SELECT ${claimColumns} FROM claims ORDER BY requested_at DESC LIMIT 100`,
         []
       );
       return result.rows.map(claim);
@@ -127,12 +130,27 @@ export function createPostgresWarrantyClaimRepository({ pool }) {
         const updated = await client.query(
           `UPDATE claims SET status = 'RESOLVED', resolved_at = $2
            WHERE id = $1 AND status IN ('REQUESTED', 'IN_REVIEW')
-           RETURNING id, warranty_id, order_item_id, status, reason_code, symptoms, requested_at, received_at, resolved_at`,
+           RETURNING ${claimColumns}`,
           [claimId, now]
         );
         if (updated.rowCount !== 1) return { status: "not_resolvable" };
         return { status: "resolved", record: claim(updated.rows[0]) };
       });
+    },
+
+    async findClaimById(id) {
+      const result = await pool.query(`SELECT ${claimColumns} FROM claims WHERE id::text = $1`, [id]);
+      return result.rows[0] ? claim(result.rows[0]) : null;
+    },
+
+    async linkInspection(claimId, inspectionId) {
+      const result = await pool.query(
+        `UPDATE claims SET inspection_id = $2, status = 'IN_REVIEW'
+         WHERE id::text = $1 AND status = 'REQUESTED'
+         RETURNING ${claimColumns}`,
+        [claimId, inspectionId]
+      );
+      return result.rows[0] ? claim(result.rows[0]) : null;
     }
   });
 }

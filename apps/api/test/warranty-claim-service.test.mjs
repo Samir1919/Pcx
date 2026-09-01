@@ -2,9 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createWarrantyClaimService } from "../src/modules/warranty/warranty-claim-service.mjs";
 import { ClaimStatus, ResolutionType, WarrantyStatus } from "@pcx/domain";
-
 function fixture(overrides = {}) {
-  const calls = { warranties: [], claims: [], resolutions: [] };
+  const calls = { warranties: [], claims: [], resolutions: [], finds: [], linked: [] };
   const repository = {
     async createWarranty(record) { calls.warranties.push(record); return record; },
     async createClaim(record) { calls.claims.push(record); return record; },
@@ -14,6 +13,8 @@ function fixture(overrides = {}) {
     async markClaimResolved() { return { status: "resolved", record: { id: "c1", status: ClaimStatus.RESOLVED } }; },
     async listWarranties() { return []; },
     async listClaims() { return []; },
+    async findClaimById(id) { calls.finds.push(id); return id === "c1" ? { id, status: ClaimStatus.REQUESTED } : null; },
+    async linkInspection(id, inspectionId) { calls.linked.push({ id, inspectionId }); return { id, inspectionId, status: ClaimStatus.IN_REVIEW }; },
     ...overrides.repository
   };
   const service = createWarrantyClaimService({
@@ -56,4 +57,17 @@ test("claim requires ACTIVE warranty and resolve records resolution", async () =
   assert.equal(resolved.claim.status, ClaimStatus.RESOLVED);
   assert.equal(calls.resolutions.length, 1);
   assert.equal(resolved.resolution.approvedBy, "admin-1");
+});
+
+test("linkInspection links a REQUESTED claim to an inspection and enforces state", async () => {
+  const { service, calls } = fixture();
+  const linked = await service.linkInspection("access", "c1", "insp-1");
+  assert.equal(linked.status, ClaimStatus.IN_REVIEW);
+  assert.equal(linked.inspectionId, "insp-1");
+  assert.equal(calls.linked.length, 1);
+
+  await assert.rejects(service.linkInspection("access", "missing", "insp-1"), (error) => error.code === "not_found");
+
+  const notRequested = fixture({ repository: { async findClaimById() { return { id: "c1", status: ClaimStatus.IN_REVIEW }; } } });
+  await assert.rejects(notRequested.service.linkInspection("access", "c1", "insp-1"), (error) => error.code === "invalid_state");
 });

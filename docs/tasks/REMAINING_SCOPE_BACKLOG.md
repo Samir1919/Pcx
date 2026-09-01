@@ -80,11 +80,12 @@ remaining gaps, ordered by dependency.
 - Status: **PARTIAL (2026-09-01)** — warranty policy authoring done
   (`warranty_policies` table + `createWarrantyPolicy`/`archiveWarrantyPolicy`/
   `toWarrantyPolicySnapshot` + `POST/GET /api/v1/admin/warranty-policies` +
-  archive, SYSTEM_CONFIGURE, admin authoring panel). Handoff:
+  archive, SYSTEM_CONFIGURE, admin authoring panel) and claim inspections done
+  (`claims.inspection_id`, `linkClaimInspection`, `POST
+  /api/v1/admin/claims/:id/inspection`, REQUESTED→IN_REVIEW). Handoff:
   `docs/handoffs/E13_WARRANTY_POLICY.md`.
-- Remaining: claim inspections, carrier pickup, cost accounting (and wiring
-  `createWarranty` to reference an authored policy instead of the manual `{}`
-  snapshot).
+- Remaining: carrier pickup, cost accounting (costAmount already exists on
+  resolutions), and wiring `createWarranty` to reference an authored policy.
 
 ## 9. E14/E16 reporting & audit
 

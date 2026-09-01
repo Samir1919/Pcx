@@ -10,6 +10,7 @@ export const warrantyApi = Object.freeze({
   createWarranty: (body) => apiRequest("/api/v1/admin/warranties", { method: "POST", body }),
   createClaim: (body) => apiRequest("/api/v1/admin/claims", { method: "POST", body }),
   resolveClaim: (body) => apiRequest("/api/v1/admin/claims/resolve", { method: "POST", body }),
+  linkInspection: (claimId, inspectionId) => apiRequest(`/api/v1/admin/claims/${encodeURIComponent(claimId)}/inspection`, { method: "POST", body: { inspectionId } }),
   policies: () => apiRequest("/api/v1/admin/warranty-policies"),
   createPolicy: (body) => apiRequest("/api/v1/admin/warranty-policies", { method: "POST", body }),
   archivePolicy: (policyId) => apiRequest(`/api/v1/admin/warranty-policies/${encodeURIComponent(policyId)}/archive`, { method: "POST", body: {} })
