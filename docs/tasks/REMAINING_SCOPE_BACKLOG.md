@@ -92,10 +92,10 @@ remaining gaps, ordered by dependency.
 
 ## 10. E17 security
 
-- Status: **PARTIAL (2026-09-01)** — HSTS + `permissions-policy` added to the API
-  response security headers (alongside the existing nosniff/DENY/no-referrer/CSP),
-  with regression coverage. Remaining: upload scanning, CSP allowlisting for the
-  admin UI, and MFA gates (real MFA provider is a hard stop).
+- Status: **PARTIAL (2026-09-01)** — HSTS + `permissions-policy` on the API, and
+  CSP allow-listing (plus HSTS/nosniff/DENY/referrer) on the admin + storefront
+  Next.js apps via `next.config.mjs` are done. Remaining: upload scanning, and
+  MFA gates (real MFA provider is a hard stop).
 
 ## 11. E19 media
 

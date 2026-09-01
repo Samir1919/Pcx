@@ -20,6 +20,18 @@ const allowedDevOrigins = (process.env.PCX_DEV_ALLOWED_ORIGINS ?? "")
   .filter(Boolean)
   .flatMap((host) => (host === "*" ? PRIVATE_DEV_ORIGINS : [host]));
 
+const csp = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self' data:",
+  "connect-src 'self'",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'"
+].join("; ");
+
 const nextConfig = {
   output: "standalone",
   poweredByHeader: false,
@@ -27,6 +39,18 @@ const nextConfig = {
   allowedDevOrigins,
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${apiOrigin}/api/:path*` }];
+  },
+  async headers() {
+    return [{
+      source: "/:path*",
+      headers: [
+        { key: "X-Content-Type-Options", value: "nosniff" },
+        { key: "X-Frame-Options", value: "DENY" },
+        { key: "Referrer-Policy", value: "no-referrer" },
+        { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+        { key: "Content-Security-Policy", value: csp }
+      ]
+    }];
   }
 };
 export default nextConfig;
