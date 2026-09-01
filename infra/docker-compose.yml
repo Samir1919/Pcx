@@ -26,6 +26,15 @@ services:
     ports: [ "9000:9000", "9001:9001" ]
     volumes: [ "pcx-minio:/data" ]
 
+  # Real ClamAV daemon for the E19 malware gate. Opt-in: set CLAMAV_ENDPOINT on
+  # the api service (below) to clamav:3310 to route uploads through clamd; the
+  # API otherwise uses the bundled fail-closed signature scanner.
+  clamav:
+    image: clamav/clamav:stable
+    ports: [ "3310:3310" ]
+    volumes: [ "pcx-clamav:/var/lib/clamav" ]
+    restart: unless-stopped
+
   migrate:
     build:
       context: ..
@@ -54,6 +63,10 @@ services:
       OBJECT_STORAGE_BUCKET: pcx-local
       OBJECT_STORAGE_ACCESS_KEY: pcx_local
       OBJECT_STORAGE_SECRET_KEY: change_me_local_only
+      # Real ClamAV malware gate (opt-in). Empty = bundled fail-closed signature
+      # scanner. Set to clamav:3310 to stream uploads through the clamd daemon.
+      CLAMAV_ENDPOINT: ""
+      CLAMAV_TIMEOUT_MS: "5000"
     ports: [ "4000:4000" ]
     volumes:
       - ../apps/api:/app/apps/api
@@ -125,5 +138,6 @@ volumes:
   pcx-postgres:
   pcx-redis:
   pcx-minio:
+  pcx-clamav:
   web_node_modules:
   admin_node_modules:

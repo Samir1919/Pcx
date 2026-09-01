@@ -41,6 +41,7 @@ import { createLocalMediaStorage } from "../media/local-media-storage.mjs";
 import { createS3MediaStorageFromEnv } from "../media/s3-media-storage.mjs";
 import { createPostgresMediaRepository } from "../media/postgres-media-repository.mjs";
 import { createSignatureMalwareScanner } from "../media/malware-scanner.mjs";
+import { createClamavScannerFromEnv, createCompositeMalwareScanner } from "../media/clamav-scanner.mjs";
 import { createMediaService } from "../media/media-service.mjs";
 import { createPostgresOrderPaymentRepository } from "../commerce/postgres-order-payment-repository.mjs";
 import { createOrderPaymentService } from "../commerce/order-payment-service.mjs";
@@ -208,7 +209,11 @@ export function createAuthRuntime({ pool, allowedOrigins, adminOrigins, abuseCon
   // Media storage: object storage (S3/MinIO) when OBJECT_STORAGE_ENDPOINT is
   // configured, otherwise local disk. The media service is storage-agnostic.
   const mediaStorage = createS3MediaStorageFromEnv() ?? createLocalMediaStorage();
-  const mediaService = createMediaService({ authService, repository: createPostgresMediaRepository({ pool }), storage: mediaStorage, malwareScanner: createSignatureMalwareScanner() });
+  const clamavScanner = createClamavScannerFromEnv();
+  const malwareScanner = clamavScanner
+    ? createCompositeMalwareScanner({ primary: clamavScanner, fallback: createSignatureMalwareScanner() })
+    : createSignatureMalwareScanner();
+  const mediaService = createMediaService({ authService, repository: createPostgresMediaRepository({ pool }), storage: mediaStorage, malwareScanner });
   const paymentProviderConfigRepository = createPostgresPaymentProviderConfigRepository({ pool });
   const paymentProviderConfigService = createPaymentProviderConfigService({ authService, repository: paymentProviderConfigRepository });
   const sellTaxonomyService = createSellTaxonomyService({ authService, readRepository: createPostgresSellTaxonomyRepository({ pool }), commandRepository: createPostgresSellTaxonomyCommandRepository({ pool }) });
