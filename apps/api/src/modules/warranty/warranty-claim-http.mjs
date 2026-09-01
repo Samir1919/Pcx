@@ -72,12 +72,13 @@ export async function handleWarrantyClaimRequest(request, response, { warrantyCl
   const claims = "/api/v1/admin/claims";
   const customerClaim = "/api/v1/claims";
   const claimInspectionMatch = url.pathname.match(/^\/api\/v1\/admin\/claims\/([^/]+)\/inspection$/);
+  const claimShipmentMatch = url.pathname.match(/^\/api\/v1\/admin\/claims\/([^/]+)\/shipment$/);
   let op = null;
   if (url.pathname === warranties) op = "createWarranty";
   else if (url.pathname === claims) op = "createClaim";
   else if (url.pathname === `${claims}/resolve`) op = "resolveClaim";
   else if (url.pathname === customerClaim) op = "createClaimCustomer";
-  else if (!claimInspectionMatch) return false;
+  else if (!claimInspectionMatch && !claimShipmentMatch) return false;
 
   if (!warrantyClaimService) { send(response, 503, failure("WARRANTY_UNAVAILABLE", "Warranty/claims are temporarily unavailable", requestId)); return true; }
   if (url.searchParams.size > 0) { send(response, 400, failure("INVALID_REQUEST", "Query parameters are not supported", requestId)); return true; }
@@ -92,6 +93,23 @@ export async function handleWarrantyClaimRequest(request, response, { warrantyCl
       requireWriteSecurity(request, allowedOrigins, cookies);
       const body = await jsonBody(request);
       send(response, 200, { data: await warrantyClaimService.linkInspection(cookies.pcx_access, claimId, body.inspectionId) });
+    } catch (error) {
+      const [status, code, message] = map(error);
+      send(response, status, failure(code, message, requestId));
+    }
+    return true;
+  }
+
+  // Claim → shipment (carrier pickup) link: POST /api/v1/admin/claims/:id/shipment
+  if (claimShipmentMatch) {
+    if (request.method !== "POST") { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
+    const claimId = id(claimShipmentMatch[1]);
+    if (!claimId) { send(response, 404, failure("CLAIM_NOT_FOUND", "Claim not found", requestId)); return true; }
+    const cookies = parsedCookies(request);
+    try {
+      requireWriteSecurity(request, allowedOrigins, cookies);
+      const body = await jsonBody(request);
+      send(response, 200, { data: await warrantyClaimService.linkShipment(cookies.pcx_access, claimId, body.shipmentId) });
     } catch (error) {
       const [status, code, message] = map(error);
       send(response, status, failure(code, message, requestId));

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ClaimStatus, createClaim, createClaimResolution, createWarranty, createWarrantyPolicy, archiveWarrantyPolicy, toWarrantyPolicySnapshot, linkClaimInspection, ResolutionType, WarrantyPolicyStatus, WarrantyStatus } from "../src/index.mjs";
+import { ClaimStatus, createClaim, createClaimResolution, createWarranty, createWarrantyPolicy, archiveWarrantyPolicy, toWarrantyPolicySnapshot, linkClaimInspection, linkClaimShipment, ResolutionType, WarrantyPolicyStatus, WarrantyStatus } from "../src/index.mjs";
 
 test("warranty policy is authored ACTIVE, archives immutably, and snapshots coverage", () => {
   const policy = createWarrantyPolicy({ id: "p1", name: "12-month hardware", durationDays: 365, coverageSummary: "Parts & labor", terms: "Covers defects" });
@@ -30,6 +30,15 @@ test("linkClaimInspection moves REQUESTED to IN_REVIEW and requires REQUESTED", 
   assert.equal(linked.inspectionId, "insp-1");
   assert.equal(claim.status, ClaimStatus.REQUESTED);
   assert.throws(() => linkClaimInspection({ ...claim, status: ClaimStatus.IN_REVIEW }, "insp-1"), /REQUESTED/);
+});
+
+test("linkClaimShipment records the return/pickup shipment on a claim", () => {
+  const claim = createClaim({ id: "c1", warrantyId: "w1", orderItemId: "oi1", reasonCode: "DEAD" });
+  assert.equal(claim.shipmentId, null);
+  const linked = linkClaimShipment(claim, "ship-1");
+  assert.equal(linked.shipmentId, "ship-1");
+  assert.equal(claim.shipmentId, null);
+  assert.throws(() => linkClaimShipment(claim, ""), /shipmentId/);
 });
 
 test("warranty is ACTIVE with a valid time window and unique per item", () => {

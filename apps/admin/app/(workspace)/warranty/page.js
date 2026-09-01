@@ -160,6 +160,13 @@ export default function WarrantyPage() {
     await load();
   }
 
+  async function linkShipment(claimId) {
+    const shipmentId = window.prompt("Enter the return shipment (carrier pickup) ID:");
+    if (!shipmentId) return;
+    await run(() => warrantyApi.linkShipment(claimId, shipmentId.trim()), setBusy, setNotice);
+    await load();
+  }
+
   return (
     <>
       <header>
@@ -208,7 +215,7 @@ export default function WarrantyPage() {
           {loading ? <p className="state" role="status">Loading claims…</p> : claims.length === 0 ? <p className="state">No claims yet.</p> : (
             <div className="tableWrap">
               <table>
-                <thead><tr><th>Claim</th><th>Warranty</th><th>Reason</th><th>Inspection</th><th>Status</th><th><span className="sr">Actions</span></th></tr></thead>
+                <thead><tr><th>Claim</th><th>Warranty</th><th>Reason</th><th>Inspection</th><th>Pickup</th><th>Status</th><th><span className="sr">Actions</span></th></tr></thead>
                 <tbody>
                   {claims.map((c) => (
                     <tr key={c.id}>
@@ -216,11 +223,13 @@ export default function WarrantyPage() {
                       <td>{c.warrantyId.slice(0, 8)}…</td>
                       <td>{c.reasonCode}</td>
                       <td>{c.inspectionId ? c.inspectionId.slice(0, 8) : "—"}</td>
+                      <td>{c.shipmentId ? c.shipmentId.slice(0, 8) : "—"}</td>
                       <td><span className="pill">{c.status}</span></td>
                       <td>
                         {(c.status === "REQUESTED" || c.status === "IN_REVIEW") && (
                           <div className="actions">
                             {c.status === "REQUESTED" && <button type="button" disabled={busy} onClick={() => linkInspection(c.id)}>Link inspection</button>}
+                            <button type="button" disabled={busy} onClick={() => linkShipment(c.id)}>Schedule pickup</button>
                             <button type="button" disabled={busy} onClick={() => setResolveTarget(c)}>Resolve</button>
                           </div>
                         )}

@@ -3,7 +3,7 @@ import test from "node:test";
 import { createWarrantyClaimService } from "../src/modules/warranty/warranty-claim-service.mjs";
 import { ClaimStatus, ResolutionType, WarrantyStatus } from "@pcx/domain";
 function fixture(overrides = {}) {
-  const calls = { warranties: [], claims: [], resolutions: [], finds: [], linked: [] };
+  const calls = { warranties: [], claims: [], resolutions: [], finds: [], linked: [], shipped: [] };
   const repository = {
     async createWarranty(record) { calls.warranties.push(record); return record; },
     async createClaim(record) { calls.claims.push(record); return record; },
@@ -15,6 +15,7 @@ function fixture(overrides = {}) {
     async listClaims() { return []; },
     async findClaimById(id) { calls.finds.push(id); return id === "c1" ? { id, status: ClaimStatus.REQUESTED } : null; },
     async linkInspection(id, inspectionId) { calls.linked.push({ id, inspectionId }); return { id, inspectionId, status: ClaimStatus.IN_REVIEW }; },
+    async linkShipment(id, shipmentId) { calls.shipped.push({ id, shipmentId }); return { id, shipmentId, status: ClaimStatus.IN_REVIEW }; },
     ...overrides.repository
   };
   const service = createWarrantyClaimService({
@@ -70,4 +71,14 @@ test("linkInspection links a REQUESTED claim to an inspection and enforces state
 
   const notRequested = fixture({ repository: { async findClaimById() { return { id: "c1", status: ClaimStatus.IN_REVIEW }; } } });
   await assert.rejects(notRequested.service.linkInspection("access", "c1", "insp-1"), (error) => error.code === "invalid_state");
+});
+
+test("linkShipment links a claim to the return/pickup shipment", async () => {
+  const { service, calls } = fixture();
+  const linked = await service.linkShipment("access", "c1", "ship-1");
+  assert.equal(linked.shipmentId, "ship-1");
+  assert.equal(calls.shipped.length, 1);
+  assert.equal(calls.shipped[0].shipmentId, "ship-1");
+
+  await assert.rejects(service.linkShipment("access", "missing", "ship-1"), (error) => error.code === "not_found");
 });

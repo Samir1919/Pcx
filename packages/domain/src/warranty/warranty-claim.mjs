@@ -90,7 +90,19 @@ export function createClaim({
     requestedAt: timestamp(requestedAt, "requestedAt"),
     receivedAt: null,
     resolvedAt: null,
-    inspectionId: null
+    inspectionId: null,
+    shipmentId: null
+  });
+}
+
+// Link a claim to the return/pickup shipment (carrier pickup). The shipment is
+// the server-owned logistics record; this just records which shipment carried the
+// item back for the claim.
+export function linkClaimShipment(claim, shipmentId) {
+  if (!claim || typeof claim !== "object") throw new TypeError("claim is required");
+  return Object.freeze({
+    ...claim,
+    shipmentId: requiredString(shipmentId, "shipmentId")
   });
 }
 

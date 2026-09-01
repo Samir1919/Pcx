@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createWarranty, createClaim, createClaimResolution, linkClaimInspection } from "@pcx/domain";
+import { createWarranty, createClaim, createClaimResolution, linkClaimInspection, linkClaimShipment } from "@pcx/domain";
 import { hasPermission, Permission, Role } from "@pcx/domain";
 
 export class WarrantyClaimError extends Error {
@@ -12,7 +12,7 @@ const resolutionFields = new Set(["claimId", "resolutionType", "notes", "costAmo
 
 export function createWarrantyClaimService({ authService, repository, id = randomUUID, clock = () => new Date() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  for (const method of ["createWarranty", "createClaim", "createResolution", "findWarrantyById", "findWarrantyOwnerUserId", "markClaimResolved", "listWarranties", "listClaims", "findClaimById", "linkInspection"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  for (const method of ["createWarranty", "createClaim", "createResolution", "findWarrantyById", "findWarrantyOwnerUserId", "markClaimResolved", "listWarranties", "listClaims", "findClaimById", "linkInspection", "linkShipment"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
   if (typeof repository.listWarranties !== "function" || typeof repository.listClaims !== "function") throw new TypeError("repository warranty/claim list methods are required");
 
   async function actor(accessCredential) {
@@ -132,6 +132,21 @@ export function createWarrantyClaimService({ authService, repository, id = rando
         throw new WarrantyClaimError("invalid_state");
       }
       const updated = await repository.linkInspection(claimId, inspectionId);
+      if (!updated) throw new WarrantyClaimError("invalid_state");
+      return Object.freeze(updated);
+    },
+
+    // Link a claim to the return/pickup shipment (carrier pickup).
+    async linkShipment(accessCredential, claimId, shipmentId) {
+      await actor(accessCredential);
+      const claimRecord = await repository.findClaimById(claimId);
+      if (!claimRecord) throw new WarrantyClaimError("not_found");
+      try {
+        linkClaimShipment(claimRecord, shipmentId);
+      } catch {
+        throw new WarrantyClaimError("invalid_input");
+      }
+      const updated = await repository.linkShipment(claimId, shipmentId);
       if (!updated) throw new WarrantyClaimError("invalid_state");
       return Object.freeze(updated);
     }

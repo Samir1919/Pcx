@@ -36,11 +36,12 @@ function claim(row) {
     requestedAt: new Date(row.requested_at).toISOString(),
     receivedAt: row.received_at ? new Date(row.received_at).toISOString() : null,
     resolvedAt: row.resolved_at ? new Date(row.resolved_at).toISOString() : null,
-    inspectionId: row.inspection_id ?? null
+    inspectionId: row.inspection_id ?? null,
+    shipmentId: row.shipment_id ?? null
   });
 }
 
-const claimColumns = "id, warranty_id, order_item_id, status, reason_code, symptoms, requested_at, received_at, resolved_at, inspection_id";
+const claimColumns = "id, warranty_id, order_item_id, status, reason_code, symptoms, requested_at, received_at, resolved_at, inspection_id, shipment_id";
 
 function resolution(row) {
   return Object.freeze({
@@ -149,6 +150,16 @@ export function createPostgresWarrantyClaimRepository({ pool }) {
          WHERE id::text = $1 AND status = 'REQUESTED'
          RETURNING ${claimColumns}`,
         [claimId, inspectionId]
+      );
+      return result.rows[0] ? claim(result.rows[0]) : null;
+    },
+
+    async linkShipment(claimId, shipmentId) {
+      const result = await pool.query(
+        `UPDATE claims SET shipment_id = $2
+         WHERE id::text = $1
+         RETURNING ${claimColumns}`,
+        [claimId, shipmentId]
       );
       return result.rows[0] ? claim(result.rows[0]) : null;
     }
