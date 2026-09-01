@@ -21,7 +21,8 @@ function fixture(overrides = {}) {
     id: (() => { let n = 0; return () => `id-${++n}`; })(),
     clock: () => new Date("2026-08-16T12:00:00.000Z"),
     gateway: overrides.gateway,
-    paymentProviderConfigService: overrides.paymentProviderConfigService
+    paymentProviderConfigService: overrides.paymentProviderConfigService,
+    bkashGatewayFactory: overrides.bkashGatewayFactory
   });
 
   return { service, calls };
@@ -101,21 +102,37 @@ test("payment create uses an injected gateway and defaults provider to SANDBOX",
   assert.deepEqual(charges, [{ amount: 500, currency: "BDT", reference: "payment-o1-500" }]);
 });
 
-test("payment create records the provider identity, not the credential mode, for active credentials", async () => {
-  // A REAL-mode bKash config must record provider "bkash" (who took the money),
-  // never "REAL" (which environment the credentials pointed at).
-  for (const mode of ["SANDBOX", "REAL"]) {
-    const paymentProviderConfigService = {
-      async getActiveCredentials(provider) {
-        assert.equal(provider, "bkash");
-        return { mode, credentials: { appKey: "k", appSecret: "s" } };
-      }
-    };
-    const { service, calls } = fixture({ paymentProviderConfigService });
-    await service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, method: PaymentMethod.BKASH, amount: 500 });
-    assert.equal(calls.payments[0].provider, "bkash");
-    assert.equal(calls.payments[0].providerTransactionId, `bkash-${mode.toLowerCase()}-payment-o1-500`);
-  }
+test("payment create records the provider identity for active SANDBOX credentials and fails closed for REAL", async () => {
+  // A bKash config must record provider "bkash" (who took the money), never the
+  // credential mode. REAL mode is a hard stop and must never build a gateway.
+  let builtCredentials = null;
+  const bkashGatewayFactory = (credentials) => {
+    builtCredentials = credentials;
+    return { async charge({ reference }) { return { providerTransactionId: `http-${reference}`, status: "INITIATED" }; } };
+  };
+  const paymentProviderConfigService = {
+    async getActiveCredentials(provider) {
+      assert.equal(provider, "bkash");
+      return { mode: "SANDBOX", credentials: { appKey: "k", appSecret: "s" } };
+    }
+  };
+  const { service, calls } = fixture({ paymentProviderConfigService, bkashGatewayFactory });
+  await service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, method: PaymentMethod.BKASH, amount: 500 });
+  assert.equal(calls.payments[0].provider, "bkash");
+  assert.equal(calls.payments[0].providerTransactionId, "http-payment-o1-500");
+  assert.deepEqual(builtCredentials, { appKey: "k", appSecret: "s" });
+
+  // REAL mode must fail closed (no live gateway is ever constructed).
+  let built = false;
+  const real = fixture({
+    paymentProviderConfigService: { async getActiveCredentials() { return { mode: "REAL", credentials: { appKey: "k" } }; } },
+    bkashGatewayFactory: () => { built = true; return { async charge() { return { providerTransactionId: "live", status: "CONFIRMED" }; } }; }
+  });
+  await assert.rejects(
+    real.service.createPayment("access", { orderId: "o1", direction: PaymentDirection.INBOUND, method: PaymentMethod.BKASH, amount: 500 }),
+    (error) => error.code === "invalid_input"
+  );
+  assert.equal(built, false, "REAL mode must not construct a live gateway");
 });
 
 test("payment create falls back to the sandbox provider when no credentials are active", async () => {

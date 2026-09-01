@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { createOrder, createOrderItemSnapshot, createPayment } from "@pcx/domain";
-import { createBkashGateway, createSandboxPaymentGateway, PaymentMethod, PaymentProvider, Role } from "@pcx/domain";
+import { createSandboxPaymentGateway, PaymentMethod, PaymentProvider, Role } from "@pcx/domain";
+import { createBkashHttpAdapter } from "../payment/bkash-http-adapter.mjs";
+import { createBkashHttpGateway } from "../payment/bkash-http-gateway.mjs";
 
 export class OrderPaymentError extends Error {
   constructor(code) { super(code); this.name = "OrderPaymentError"; this.code = code; }
@@ -12,7 +14,7 @@ const itemFields = new Set(["inventoryItemId", "listingId", "productModelId", "p
 // both are derived server-side so the server owns the financial fact.
 const paymentFields = new Set(["orderId", "direction", "method", "amount"]);
 
-export function createOrderPaymentService({ authService, repository, id = randomUUID, clock = () => new Date(), gateway = createSandboxPaymentGateway(), paymentProviderConfigService, notificationEmitter = null, provider = PaymentProvider.BKASH }) {
+export function createOrderPaymentService({ authService, repository, id = randomUUID, clock = () => new Date(), gateway = createSandboxPaymentGateway(), paymentProviderConfigService, notificationEmitter = null, provider = PaymentProvider.BKASH, bkashGatewayFactory = (credentials) => createBkashHttpGateway({ adapter: createBkashHttpAdapter({ credentials }) }) }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
   for (const method of ["createOrderWithItems", "createPayment", "confirmPayment"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
   if (!gateway || typeof gateway.charge !== "function") throw new TypeError("gateway.charge is required");
@@ -36,10 +38,14 @@ export function createOrderPaymentService({ authService, repository, id = random
     if (!paymentProviderConfigService || typeof paymentProviderConfigService.getActiveCredentials !== "function") return { gateway, provider: "SANDBOX" };
     const active = await paymentProviderConfigService.getActiveCredentials(provider);
     if (!active) return { gateway, provider: "SANDBOX" };
+    // LIVE mode is a human-approval hard stop: never build a real live gateway.
+    if (active.mode === "REAL") throw new OrderPaymentError("gateway_unavailable");
     const cacheKey = `${provider}:${active.mode}:${JSON.stringify(active.credentials)}`;
     let resolved = gatewayCache.get(cacheKey);
     if (!resolved) {
-      resolved = createBkashGateway({ mode: active.mode, credentials: active.credentials });
+      // Active SANDBOX credentials build a real bKash HTTP gateway; the adapter
+      // rejects any non-sandbox host, so live credentials can never be used.
+      resolved = bkashGatewayFactory(active.credentials);
       gatewayCache.set(cacheKey, resolved);
     }
     return { gateway: resolved, provider };

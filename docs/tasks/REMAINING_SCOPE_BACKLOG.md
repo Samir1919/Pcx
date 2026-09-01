@@ -33,9 +33,13 @@ remaining gaps, ordered by dependency.
 
 ## 3. Real bKash HTTP adapter (E10)
 
-- Scope: real bKash HTTP adapter behind the injected gateway contract (sandbox
-  credentials only until human approval); webhook handling; refunds + reconciliation.
-- Hard stop: real provider credentials and live mode need human approval.
+- Status: **COMPLETE (2026-09-01)** — sandbox-only `bkash-http-adapter.mjs` (grant
+  token / create payment "0011" / execute / query / refund, researched from
+  developer.bka.sh) + `bkash-http-gateway.mjs` wired into `order-payment-service`
+  `resolveGateway`; LIVE mode fails closed (hard stop). Admin payments workspace
+  surfaces the sandbox endpoint. Handoff: `docs/handoffs/BKASH_HTTP_ADAPTER.md`.
+- Remaining follow-up: webhook/IPN handling, redirect callback + execute/query
+  reconciliation, and bKash refund wiring into the returns module.
 
 ## 4. E5 inspection follow-ups
 

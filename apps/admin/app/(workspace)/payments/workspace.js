@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { paymentApi } from "../../../lib/payment-api";
 
 const provider = "bkash";
+const SANDBOX_ENDPOINT = "https://tokenized.sandbox.bka.sh/v1.2.0-beta";
 const modes = [
   { key: "SANDBOX", label: "Sandbox", hint: "Test credentials for development and staging. Never processes real money." },
   { key: "REAL", label: "Live", hint: "Production credentials. Only activate when you are ready to accept real payments." }
@@ -107,6 +108,11 @@ export default function PaymentsWorkspace() {
             </div>
             {activeConfig && <span className="pill">{activeConfig.mode === "SANDBOX" ? "Sandbox active" : "Live active"}</span>}
           </div>
+          {mode === "SANDBOX" && (
+            <p className="meta" style={{ margin: "0 0 12px" }}>
+              Sandbox endpoint: <code>{SANDBOX_ENDPOINT}</code>. Charges route to the bKash sandbox (never real money). Live mode requires explicit human approval.
+            </p>
+          )}
           {loading ? (
             <p className="state" role="status">Loading payment configuration…</p>
           ) : current ? (
