@@ -1,7 +1,7 @@
 # PCX Project Status
 
 - Updated: 2026-09-01
-- Current main evidence commit: `18ebd08` (full-stack human-like verification A→Z + RESERVED→SOLD / harness fixes, merged into `origin/main`)
+- Current main evidence commit: `2978965` (item_costs cost-allocation ledger, ADR 0014, merged into `origin/main`)
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: Stage 3 control-plane completion and next dependency-ready work
 - Current autonomy maturity: Stage 2 in progress; Stage 3 control plane complete for bounded local/CI parallel orchestration (ADR 0008)
