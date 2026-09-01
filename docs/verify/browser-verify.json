@@ -1,42 +1,15 @@
 {
-  "scope": "Admin operational workspaces and interactive workflows",
+  "scope": "Customer storefront passport page: related listings (You may also like)",
   "headed": true,
-  "tool": "scripts/admin-e2e-check.mjs",
+  "tool": "Playwright MCP browser (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "Admin workspace click-through verification",
+    "subject": "Passport page renders related listings in the same category, excluding the current item",
     "steps": [
-      "login",
-      "/",
-      "/catalog",
-      "/inventory",
-      "/listings",
-      "/acquisition",
-      "/shipment",
-      "/returns",
-      "/warranty",
-      "/notifications",
-      "/verification",
-      "/payments",
-      "/users",
-      "/footer",
-      "/audit",
-      "catalog-edit-modal",
-      "inventory-inspect-modal",
-      "inventory-inspect-template-autoselect",
-      "inventory-cost-form-renders",
-      "inventory-cost-entry-saved",
-      "acquisition-detail-renders",
-      "acquisition-contextual-prefill",
-      "acquisition-offer-expiry-default",
-      "warranty-window-default",
-      "notifications-provider-tabs",
-      "verification-version-default",
-      "returns-row-action",
-      "warranty-row-action",
-      "listings-photos-modal",
-      "shipment-photos-modal"
+      "open passport /passport/PCX-TEST-LIST",
+      "verify You may also like section renders",
+      "verify related listing card (Dell OptiPlex 7090) links to its passport"
     ]
   },
-  "ranAt": "2026-09-01T03:50:27.497Z"
+  "ranAt": "2026-09-01T04:07:02.698Z"
 }

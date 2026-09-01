@@ -15,6 +15,7 @@ function fixture(overrides = {}) {
     async listAdmin(filters) { calls.listAdmin = filters; return { records: [{ id: "l1", inventory_item_id: "inv-1", status: "DRAFT", public_slug: null, published_at: null, created_at: "2026-08-16T12:00:00.000Z", pcx_item_id: "PCX-1", model_id: "m1", model_name: "GPU", brand_name: "MSI", category_name: "GPU", condition_grade: "A", current_health_score: 90, price: null }], nextCursor: null }; },
     async findPublicPassport(pcxItemId) { calls.passports.push(pcxItemId); return pcxItemId === "PCX-1" ? { pcx_item_id: "PCX-1", inventory_item_id: "inv-1", listing_id: "l1", model_id: "m1", name: "GPU", category_id: "gpu", brand_id: "b1", status: "PUBLISHED", published_at: "2026-08-16T12:00:00.000Z", price: "15000", serial: "SECRET", media_ids: ["media-1"], condition_grade: "A", current_health_score: 90 } : null; },
     async searchPublished(filters) { calls.searches = filters; return { records: [{ id: "l1", public_slug: "pcx-gaming-tower", inventory_item_id: "inv-1", pcx_item_id: "PCX-1", model_id: "m1", name: "GPU", category_id: "gpu", brand_id: "b1", price: 15000, published_at: "2026-08-16T12:00:00.000Z", cover_media_id: "media-1" }], nextCursor: null }; },
+    async findRelated({ categoryId, brandId, excludeListingId }) { calls.related = { categoryId, brandId, excludeListingId }; return { records: [{ id: "l2", public_slug: "other", inventory_item_id: "inv-2", pcx_item_id: "PCX-2", model_id: "m2", name: "Laptop", category_id: "gpu", brand_id: "b1", condition_grade: "B", current_health_score: 80, price: 9000, published_at: "2026-08-16T12:00:00.000Z", cover_media_id: "media-2", brand_name: "MSI", category_name: "GPU" }] }; },
     ...overrides.repository
   };
   const service = createListingService({
@@ -118,4 +119,17 @@ test("public passport maps snake_case row and never leaks serial or internal fie
   assert.match(passport.verificationSummary, /90\/100/);
   assert.equal(Object.hasOwn(passport, "serial"), false);
   assert.equal(await service.publicPassport("missing"), null);
+});
+
+test("related listings are safe disclosure cards in the same category", async () => {
+  const { service, calls } = fixture();
+  const related = await service.related("PCX-1");
+  assert.equal(related.length, 1);
+  assert.equal(related[0].pcxItemId, "PCX-2");
+  assert.equal(related[0].brandName, "MSI");
+  assert.equal(related[0].categoryName, "GPU");
+  assert.equal(Object.hasOwn(related[0], "serial"), false);
+  assert.equal(calls.related.excludeListingId, "l1");
+  assert.equal(calls.related.categoryId, "gpu");
+  assert.equal(await service.related("missing"), null);
 });

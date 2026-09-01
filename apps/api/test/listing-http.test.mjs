@@ -12,6 +12,7 @@ function service(overrides = {}) {
     async setPrice() { return { id: "p1", price: 15000 }; },
     async listAdmin() { return { data: [{ id: "l1", modelName: "GPU" }], meta: { nextCursor: null } }; },
     async publicPassport() { return { pcxItemId: "PCX-1", status: "PUBLISHED" }; },
+    async related() { return [{ pcxItemId: "PCX-2" }]; },
     async searchPublic() { return { data: [{ id: "l1", pcxItemId: "PCX-1" }], meta: { nextCursor: null } }; },
     ...overrides
   };
@@ -50,6 +51,12 @@ test("public passport is a read-only GET without write security", async () => {
   assert.equal((await invoke("/api/v1/passport/PCX-1")).status, 200);
   assert.equal((await invoke("/api/v1/passport/PCX-1", { method: "POST" })).status, 405);
   assert.equal((await invoke("/api/v1/passport/PCX-1?x=1")).status, 400);
+});
+
+test("public related listings are a read-only GET", async () => {
+  assert.equal((await invoke("/api/v1/passport/PCX-1/related")).status, 200);
+  assert.equal((await invoke("/api/v1/passport/PCX-1/related", { method: "POST" })).status, 405);
+  assert.equal((await invoke("/api/v1/passport/PCX-1/related?x=1")).status, 400);
 });
 
 test("admin listing writes require CSRF and return success", async () => {

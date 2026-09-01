@@ -186,13 +186,24 @@ export function createPostgresListingRepository({ pool }) {
       const add = (value) => { values.push(value); return `$${values.length}`; };
       if (categoryId) where.push(`pm.category_id::text = ${add(categoryId)}`);
       if (brandId) where.push(`pm.brand_id::text = ${add(brandId)}`);
+
+      // Dedicated full-text search: GIN-indexed tsvector match with relevance
+      // ranking (websearch_to_tsquery is safe against malformed input).
+      let rankExpr = null;
       if (q) {
-        const parameter = add(`%${q.replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_")}%`);
-        where.push(`(pm.name ILIKE ${parameter} ESCAPE '\\' OR COALESCE(pm.model_code,'') ILIKE ${parameter} ESCAPE '\\')`);
+        const query = add(q);
+        rankExpr = `ts_rank(pm.search_vector, websearch_to_tsquery('english', ${query}))`;
+        where.push(`pm.search_vector @@ websearch_to_tsquery('english', ${query})`);
       }
+
+      // Keyset cursor. Relevance-ranked results carry the rank so pagination is
+      // stable across rank ties.
+      const ranked = rankExpr != null && sort === "newest";
       if (cursor) {
         const decoded = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
-        if (sort === "price_desc") {
+        if (ranked) {
+          where.push(`(${rankExpr}, l.published_at, l.id::text) < (${add(decoded.rank)}, ${add(decoded.value)}, ${add(decoded.id)})`);
+        } else if (sort === "price_desc") {
           where.push(`(lp.price, l.id::text) < (${add(decoded.value)}, ${add(decoded.id)})`);
         } else if (sort === "price_asc") {
           where.push(`(lp.price, l.id::text) > (${add(decoded.value)}, ${add(decoded.id)})`);
@@ -200,7 +211,8 @@ export function createPostgresListingRepository({ pool }) {
           where.push(`(l.published_at, l.id::text) < (${add(decoded.value)}, ${add(decoded.id)})`);
         }
       }
-      const orderBy = sort === "price_desc" ? "lp.price DESC NULLS LAST, l.id DESC"
+      const orderBy = ranked ? `${rankExpr} DESC, l.published_at DESC, l.id DESC`
+        : sort === "price_desc" ? "lp.price DESC NULLS LAST, l.id DESC"
         : sort === "price_asc" ? "lp.price ASC NULLS LAST, l.id ASC"
           : "l.published_at DESC, l.id DESC";
       const pageSize = add(limit + 1);
@@ -208,6 +220,7 @@ export function createPostgresListingRepository({ pool }) {
         `SELECT l.id, l.public_slug, ii.id AS inventory_item_id, ii.pcx_item_id, pm.id AS model_id, pm.name, pm.category_id, pm.brand_id,
                 ii.condition_grade, ii.current_health_score,
                 l.published_at, lp.price,
+                ${rankExpr ? `${rankExpr} AS rank,` : ""}
                 (SELECT lm.media_id
                    FROM listing_media lm JOIN media m ON m.id = lm.media_id
                   WHERE lm.listing_id = l.id AND m.visibility = 'PUBLIC'
@@ -225,10 +238,42 @@ export function createPostgresListingRepository({ pool }) {
       );
       const hasNext = result.rows.length > limit;
       const rows = result.rows.slice(0, limit);
+      const last = rows.at(-1);
       const nextCursor = hasNext
-        ? Buffer.from(JSON.stringify({ id: rows.at(-1).id, value: sort === "newest" ? new Date(rows.at(-1).published_at).toISOString() : (rows.at(-1).price == null ? null : Number(rows.at(-1).price)) })).toString("base64url")
+        ? Buffer.from(JSON.stringify(
+            ranked
+              ? { id: last.id, value: new Date(last.published_at).toISOString(), rank: Number(last.rank ?? 0) }
+              : { id: last.id, value: sort === "newest" ? new Date(last.published_at).toISOString() : (last.price == null ? null : Number(last.price)) }
+          )).toString("base64url")
         : null;
       return { records: rows, nextCursor };
+    },
+
+    async findRelated({ categoryId, brandId, excludeListingId, limit = 4 } = {}) {
+      if (!Number.isSafeInteger(limit) || limit < 1 || limit > 12) throw new TypeError("related listings limit is invalid");
+      if (!categoryId || !excludeListingId) return { records: [] };
+      const result = await pool.query(
+        `SELECT l.id, l.public_slug, ii.id AS inventory_item_id, ii.pcx_item_id, pm.id AS model_id, pm.name, pm.category_id, pm.brand_id,
+                ii.condition_grade, ii.current_health_score, l.published_at, lp.price,
+                b.name AS brand_name, c.name AS category_name,
+                (SELECT lm.media_id
+                   FROM listing_media lm JOIN media m ON m.id = lm.media_id
+                  WHERE lm.listing_id = l.id AND m.visibility = 'PUBLIC'
+                  ORDER BY m.created_at LIMIT 1) AS cover_media_id
+         FROM listings l
+         JOIN inventory_items ii ON ii.id = l.inventory_item_id
+         JOIN product_models pm ON pm.id = ii.product_model_id
+         LEFT JOIN brands b ON b.id = pm.brand_id
+         LEFT JOIN categories c ON c.id = pm.category_id
+         LEFT JOIN LATERAL (
+           SELECT price FROM listing_prices WHERE listing_id = l.id AND valid_to IS NULL ORDER BY valid_from DESC LIMIT 1
+         ) lp ON true
+         WHERE l.status = 'PUBLISHED' AND l.id::text <> $1 AND pm.category_id::text = $2
+         ORDER BY (pm.brand_id::text = $3) DESC, l.published_at DESC, l.id DESC
+         LIMIT $4`,
+        [excludeListingId, categoryId, brandId, limit]
+      );
+      return { records: result.rows };
     }
   });
 }

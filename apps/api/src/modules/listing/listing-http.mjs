@@ -100,6 +100,23 @@ export async function handleListingRequest(request, response, { listingService, 
     return true;
   }
 
+  // Public related listings: GET /api/v1/passport/:pcxId/related
+  const related = url.pathname.match(/^\/api\/v1\/passport\/([^/]+)\/related$/);
+  if (related) {
+    if (request.method !== "GET") { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
+    if (url.searchParams.size > 0) { send(response, 400, failure("INVALID_REQUEST", "Query parameters are not supported", requestId)); return true; }
+    if (!listingService) { send(response, 503, failure("LISTING_UNAVAILABLE", "Listings are temporarily unavailable", requestId)); return true; }
+    try {
+      const result = await listingService.related(id(related[1]));
+      if (result) send(response, 200, { data: result });
+      else send(response, 404, failure("PASSPORT_NOT_FOUND", "Passport not found", requestId));
+    } catch (error) {
+      const [status, code, message] = map(error);
+      send(response, status, failure(code, message, requestId));
+    }
+    return true;
+  }
+
   // Public passport read: GET /api/v1/passport/:pcxId
   const passport = url.pathname.match(/^\/api\/v1\/passport\/([^/]+)$/);
   if (passport) {

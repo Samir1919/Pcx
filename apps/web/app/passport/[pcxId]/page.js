@@ -7,6 +7,7 @@ import { money, gradeLabel, specValue } from "../../../lib/format";
 import PassportInfoModal from "../PassportInfoModal";
 import BuyFlow from "../BuyFlow";
 import StorefrontNav from "../../StorefrontNav";
+import ListingCard from "../../listing/ListingCard";
 
 export default function PassportPage() {
   const params = useParams();
@@ -16,6 +17,7 @@ export default function PassportPage() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [qrSvg, setQrSvg] = useState(null);
+  const [related, setRelated] = useState([]);
 
   useEffect(() => {
     if (!pcxId) return;
@@ -25,6 +27,9 @@ export default function PassportPage() {
       .then((result) => { if (active) { setPassport(result.data); setError(null); } })
       .catch((err) => { if (active) { setError(err.message); setPassport(null); } })
       .finally(() => { if (active) setLoading(false); });
+    storefrontApi.relatedListings(pcxId)
+      .then((result) => { if (active) setRelated(result.data ?? []); })
+      .catch(() => { if (active) setRelated([]); });
     return () => { active = false; };
   }, [pcxId]);
 
@@ -101,6 +106,16 @@ export default function PassportPage() {
               <BuyFlow listing={passport} />
             </div>
           ) : <p className="state">Passport not found.</p>}
+          {passport && related.length > 0 && (
+            <section className="related" aria-label="Related listings">
+              <h2>You may also like</h2>
+              <div className="grid">
+                {related.map((item) => (
+                  <ListingCard key={item.id} item={item} brandName={item.brandName} categoryName={item.categoryName} />
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       </div>
     </main>

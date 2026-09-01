@@ -15,15 +15,24 @@ test("listing repository persists draft, publishes with unique active constraint
   const listingId = "9c000000-0000-4000-8000-000000000003";
   const priceId = "9c000000-0000-4000-8000-000000000004";
   const second = "9c000000-0000-4000-8000-000000000005";
+  const relatedItem = "9c000000-0000-4000-8000-000000000006";
+  const relatedListing = "9c000000-0000-4000-8000-000000000007";
+  const relatedPrice = "9c000000-0000-4000-8000-000000000008";
+  const desktopCategory = "80000000-0000-0000-0000-000000000001";
   const now = "2026-08-16T12:00:00.000Z";
   const productModelId = "82000000-0000-0000-0000-000000000001"; // seeded catalog model
   try {
     await pool.query("DELETE FROM listing_prices WHERE listing_id::text = $1", [listingId]);
     await pool.query("DELETE FROM listing_prices WHERE listing_id::text = $1", [second]);
+    await pool.query("DELETE FROM listing_prices WHERE listing_id::text = $1", [relatedListing]);
     await pool.query("DELETE FROM listings WHERE inventory_item_id::text = $1", [itemId]);
+    await pool.query("DELETE FROM listings WHERE inventory_item_id::text = $1", [relatedItem]);
     await pool.query("DELETE FROM serial_identifiers WHERE inventory_item_id::text = $1", [itemId]);
+    await pool.query("DELETE FROM serial_identifiers WHERE inventory_item_id::text = $1", [relatedItem]);
     await pool.query("DELETE FROM item_costs WHERE inventory_item_id::text = $1", [itemId]);
+    await pool.query("DELETE FROM item_costs WHERE inventory_item_id::text = $1", [relatedItem]);
     await pool.query("DELETE FROM inventory_items WHERE id::text = $1", [itemId]);
+    await pool.query("DELETE FROM inventory_items WHERE id::text = $1", [relatedItem]);
     await pool.query("DELETE FROM acquisitions WHERE accepted_offer_id::text = $1", ["9c000000-0000-4000-8000-000000000099"]);
     await pool.query("DELETE FROM users WHERE email = 'list-admin@example.com'");
     await pool.query("INSERT INTO users(id,email,status) VALUES ($1,'list-admin@example.com','ACTIVE')", [admin]);
@@ -48,6 +57,22 @@ test("listing repository persists draft, publishes with unique active constraint
     assert.equal(search.records.length, 1);
     assert.equal(search.records[0].pcx_item_id, "PCX-TEST-LIST");
     assert.equal(search.nextCursor, null);
+
+    // Full-text token search matches reordered/stemmed terms (ILIKE substring scan could not).
+    const tokenized = await repository.searchPublished({ q: "Tower PCX", sort: "newest", limit: 10 });
+    assert.equal(tokenized.records.length, 1);
+    assert.equal(tokenized.records[0].pcx_item_id, "PCX-TEST-LIST");
+
+    // Related listings: same category, excluding the current listing, with display names.
+    await pool.query("INSERT INTO inventory_items(id, pcx_item_id, product_model_id, status, received_at, created_at, updated_at) VALUES ($1, 'PCX-TEST-RELATED', $2, 'APPROVED', now(), now(), now())", [relatedItem, "82000000-0000-0000-0000-000000000002"]);
+    await repository.createDraft({ id: relatedListing, inventoryItemId: relatedItem, publicSlug: "pcx-test-related", warrantyPolicyId: null, status: "DRAFT", publishedAt: null, createdAt: now });
+    await repository.publish(relatedListing, "pcx-test-related", now);
+    await repository.createPrice({ id: relatedPrice, listingId: relatedListing, price: 9000, validFrom: now, reason: null, setByUser: admin }, now);
+    const related = await repository.findRelated({ categoryId: desktopCategory, brandId: "81000000-0000-0000-0000-000000000001", excludeListingId: listingId, limit: 4 });
+    assert.equal(related.records.length, 1);
+    assert.equal(related.records[0].pcx_item_id, "PCX-TEST-RELATED");
+    assert.ok(related.records[0].category_name);
+    assert.ok(related.records[0].brand_name);
 
     const adminList = await repository.listAdmin({ limit: 50 });
     const ownAdminRow = adminList.records.find((record) => record.pcx_item_id === "PCX-TEST-LIST");

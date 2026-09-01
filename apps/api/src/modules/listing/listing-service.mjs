@@ -179,6 +179,38 @@ export function createListingService({ authService, repository, auditLogService,
         }))),
         meta: Object.freeze({ nextCursor: result.nextCursor })
       });
+    },
+
+    // Related listings for a published passport: same category, same brand
+    // first, excluding the current listing. Safe disclosure cards only.
+    async related(pcxItemId) {
+      const row = await repository.findPublicPassport(pcxItemId);
+      if (!row) return null;
+      const { records } = await repository.findRelated({
+        categoryId: row.category_id,
+        brandId: row.brand_id,
+        excludeListingId: row.listing_id,
+        limit: 4
+      });
+      return Object.freeze(records.map((r) => Object.freeze({
+        ...createPublicListing({
+          id: r.id,
+          publicSlug: r.public_slug,
+          inventoryItemId: r.inventory_item_id,
+          pcxItemId: r.pcx_item_id,
+          modelId: r.model_id,
+          name: r.name,
+          categoryId: r.category_id,
+          brandId: r.brand_id,
+          grade: r.condition_grade,
+          healthScore: r.current_health_score == null ? null : Number(r.current_health_score),
+          price: r.price == null ? null : Number(r.price),
+          coverMediaId: r.cover_media_id ?? null,
+          publishedAt: r.published_at ? new Date(r.published_at).toISOString() : null
+        }),
+        brandName: r.brand_name ?? null,
+        categoryName: r.category_name ?? null
+      })));
     }
   });
 }
