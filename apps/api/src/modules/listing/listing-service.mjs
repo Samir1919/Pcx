@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createListing, createListingPrice, createPublicListing, createPublicPassport, InventoryItemStatus, publishListing } from "@pcx/domain";
+import { archiveListing, createListing, createListingPrice, createPublicListing, createPublicPassport, InventoryItemStatus, pauseListing, publishListing, unpublishListing } from "@pcx/domain";
 import { hasPermission, Permission } from "@pcx/domain";
 
 export class ListingError extends Error {
@@ -11,7 +11,7 @@ const priceFields = new Set(["listingId", "price", "reason"]);
 
 export function createListingService({ authService, repository, auditLogService, id = randomUUID, clock = () => new Date() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  for (const method of ["createDraft", "publish", "createPrice", "findById", "listAdmin", "findInventoryItemStatus", "listModelSpecifications"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  for (const method of ["createDraft", "publish", "pause", "unpublish", "archive", "createPrice", "findById", "listAdmin", "findInventoryItemStatus", "listModelSpecifications"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
 
   async function actor(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -82,6 +82,39 @@ export function createListingService({ authService, repository, auditLogService,
       }
       if (result.status !== "published") throw new ListingError("invalid_state");
       await auditWrite("LISTING_PUBLISHED", listingId, identity.userId, { status: "PUBLISHED" });
+      return result.record;
+    },
+
+    async pause(accessCredential, listingId) {
+      const identity = await actor(accessCredential);
+      const existing = await repository.findById(listingId);
+      if (!existing) throw new ListingError("not_found");
+      try { pauseListing(existing); } catch { throw new ListingError("invalid_state"); }
+      const result = await repository.pause(listingId, clock().toISOString());
+      if (result.status !== "paused") throw new ListingError("invalid_state");
+      await auditWrite("LISTING_PAUSED", listingId, identity.userId, { status: "PAUSED" });
+      return result.record;
+    },
+
+    async unpublish(accessCredential, listingId) {
+      const identity = await actor(accessCredential);
+      const existing = await repository.findById(listingId);
+      if (!existing) throw new ListingError("not_found");
+      try { unpublishListing(existing, { unpublishedAt: clock() }); } catch { throw new ListingError("invalid_state"); }
+      const result = await repository.unpublish(listingId, clock().toISOString());
+      if (result.status !== "unpublished") throw new ListingError("invalid_state");
+      await auditWrite("LISTING_UNPUBLISHED", listingId, identity.userId, { status: "DRAFT" });
+      return result.record;
+    },
+
+    async archive(accessCredential, listingId) {
+      const identity = await actor(accessCredential);
+      const existing = await repository.findById(listingId);
+      if (!existing) throw new ListingError("not_found");
+      try { archiveListing(existing); } catch { throw new ListingError("invalid_state"); }
+      const result = await repository.archive(listingId, clock().toISOString());
+      if (result.status !== "archived") throw new ListingError("invalid_state");
+      await auditWrite("LISTING_ARCHIVED", listingId, identity.userId, { status: "ARCHIVED" });
       return result.record;
     },
 

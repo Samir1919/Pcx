@@ -137,6 +137,24 @@ export default function ListingsPage() {
     }
   }
 
+  async function transition(listing, action, successMessage) {
+    setBusy(true);
+    try {
+      await listingApi[action](listing.id);
+      setNotice({ kind: "success", message: successMessage });
+      await load();
+    } catch (error) {
+      setNotice({ kind: "error", message: error.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function archiveListing(listing) {
+    if (!window.confirm(`Archive ${listing.modelName ?? listing.pcxItemId ?? "listing"}? It will be removed from active listings.`)) return;
+    transition(listing, "archive", "Listing archived.");
+  }
+
   function openDialog(kind, listing) {
     if (kind === "publish") {
       setDialog({
@@ -207,8 +225,12 @@ export default function ListingsPage() {
                       <td>
                         <div className="actions">
                           {l.status === "DRAFT" && <button type="button" disabled={busy} onClick={() => openDialog("publish", l)}>Publish</button>}
+                          {l.status === "PAUSED" && <button type="button" disabled={busy} onClick={() => openDialog("publish", l)}>Publish</button>}
+                          {l.status === "PUBLISHED" && <button type="button" disabled={busy} onClick={() => transition(l, "pause", "Listing paused.")}>Pause</button>}
+                          {(l.status === "PUBLISHED" || l.status === "PAUSED") && <button type="button" disabled={busy} onClick={() => transition(l, "unpublish", "Listing unpublished.")}>Unpublish</button>}
                           <button type="button" disabled={busy} onClick={() => openDialog("price", l)}>Set price</button>
                           <button type="button" disabled={busy} onClick={() => setMediaListing(l)}>Photos</button>
+                          {(l.status === "DRAFT" || l.status === "PUBLISHED" || l.status === "PAUSED") && <button className="danger" type="button" disabled={busy} onClick={() => archiveListing(l)}>Archive</button>}
                         </div>
                       </td>
                     </tr>

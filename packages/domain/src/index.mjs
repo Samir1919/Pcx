@@ -20,7 +20,7 @@ export { assertPrimarySerialIdentifier, createInventoryItem, createSerialIdentif
 export { createItemCost, ItemCostType, parseItemCostType, sumItemCosts } from "./inventory/item-cost.mjs";
 export { assertUniqueInspectionTemplateItems, createInspectionTemplate, createInspectionTemplateItem, InspectionResultType, InspectionTemplateStatus } from "./inspection/inspection-template.mjs";
 export { approveInspection, computeHealthScore, ConditionGrade, createInspection, createTestResult, InspectionStatus, overrideInspection, rejectInspection, submitInspection, suggestGrade, supersedeInspection, TestResultStatus } from "./inspection/inspection-execution.mjs";
-export { createListing, createListingPrice, createPublicListing, createPublicPassport, ListingStatus, publishListing } from "./listing/listing.mjs";
+export { archiveListing, createListing, createListingPrice, createPublicListing, createPublicPassport, ListingStatus, pauseListing, publishListing, unpublishListing } from "./listing/listing.mjs";
 export { convertReservation, createReservation, isExpiredReservation, ReservationStatus } from "./commerce/reservation.mjs";
 export { CartStatus, createCart, createCartItem } from "./commerce/cart.mjs";
 export { confirmPayment, createOrder, createOrderItemSnapshot, createPayment, deriveOrderAllocation, OrderStatus, PaymentDirection, PaymentMethod, PaymentStatus } from "./commerce/order-payment.mjs";

@@ -9,6 +9,9 @@ function service(overrides = {}) {
   return {
     async createDraft() { return { id: "l1", status: "DRAFT" }; },
     async publish() { return { id: "l1", status: "PUBLISHED" }; },
+    async pause() { return { id: "l1", status: "PAUSED" }; },
+    async unpublish() { return { id: "l1", status: "DRAFT" }; },
+    async archive() { return { id: "l1", status: "ARCHIVED" }; },
     async setPrice() { return { id: "p1", price: 15000 }; },
     async listAdmin() { return { data: [{ id: "l1", modelName: "GPU" }], meta: { nextCursor: null } }; },
     async publicPassport() { return { pcxItemId: "PCX-1", status: "PUBLISHED" }; },
@@ -65,6 +68,9 @@ test("admin listing writes require CSRF and return success", async () => {
 
   assert.equal((await invoke("/api/v1/admin/listings", { method: "POST", body: { inventoryItemId: "inv-1" }, headers: csrf() })).status, 201);
   assert.equal((await invoke("/api/v1/admin/listings/l1/publish", { method: "POST", body: { publicSlug: "pcx-gaming-tower" }, headers: csrf() })).status, 200);
+  assert.equal((await invoke("/api/v1/admin/listings/l1/pause", { method: "POST", headers: csrf() })).status, 200);
+  assert.equal((await invoke("/api/v1/admin/listings/l1/unpublish", { method: "POST", headers: csrf() })).status, 200);
+  assert.equal((await invoke("/api/v1/admin/listings/l1/archive", { method: "POST", headers: csrf() })).status, 200);
   assert.equal((await invoke("/api/v1/admin/listings/prices", { method: "POST", body: { listingId: "l1", price: 15000 }, headers: csrf() })).status, 201);
 });
 

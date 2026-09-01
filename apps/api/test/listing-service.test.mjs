@@ -8,6 +8,9 @@ function fixture(overrides = {}) {
   const repository = {
     async createDraft(record) { calls.drafts.push(record); return record; },
     async publish(id, slug, now) { calls.publishes.push({ id, slug, now }); return { status: "published", record: { id, publicSlug: slug, status: ListingStatus.PUBLISHED } }; },
+    async pause(id, now) { calls.pauses = (calls.pauses ?? []).concat([{ id, now }]); return { status: "paused", record: { id, status: ListingStatus.PAUSED } }; },
+    async unpublish(id, now) { calls.unpublishes = (calls.unpublishes ?? []).concat([{ id, now }]); return { status: "unpublished", record: { id, status: ListingStatus.DRAFT } }; },
+    async archive(id, now) { calls.archives = (calls.archives ?? []).concat([{ id, now }]); return { status: "archived", record: { id, status: ListingStatus.ARCHIVED } }; },
     async createPrice(record) { calls.prices.push(record); return record; },
     async findById(id) { calls.finds.push(id); return id === "l1" ? { id, inventoryItemId: "inv-1", status: ListingStatus.DRAFT, publicSlug: null, publishedAt: null } : null; },
     async findInventoryItemStatus() { return "APPROVED"; },
@@ -73,6 +76,24 @@ test("setPrice requires pricing permission and positive server-owned amount", as
   assert.equal(calls.prices.length, 1);
   await assert.rejects(service.setPrice("access", { listingId: "l1", price: 0 }), (error) => error.code === "invalid_input");
   await assert.rejects(service.setPrice("access", { listingId: "missing", price: 10 }), (error) => error.code === "not_found");
+});
+
+test("pause, unpublish, and archive transition listings and are permission-gated", async () => {
+  const { service, calls } = fixture({ repository: { async findById() { return { id: "l1", inventoryItemId: "inv-1", status: ListingStatus.PUBLISHED, publicSlug: "slug", publishedAt: null }; } } });
+  const paused = await service.pause("access", "l1");
+  assert.equal(paused.status, ListingStatus.PAUSED);
+  assert.equal(calls.pauses.length, 1);
+
+  const unpublished = await service.unpublish("access", "l1");
+  assert.equal(unpublished.status, ListingStatus.DRAFT);
+  assert.equal(calls.unpublishes.length, 1);
+
+  const archived = await service.archive("access", "l1");
+  assert.equal(archived.status, ListingStatus.ARCHIVED);
+  assert.equal(calls.archives.length, 1);
+
+  const denied = fixture({ authService: { async authenticateAccess() { return { userId: "u", status: "ACTIVE", roles: ["CUSTOMER"] }; } } });
+  await assert.rejects(denied.service.archive("access", "l1"), (error) => error.code === "forbidden");
 });
 
 test("listAdmin requires pricing read and maps snake_case admin rows", async () => {

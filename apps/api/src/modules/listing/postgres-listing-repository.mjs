@@ -65,6 +65,45 @@ export function createPostgresListingRepository({ pool }) {
       });
     },
 
+    async pause(listingId, now) {
+      return transaction(pool, async (client) => {
+        const updated = await client.query(
+          `UPDATE listings SET status = 'PAUSED'
+           WHERE id = $1 AND status = 'PUBLISHED'
+           RETURNING id, inventory_item_id, status, public_slug, published_at, unpublished_at, warranty_policy_id, created_at`,
+          [listingId]
+        );
+        if (updated.rowCount !== 1) return { status: "not_pausable" };
+        return { status: "paused", record: listing(updated.rows[0]) };
+      });
+    },
+
+    async unpublish(listingId, now) {
+      return transaction(pool, async (client) => {
+        const updated = await client.query(
+          `UPDATE listings SET status = 'DRAFT', unpublished_at = $2
+           WHERE id = $1 AND status IN ('PUBLISHED', 'PAUSED')
+           RETURNING id, inventory_item_id, status, public_slug, published_at, unpublished_at, warranty_policy_id, created_at`,
+          [listingId, now]
+        );
+        if (updated.rowCount !== 1) return { status: "not_unpublishable" };
+        return { status: "unpublished", record: listing(updated.rows[0]) };
+      });
+    },
+
+    async archive(listingId, now) {
+      return transaction(pool, async (client) => {
+        const updated = await client.query(
+          `UPDATE listings SET status = 'ARCHIVED'
+           WHERE id = $1 AND status IN ('DRAFT', 'PUBLISHED', 'PAUSED')
+           RETURNING id, inventory_item_id, status, public_slug, published_at, unpublished_at, warranty_policy_id, created_at`,
+          [listingId]
+        );
+        if (updated.rowCount !== 1) return { status: "not_archivable" };
+        return { status: "archived", record: listing(updated.rows[0]) };
+      });
+    },
+
     async createPrice(record, now) {
       return transaction(pool, async (client) => {
         await client.query("UPDATE listing_prices SET valid_to = $2 WHERE listing_id = $1 AND valid_to IS NULL", [record.listingId, now]);

@@ -158,17 +158,22 @@ export async function handleListingRequest(request, response, { listingService, 
   if (suffix) {
     const parts = suffix.slice(1).split("/");
     if (parts.length === 1 && parts[0] === "prices") op = "setPrice";
-    else if (parts.length === 2 && parts[1] === "publish") { op = "publish"; listingId = parts[0]; }
+    else if (parts.length === 2 && ["publish", "pause", "unpublish", "archive"].includes(parts[1])) { op = parts[1]; listingId = parts[0]; }
     else if (parts.length === 1 && parts[0]) { listingId = parts[0]; }
     else { send(response, 404, failure("LISTING_NOT_FOUND", "Listing not found", requestId)); return true; }
   }
 
-  const valid = (!suffix && method === "POST") || (op === "publish" && method === "POST") || (op === "setPrice" && method === "POST");
+  const transition = op === "publish" || op === "pause" || op === "unpublish" || op === "archive";
+  const valid = (!suffix && method === "POST") || (transition && method === "POST") || (op === "setPrice" && method === "POST");
   if (!valid) { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
 
   const cookies = parsedCookies(request);
   try {
     requireWriteSecurity(request, allowedOrigins, cookies);
+    if (op === "pause" || op === "unpublish" || op === "archive") {
+      send(response, 200, { data: await listingService[op](cookies.pcx_access, id(listingId)) });
+      return true;
+    }
     const body = await jsonBody(request);
     if (!suffix) send(response, 201, { data: await listingService.createDraft(cookies.pcx_access, body) });
     else if (op === "publish") send(response, 200, { data: await listingService.publish(cookies.pcx_access, id(listingId), body) });

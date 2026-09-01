@@ -63,6 +63,29 @@ export function publishListing(listing, { publishedAt = new Date(), publicSlug }
   });
 }
 
+// Temporarily take a live listing offline. Only PUBLISHED listings can pause.
+export function pauseListing(listing) {
+  if (!listing || typeof listing !== "object") throw new TypeError("listing is required");
+  if (listing.status !== ListingStatus.PUBLISHED) throw new TypeError("only a PUBLISHED listing can be paused");
+  return Object.freeze({ ...listing, status: ListingStatus.PAUSED });
+}
+
+// Take a live/paused listing back to draft, recording when it left the storefront.
+export function unpublishListing(listing, { unpublishedAt = new Date() } = {}) {
+  if (!listing || typeof listing !== "object") throw new TypeError("listing is required");
+  if (listing.status !== ListingStatus.PUBLISHED && listing.status !== ListingStatus.PAUSED) throw new TypeError("only a PUBLISHED or PAUSED listing can be unpublished");
+  return Object.freeze({ ...listing, status: ListingStatus.DRAFT, unpublishedAt: timestamp(unpublishedAt, "unpublishedAt") });
+}
+
+// Soft-delete a listing (archive). Terminal RESERVED/SOLD listings are historical
+// facts and cannot be archived; an already-archived listing is idempotent.
+export function archiveListing(listing) {
+  if (!listing || typeof listing !== "object") throw new TypeError("listing is required");
+  if (listing.status === ListingStatus.ARCHIVED) return listing;
+  if (listing.status === ListingStatus.SOLD || listing.status === ListingStatus.RESERVED) throw new TypeError("a SOLD or RESERVED listing cannot be archived");
+  return Object.freeze({ ...listing, status: ListingStatus.ARCHIVED });
+}
+
 export function createListingPrice({
   id,
   listingId,
