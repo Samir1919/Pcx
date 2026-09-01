@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { opsApi } from "../../lib/ops-api";
+import { formatPrice } from "../../lib/ui-format";
 
 function Stat({ label, value }) {
   return (
@@ -57,6 +58,7 @@ export default function OverviewPage() {
             <Stat label="Listings" value={report.counts.activeListings} />
             <Stat label="Returns" value={report.counts.pendingReturns} />
             <Stat label="Open claims" value={report.counts.openClaims} />
+            <Stat label="Inventory cost" value={formatPrice(report.inventoryCost?.totalCost)} />
           </div>
           <div className="grid">
             <section className="panel">

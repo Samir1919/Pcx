@@ -1,11 +1,41 @@
 {
-  "scope": "Ecommerce product detail view (main image + thumbnail gallery + full specs) on the storefront passport",
+  "scope": "Admin operational workspaces and interactive workflows",
   "headed": true,
   "tool": "scripts/admin-e2e-check.mjs",
   "result": "passed",
   "businessFlow": {
-    "subject": "Passport renders a large main image, a thumbnail gallery, and full model specifications",
-    "steps": ["open-passport", "main-image-shown", "thumbnail-gallery-shown", "specifications-table-shown"]
+    "subject": "Admin workspace click-through verification",
+    "steps": [
+      "login",
+      "/",
+      "/catalog",
+      "/inventory",
+      "/listings",
+      "/acquisition",
+      "/shipment",
+      "/returns",
+      "/warranty",
+      "/notifications",
+      "/verification",
+      "/payments",
+      "/users",
+      "/footer",
+      "/audit",
+      "catalog-edit-modal",
+      "inventory-inspect-modal",
+      "inventory-inspect-template-autoselect",
+      "inventory-cost-form-renders",
+      "inventory-cost-entry-saved",
+      "acquisition-detail-renders",
+      "acquisition-contextual-prefill",
+      "acquisition-offer-expiry-default",
+      "warranty-window-default",
+      "notifications-provider-tabs",
+      "verification-version-default",
+      "returns-row-action",
+      "warranty-row-action",
+      "listings-photos-modal"
+    ]
   },
-  "ranAt": "2026-08-31T14:05:00.000Z"
+  "ranAt": "2026-09-01T01:40:42.806Z"
 }

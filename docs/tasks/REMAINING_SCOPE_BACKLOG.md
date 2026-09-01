@@ -13,12 +13,11 @@ remaining gaps, ordered by dependency.
 
 ## 1. item_costs cost allocation (E4/E6)
 
-- Scope: add `item_costs` table (inventory_item_id, cost_type in
-  ACQUISITION/REFURBISHMENT/TESTING/PACKAGING/SHIPPING_IN/OTHER, amount,
-  reference); repository/service/HTTP + admin cost-entry UI (multi-field form).
-- Acceptance: admin can record per-item costs; pricing/reporting surfaces the
-  sum server-side; cost totals never client-authored.
-- Deps: existing `acquisition_cost` (migration 0036) is the seed value.
+- Status: **COMPLETE (2026-09-01)** — ADR 0014. `item_costs` append-only ledger
+  (`ACQUISITION/REFURBISHMENT/TESTING/PACKAGING/SHIPPING_IN/OTHER`), repository/
+  service/HTTP (`GET`/`POST /api/v1/admin/inventory/:id/costs`), admin multi-field
+  cost-entry form, and server-derived totals (acquisition seed + SUM) surfaced in
+  inventory detail + operations report. Handoff: `docs/handoffs/ITEM_COST_ALLOCATION.md`.
 
 ## 2. Refund gateway adapter execution (E12, sandbox)
 

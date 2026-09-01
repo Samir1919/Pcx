@@ -17,6 +17,7 @@ export { BuildComponentRole, createBuildComponent, parseSellEntry, SellEntry, va
 export { createSellBuildComponent, createSellEntryConfig, parseBuildComponentRole, parseSellEntryIcon, parseSellEntryKey, parseSellEntryKind, SellEntryIcon, SellEntryKind } from "./acquisition/sell-taxonomy.mjs";
 export { acceptOffer, AcquisitionPaymentStatus, AcquisitionSourceType, createAcquisition, createOffer, markAcquisitionPaid, OfferStatus, rejectOffer } from "./acquisition/valuation-offer.mjs";
 export { assertPrimarySerialIdentifier, createInventoryItem, createSerialIdentifier, generatePcxItemId, InventoryItemStatus, normalizeSerialIdentifier, SerialIdentifierType } from "./inventory/inventory-item.mjs";
+export { createItemCost, ItemCostType, parseItemCostType, sumItemCosts } from "./inventory/item-cost.mjs";
 export { assertUniqueInspectionTemplateItems, createInspectionTemplate, createInspectionTemplateItem, InspectionResultType, InspectionTemplateStatus } from "./inspection/inspection-template.mjs";
 export { approveInspection, computeHealthScore, ConditionGrade, createInspection, createTestResult, InspectionStatus, rejectInspection, submitInspection, suggestGrade, TestResultStatus } from "./inspection/inspection-execution.mjs";
 export { createListing, createListingPrice, createPublicListing, createPublicPassport, ListingStatus, publishListing } from "./listing/listing.mjs";

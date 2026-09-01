@@ -22,6 +22,8 @@ import { createPostgresAcquisitionRepository } from "../acquisition/postgres-acq
 import { createAcquisitionService } from "../acquisition/acquisition-service.mjs";
 import { createPostgresInventoryRepository } from "../inventory/postgres-inventory-repository.mjs";
 import { createInventoryService } from "../inventory/inventory-service.mjs";
+import { createPostgresItemCostRepository } from "../inventory/postgres-item-cost-repository.mjs";
+import { createItemCostService } from "../inventory/item-cost-service.mjs";
 import { createPostgresInspectionTemplateRepository } from "../inspection/postgres-inspection-template-repository.mjs";
 import { createInspectionTemplateService } from "../inspection/inspection-template-service.mjs";
 import { createPostgresInspectionExecutionRepository } from "../inspection/postgres-inspection-execution-repository.mjs";
@@ -181,6 +183,7 @@ export function createAuthRuntime({ pool, allowedOrigins, adminOrigins, abuseCon
   const acquisitionService = createAcquisitionService({ authService, repository: createPostgresAcquisitionRepository({ pool }), notificationEmitter });
   const inventoryRepository = createPostgresInventoryRepository({ pool });
   const inventoryService = createInventoryService({ authService, repository: inventoryRepository, acquisitionCostResolver: (acquisitionId) => acquisitionService.getAcquisitionAgreedPrice(acquisitionId) });
+  const itemCostService = createItemCostService({ authService, repository: createPostgresItemCostRepository({ pool }) });
   const inspectionTemplateRepository = createPostgresInspectionTemplateRepository({ pool });
   const inspectionTemplateService = createInspectionTemplateService({ authService, repository: inspectionTemplateRepository });
   const inspectionExecutionService = createInspectionExecutionService({ authService, inventoryRepository, inspectionTemplateRepository, repository: createPostgresInspectionExecutionRepository({ pool }) });
@@ -226,6 +229,7 @@ export function createAuthRuntime({ pool, allowedOrigins, adminOrigins, abuseCon
     sellRequestService,
     acquisitionService,
     inventoryService,
+    itemCostService,
     inspectionTemplateService,
     inspectionExecutionService,
     listingService,

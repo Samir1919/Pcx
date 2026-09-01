@@ -6,7 +6,7 @@ export class ReportsError extends Error {
 
 export function createOperationsReportService({ authService, repository }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  for (const method of ["counts", "recentOrders", "recentSellRequests"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  for (const method of ["counts", "recentOrders", "recentSellRequests", "inventoryCost"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
 
   async function actor(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -17,12 +17,13 @@ export function createOperationsReportService({ authService, repository }) {
   return Object.freeze({
     async dashboard(accessCredential) {
       await actor(accessCredential);
-      const [counts, recentOrders, recentSellRequests] = await Promise.all([
+      const [counts, recentOrders, recentSellRequests, inventoryCost] = await Promise.all([
         repository.counts(),
         repository.recentOrders(),
-        repository.recentSellRequests()
+        repository.recentSellRequests(),
+        repository.inventoryCost()
       ]);
-      return Object.freeze({ counts, recentOrders, recentSellRequests });
+      return Object.freeze({ counts, recentOrders, recentSellRequests, inventoryCost });
     }
   });
 }

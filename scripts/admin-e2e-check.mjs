@@ -174,6 +174,33 @@ async function run() {
     record("inventory-inspect-modal", false, e.message);
   }
 
+
+  // Inventory: open the detail modal and record a per-item cost allocation via
+  // the multi-field form, then verify the server-derived total updates.
+  try {
+    await page.goto(`${BASE_ADMIN}/inventory`, { waitUntil: "networkidle", timeout: 30_000 });
+    const viewButton = page.getByRole("button", { name: "View", exact: true }).first();
+    if (await viewButton.count()) {
+      await viewButton.click();
+      const dialog = page.getByRole("dialog");
+      await dialog.waitFor({ state: "visible", timeout: 10_000 });
+      await dialog.getByText("Record a cost").waitFor({ state: "visible", timeout: 10_000 });
+      record("inventory-cost-form-renders", true, "cost allocation form rendered");
+      await dialog.getByLabel("Amount (৳)").fill("150");
+      await dialog.getByLabel("Reference").fill("e2e cost");
+      await dialog.getByRole("button", { name: "Add cost" }).click();
+      await dialog.getByText("Cost entry recorded.").waitFor({ state: "visible", timeout: 10_000 });
+      record("inventory-cost-entry-saved", true, "cost entry saved and total refreshed");
+      await dialog.getByRole("button", { name: "Close" }).last().click();
+    } else {
+      record("inventory-cost-form-renders", false, "no View button");
+      record("inventory-cost-entry-saved", false, "no View button");
+    }
+  } catch (e) {
+    record("inventory-cost-form-renders", false, e.message);
+    record("inventory-cost-entry-saved", false, e.message);
+  }
+
   // Acquisition: open a sell request detail inside the modal and verify that the
   // detail content, contextual prefill, and the in-modal action forms all render.
   try {

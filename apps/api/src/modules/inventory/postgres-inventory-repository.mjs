@@ -79,7 +79,8 @@ export function createPostgresInventoryRepository({ pool }) {
                 ii.received_at, ii.created_at, ii.updated_at,
                 pm.name AS product_name, pm.model_code,
                 b.name AS brand_name, c.name AS category_name,
-                (SELECT si.value_display FROM serial_identifiers si WHERE si.inventory_item_id = ii.id AND si.is_primary = true LIMIT 1) AS serial_value
+                (SELECT si.value_display FROM serial_identifiers si WHERE si.inventory_item_id = ii.id AND si.is_primary = true LIMIT 1) AS serial_value,
+            COALESCE(ii.acquisition_cost, 0) + COALESCE((SELECT SUM(ic.amount) FROM item_costs ic WHERE ic.inventory_item_id = ii.id), 0) AS total_cost
          FROM inventory_items ii
          JOIN product_models pm ON pm.id = ii.product_model_id
          LEFT JOIN brands b ON b.id = pm.brand_id
@@ -88,7 +89,7 @@ export function createPostgresInventoryRepository({ pool }) {
         [id]
       );
       const row = result.rows[0];
-      return row ? Object.freeze({ ...item(row), serialValue: row.serial_value ?? null }) : null;
+      return row ? Object.freeze({ ...item(row), serialValue: row.serial_value ?? null, totalCost: Number(row.total_cost) }) : null;
     },
 
     async list() {

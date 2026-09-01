@@ -8,6 +8,7 @@ import { handleCatalogSpecCommandRequest } from "./modules/catalog/catalog-spec-
 import { handleSellRequestRequest } from "./modules/acquisition/sell-request-http.mjs";
 import { handleAcquisitionRequest } from "./modules/acquisition/acquisition-http.mjs";
 import { handleInventoryRequest } from "./modules/inventory/inventory-http.mjs";
+import { handleItemCostRequest } from "./modules/inventory/item-cost-http.mjs";
 import { handleInspectionTemplateRequest } from "./modules/inspection/inspection-template-http.mjs";
 import { handleInspectionExecutionRequest } from "./modules/inspection/inspection-execution-http.mjs";
 import { handleListingRequest } from "./modules/listing/listing-http.mjs";
@@ -73,7 +74,7 @@ function catalogFilters(url) {
   });
 }
 
-export function createRequestHandler({ readiness = () => ({ ok: true }), catalogService, catalogCommandService, catalogSpecCommandService, authService, identityActionService, userAdminService, addressService, sellRequestService, acquisitionService, inventoryService, inspectionTemplateService, inspectionExecutionService, listingService, merchantListingService, reservationService, cartService, mediaService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, operationsReportService, notificationService, notificationProviderConfigService, auditLogService, paymentProviderConfigService, indicativePriceService, sellTaxonomyService, siteFooterService, allowedOrigins, adminOrigins = new Set() } = {}) {
+export function createRequestHandler({ readiness = () => ({ ok: true }), catalogService, catalogCommandService, catalogSpecCommandService, authService, identityActionService, userAdminService, addressService, sellRequestService, acquisitionService, inventoryService, itemCostService, inspectionTemplateService, inspectionExecutionService, listingService, merchantListingService, reservationService, cartService, mediaService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, operationsReportService, notificationService, notificationProviderConfigService, auditLogService, paymentProviderConfigService, indicativePriceService, sellTaxonomyService, siteFooterService, allowedOrigins, adminOrigins = new Set() } = {}) {
   return async (request, response) => {
     response.setHeader("content-type", "application/json; charset=utf-8");
     response.setHeader("x-content-type-options", "nosniff");
@@ -105,6 +106,7 @@ export function createRequestHandler({ readiness = () => ({ ok: true }), catalog
     if (await handleMediaRequest(request, response, { mediaService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleSellRequestRequest(request, response, { sellRequestService, acquisitionService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleAcquisitionRequest(request, response, { acquisitionService, allowedOrigins, requestId: requestId(request) })) return;
+    if (await handleItemCostRequest(request, response, { itemCostService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleInventoryRequest(request, response, { inventoryService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleInspectionTemplateRequest(request, response, { inspectionTemplateService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleInspectionExecutionRequest(request, response, { inspectionExecutionService, allowedOrigins, requestId: requestId(request) })) return;
