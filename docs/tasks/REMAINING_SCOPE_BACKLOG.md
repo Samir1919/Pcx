@@ -38,8 +38,10 @@ remaining gaps, ordered by dependency.
   developer.bka.sh) + `bkash-http-gateway.mjs` wired into `order-payment-service`
   `resolveGateway`; LIVE mode fails closed (hard stop). Admin payments workspace
   surfaces the sandbox endpoint. Handoff: `docs/handoffs/BKASH_HTTP_ADAPTER.md`.
-- Remaining follow-up: webhook/IPN handling, redirect callback + execute/query
-  reconciliation, and bKash refund wiring into the returns module.
+- Remaining follow-up: webhook/IPN handling and bKash refund wiring into the
+  returns module. (Redirect callback + execute/query reconciliation is done —
+  `GET /api/v1/payments/bkash/callback?paymentID=…` reconciles server-side via
+  the gateway `execute()` and confirms only on CONFIRMED.)
 
 ## 4. E5 inspection follow-ups
 
