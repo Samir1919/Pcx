@@ -40,6 +40,22 @@ export function createPostgresAuditLogRepository({ pool }) {
         [...values, limit]
       );
       return result.rows.map(row);
+    },
+
+    // Bounded ascending export for external SIEM ingestion (NDJSON).
+    async exportAll({ entityType = null, entityId = null, limit = 1000 } = {}) {
+      const values = [];
+      const where = [];
+      const add = (v) => { values.push(v); return `$${values.length}`; };
+      if (entityType) where.push(`entity_type = ${add(entityType)}`);
+      if (entityId) where.push(`entity_id::text = ${add(entityId)}`);
+      const clause = where.length ? `WHERE ${where.join(" AND ")}` : "";
+      const result = await pool.query(
+        `SELECT id, actor_user_id, action, entity_type, entity_id, before_snapshot, after_snapshot, reason, ip_address, created_at
+         FROM audit_logs ${clause} ORDER BY created_at ASC LIMIT $${values.length + 1}`,
+        [...values, limit]
+      );
+      return result.rows.map(row);
     }
   });
 }

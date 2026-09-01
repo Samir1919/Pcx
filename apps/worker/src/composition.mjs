@@ -11,6 +11,8 @@ import { createOrderPaymentService } from "../../api/src/modules/commerce/order-
 import { createReservationService } from "../../api/src/modules/commerce/reservation-service.mjs";
 import { createPostgresReservationRepository } from "../../api/src/modules/commerce/postgres-reservation-repository.mjs";
 import { createPostgresListingRepository } from "../../api/src/modules/listing/postgres-listing-repository.mjs";
+import { createPostgresScheduledExportRepository } from "../../api/src/modules/reporting/postgres-scheduled-export-repository.mjs";
+import { createScheduledExportService } from "../../api/src/modules/reporting/scheduled-export-service.mjs";
 import { startWorker } from "./worker.mjs";
 
 // The worker never performs an authenticated operation: it only dispatches due
@@ -80,6 +82,32 @@ export function createWorkerRuntime({
     listingRepository: createPostgresListingRepository({ pool }),
     reservationRepository: createPostgresReservationRepository({ pool })
   });
-  const worker = startWorker({ shipmentService, notificationService, reservationService, intervalMs, onError, unref });
-  return Object.freeze({ worker, shipmentService, notificationService, reservationService });
+  // Scheduled exports: the worker regenerates due exports on their cadence and
+  // records the run. countRows reads the underlying ledgers (never another
+  // module's tables) so the run record carries a meaningful row count.
+  const scheduledExportService = createScheduledExportService({
+    authService: workerAuthService,
+    repository: createPostgresScheduledExportRepository({ pool })
+  });
+  const countRows = async (report) => {
+    if (report === "operations") {
+      const r = await pool.query("SELECT (SELECT count(*) FROM orders)::int + (SELECT count(*) FROM sell_requests)::int AS c");
+      return Number(r.rows[0].c);
+    }
+    if (report === "audit") {
+      const r = await pool.query("SELECT count(*)::int AS c FROM audit_logs");
+      return Number(r.rows[0].c);
+    }
+    return 0;
+  };
+  const worker = startWorker({
+    shipmentService,
+    notificationService,
+    reservationService,
+    scheduledExportService: { async runDue() { return scheduledExportService.runDue({ countRows }); } },
+    intervalMs,
+    onError,
+    unref
+  });
+  return Object.freeze({ worker, shipmentService, notificationService, reservationService, scheduledExportService });
 }

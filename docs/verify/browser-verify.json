@@ -1,15 +1,18 @@
 {
-  "scope": "Customer storefront passport page: related listings (You may also like)",
+  "scope": "Admin reports workspace: BI KPIs, CSV/NDJSON exports, scheduled exports",
   "headed": true,
   "tool": "Playwright MCP browser (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "Passport page renders related listings in the same category, excluding the current item",
+    "subject": "Admin Reporting & exports workspace renders server-derived BI KPIs and exports",
     "steps": [
-      "open passport /passport/PCX-TEST-LIST",
-      "verify You may also like section renders",
-      "verify related listing card (Dell OptiPlex 7090) links to its passport"
+      "sign in as demo admin",
+      "open /reports workspace",
+      "verify BI KPIs (orders/revenue/average/inventory cost) render",
+      "verify Download CSV returns text/csv",
+      "verify Download SIEM (NDJSON) returns application/x-ndjson",
+      "verify scheduled exports empty state renders"
     ]
   },
-  "ranAt": "2026-09-01T04:07:02.698Z"
+  "ranAt": "2026-09-01T04:27:03.471Z"
 }

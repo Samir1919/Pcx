@@ -6,7 +6,7 @@ test("audit list requires AUDIT_READ and returns rows", async () => {
   const rows = [{ id: "1", action: "update", entityType: "order", entityId: "o1" }];
   const service = createAuditLogService({
     authService: { async authenticateAccess() { return { userId: "u", status: "ACTIVE", roles: ["ADMIN"] }; } },
-    repository: { async list(filters) { return filters.entityType === "order" ? rows : []; }, async create(record) { return record; } }
+    repository: { async list(filters) { return filters.entityType === "order" ? rows : []; }, async create(record) { return record; }, async exportAll() { return rows; } }
   });
   const result = await service.list("access", { entityType: "order" });
   assert.equal(result.length, 1);
@@ -14,9 +14,14 @@ test("audit list requires AUDIT_READ and returns rows", async () => {
   const recorded = await service.record({ actorUserId: "u", action: "PRICE_CHANGED", entityType: "listing", entityId: "l1", afterSnapshot: { price: 1 } });
   assert.equal(recorded.action, "PRICE_CHANGED");
 
+  const ndjson = await service.exportNdjson("access", {});
+  assert.equal(ndjson.split("\n").length, 1);
+  assert.match(ndjson, /"action":"update"/);
+
   const denied = createAuditLogService({
     authService: { async authenticateAccess() { return { userId: "u", status: "ACTIVE", roles: ["CUSTOMER"] }; } },
-    repository: { async list() { return []; }, async create(record) { return record; } }
+    repository: { async list() { return []; }, async create(record) { return record; }, async exportAll() { return []; } }
   });
   await assert.rejects(denied.list("access", {}), (e) => e.code === "forbidden");
+  await assert.rejects(denied.exportNdjson("access", {}), (e) => e.code === "forbidden");
 });

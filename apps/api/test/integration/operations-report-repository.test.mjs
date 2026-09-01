@@ -24,6 +24,14 @@ test("operations report repository returns lifecycle counts and recent rows", { 
     const sellRequests = await repository.recentSellRequests();
     assert.equal(Array.isArray(sellRequests), true);
     assert.ok(sellRequests.length <= 10);
+
+    const revenue = await repository.revenueSummary();
+    assert.equal(typeof revenue.orderCount, "number");
+    assert.equal(typeof revenue.revenue, "number");
+    assert.equal(Array.isArray(revenue.byStatus), true);
+
+    const inventoryValue = await repository.inventoryValue();
+    assert.equal(Array.isArray(inventoryValue), true);
   } finally {
     await pool.end();
   }

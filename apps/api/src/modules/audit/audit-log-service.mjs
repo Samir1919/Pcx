@@ -25,6 +25,14 @@ export function createAuditLogService({ authService, repository }) {
     // state. Not exposed as a public endpoint.
     async record({ actorUserId, action, entityType, entityId, beforeSnapshot = null, afterSnapshot = null, reason = null }) {
       return repository.create({ actorUserId, action, entityType, entityId, beforeSnapshot, afterSnapshot, reason });
+    },
+
+    // External SIEM export: NDJSON (one JSON object per line) of the bounded
+    // audit tail. Structured for syslog/SIEM ingestion without a schema change.
+    async exportNdjson(accessCredential, filters) {
+      await actor(accessCredential);
+      const rows = await repository.exportAll(filters ?? {});
+      return rows.map((r) => JSON.stringify(r)).join("\n");
     }
   });
 }

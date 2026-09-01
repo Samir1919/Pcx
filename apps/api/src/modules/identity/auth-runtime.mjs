@@ -51,6 +51,8 @@ import { createPostgresWarrantyPolicyRepository } from "../warranty/postgres-war
 import { createWarrantyPolicyService } from "../warranty/warranty-policy-service.mjs";
 import { createPostgresOperationsReportRepository } from "../reporting/postgres-operations-report-repository.mjs";
 import { createOperationsReportService } from "../reporting/operations-report-service.mjs";
+import { createPostgresScheduledExportRepository } from "../reporting/postgres-scheduled-export-repository.mjs";
+import { createScheduledExportService } from "../reporting/scheduled-export-service.mjs";
 import { createPostgresNotificationRepository } from "../notification/postgres-notification-repository.mjs";
 import { createNotificationService } from "../notification/notification-service.mjs";
 import { createPostgresNotificationProviderConfigRepository } from "../notification/postgres-notification-provider-config-repository.mjs";
@@ -219,6 +221,7 @@ export function createAuthRuntime({ pool, allowedOrigins, adminOrigins, abuseCon
   const warrantyClaimService = createWarrantyClaimService({ authService, repository: createPostgresWarrantyClaimRepository({ pool }) });
   const warrantyPolicyService = createWarrantyPolicyService({ authService, repository: createPostgresWarrantyPolicyRepository({ pool }) });
   const operationsReportService = createOperationsReportService({ authService, repository: createPostgresOperationsReportRepository({ pool }) });
+  const scheduledExportService = createScheduledExportService({ authService, repository: createPostgresScheduledExportRepository({ pool }) });
   const notificationService = createNotificationService({ authService, repository: notificationRepository });
 
   return Object.freeze({
@@ -246,6 +249,7 @@ export function createAuthRuntime({ pool, allowedOrigins, adminOrigins, abuseCon
     warrantyClaimService,
     warrantyPolicyService,
     operationsReportService,
+    scheduledExportService,
     notificationService,
     notificationProviderConfigService,
     auditLogService,

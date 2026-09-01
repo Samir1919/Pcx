@@ -2,8 +2,33 @@
 
 import { apiRequest, ApiError, csrfToken } from "./api-client.js";
 
+// Downloads a non-JSON admin export (CSV/NDJSON) with the admin session cookie
+// and the surface header that lets the API read `pcx_admin_*` cookies. A plain
+// <a href> navigation would drop the admin cookie (no x-pcx-surface header).
+async function downloadExport(path, filename) {
+  const response = await fetch(path, {
+    headers: { accept: "*/*", "x-pcx-surface": "admin" },
+    credentials: "include"
+  });
+  if (!response.ok) throw new ApiError("EXPORT_FAILED", "The export could not be generated", response.status);
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
 export const opsApi = Object.freeze({
   dashboard: () => apiRequest("/api/v1/admin/reports/operations"),
+  biDashboard: () => apiRequest("/api/v1/admin/reports/bi"),
+  exportOperationsCsv: () => downloadExport("/api/v1/admin/reports/operations/export?format=csv", "operations-report.csv"),
+  auditExportNdjson: () => downloadExport("/api/v1/admin/audit-logs/export?format=ndjson", "audit-logs.ndjson"),
+  scheduledExports: () => apiRequest("/api/v1/admin/scheduled-exports"),
+  createScheduledExport: (body) => apiRequest("/api/v1/admin/scheduled-exports", { method: "POST", body }),
   inventory: () => apiRequest("/api/v1/admin/inventory"),
   inventoryItem: (id) => apiRequest(`/api/v1/admin/inventory/${encodeURIComponent(id)}`),
   itemCosts: (id) => apiRequest(`/api/v1/admin/inventory/${encodeURIComponent(id)}/costs`),

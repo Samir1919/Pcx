@@ -25,6 +25,7 @@ import { handleReturnRequest } from "./modules/warranty/return-request-http.mjs"
 import { handleWarrantyClaimRequest } from "./modules/warranty/warranty-claim-http.mjs";
 import { handleWarrantyPolicyRequest } from "./modules/warranty/warranty-policy-http.mjs";
 import { handleOperationsReportRequest } from "./modules/reporting/operations-report-http.mjs";
+import { handleScheduledExportRequest } from "./modules/reporting/scheduled-export-http.mjs";
 import { handleNotificationRequest } from "./modules/notification/notification-http.mjs";
 import { handleAuditLogRequest } from "./modules/audit/audit-log-http.mjs";
 import { handlePaymentProviderConfigRequest } from "./modules/payment/payment-provider-config-http.mjs";
@@ -75,7 +76,7 @@ function catalogFilters(url) {
   });
 }
 
-export function createRequestHandler({ readiness = () => ({ ok: true }), catalogService, catalogCommandService, catalogSpecCommandService, authService, identityActionService, userAdminService, addressService, sellRequestService, acquisitionService, inventoryService, itemCostService, inspectionTemplateService, inspectionExecutionService, listingService, merchantListingService, reservationService, cartService, mediaService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, warrantyPolicyService, operationsReportService, notificationService, notificationProviderConfigService, auditLogService, paymentProviderConfigService, indicativePriceService, sellTaxonomyService, siteFooterService, allowedOrigins, adminOrigins = new Set() } = {}) {
+export function createRequestHandler({ readiness = () => ({ ok: true }), catalogService, catalogCommandService, catalogSpecCommandService, authService, identityActionService, userAdminService, addressService, sellRequestService, acquisitionService, inventoryService, itemCostService, inspectionTemplateService, inspectionExecutionService, listingService, merchantListingService, reservationService, cartService, mediaService, orderPaymentService, shipmentService, returnRequestService, warrantyClaimService, warrantyPolicyService, operationsReportService, scheduledExportService, notificationService, notificationProviderConfigService, auditLogService, paymentProviderConfigService, indicativePriceService, sellTaxonomyService, siteFooterService, allowedOrigins, adminOrigins = new Set() } = {}) {
   return async (request, response) => {
     response.setHeader("content-type", "application/json; charset=utf-8");
     response.setHeader("x-content-type-options", "nosniff");
@@ -124,6 +125,7 @@ export function createRequestHandler({ readiness = () => ({ ok: true }), catalog
     if (await handleWarrantyClaimRequest(request, response, { warrantyClaimService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleWarrantyPolicyRequest(request, response, { warrantyPolicyService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleOperationsReportRequest(request, response, { operationsReportService, requestId: requestId(request) })) return;
+    if (await handleScheduledExportRequest(request, response, { scheduledExportService, allowedOrigins, requestId: requestId(request) })) return;
     if (await handleNotificationRequest(request, response, { notificationService, requestId: requestId(request) })) return;
     if (await handleAuditLogRequest(request, response, { auditLogService, requestId: requestId(request) })) return;
     if (await handlePaymentProviderConfigRequest(request, response, { paymentProviderConfigService, allowedOrigins, requestId: requestId(request) })) return;

@@ -66,6 +66,46 @@ export function createPostgresOperationsReportRepository({ pool }) {
         totalCost: acquisition + allocated,
         byType: Object.freeze(byType.rows.map((r) => Object.freeze({ costType: r.cost_type, total: Number(r.total) })))
       });
+    },
+
+    // Revenue summary: server-derived from the orders ledger. Totals are never
+    // client-authored; they come straight from committed order snapshots.
+    async revenueSummary() {
+      const result = await pool.query(
+        `SELECT
+           COUNT(*)::int AS order_count,
+           COALESCE(SUM(total_amount), 0) AS revenue,
+           COALESCE(SUM(tax_amount), 0) AS tax,
+           COALESCE(SUM(shipping_amount), 0) AS shipping,
+           COALESCE(ROUND(AVG(total_amount), 2), 0) AS avg_order
+         FROM orders`
+      );
+      const row = result.rows[0] ?? {};
+      const byStatus = await pool.query(
+        `SELECT status, COUNT(*)::int AS count, COALESCE(SUM(total_amount), 0) AS revenue
+         FROM orders GROUP BY status ORDER BY status`
+      );
+      return Object.freeze({
+        orderCount: Number(row.order_count ?? 0),
+        revenue: Number(row.revenue ?? 0),
+        tax: Number(row.tax ?? 0),
+        shipping: Number(row.shipping ?? 0),
+        averageOrder: Number(row.avg_order ?? 0),
+        byStatus: Object.freeze(byStatus.rows.map((r) => Object.freeze({ status: r.status, count: Number(r.count), revenue: Number(r.revenue) })))
+      });
+    },
+
+    // Inventory value summary grouped by condition grade. Server-owned.
+    async inventoryValue() {
+      const byGrade = await pool.query(
+        `SELECT COALESCE(condition_grade, 'UNGRADED') AS grade,
+                COUNT(*)::int AS count,
+                COALESCE(SUM(acquisition_cost), 0) AS cost
+         FROM inventory_items
+         GROUP BY COALESCE(condition_grade, 'UNGRADED')
+         ORDER BY grade`
+      );
+      return Object.freeze(byGrade.rows.map((r) => Object.freeze({ grade: r.grade, count: Number(r.count), cost: Number(r.cost) })));
     }
   });
 }
