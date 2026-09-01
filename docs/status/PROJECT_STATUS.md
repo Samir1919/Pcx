@@ -1,7 +1,7 @@
 # PCX Project Status
 
 - Updated: 2026-09-01
-- Current main evidence commit: `aa74c40` (claim carrier pickup link, E13 complete, merged into `origin/main`)
+- Current main evidence commit: `590794f` (CSP allow-listing + hardening headers for admin/storefront, E17, merged into `origin/main`)
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: Stage 3 control-plane completion and next dependency-ready work
 - Current autonomy maturity: Stage 2 in progress; Stage 3 control plane complete for bounded local/CI parallel orchestration (ADR 0008)
