@@ -27,8 +27,12 @@ export const BuildComponentRole = Object.freeze({
   CHARGER: "charger"
 });
 
-const sellEntries = new Set(Object.values(SellEntry));
 const componentRoles = new Set(Object.values(BuildComponentRole));
+// Sell entries are configured at runtime (admin Catalog -> Sell flow), so a
+// sell request may reference any canonical UPPER_SNAKE_CASE entry key derived
+// from a category slug — not only the four seed values. `SellEntry` above stays
+// as the documented set of canonical seed keys.
+const sellEntryPattern = /^[A-Z][A-Z0-9_]*$/;
 
 function requiredString(value, name) {
   if (typeof value !== "string" || value.trim().length === 0) throw new TypeError(`${name} is required`);
@@ -37,7 +41,7 @@ function requiredString(value, name) {
 
 export function parseSellEntry(value) {
   if (value == null || value === "") return null;
-  if (typeof value !== "string" || !sellEntries.has(value)) throw new TypeError("sellEntry is invalid");
+  if (typeof value !== "string" || !sellEntryPattern.test(value)) throw new TypeError("sellEntry is invalid");
   return value;
 }
 

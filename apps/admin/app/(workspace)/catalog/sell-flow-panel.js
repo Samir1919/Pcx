@@ -7,7 +7,13 @@ const ICON_KEYS = [
   { key: "desktop", label: "🖥️ Desktop" },
   { key: "parts", label: "🔧 Desktop parts" },
   { key: "laptop", label: "💻 Laptop" },
-  { key: "laptop-parts", label: "🔩 Laptop parts" }
+  { key: "laptop-parts", label: "🔩 Laptop parts" },
+  { key: "phone", label: "📱 Phone" },
+  { key: "tablet", label: "📲 Tablet" },
+  { key: "monitor", label: "🖥️ Monitor" },
+  { key: "audio", label: "🔊 Audio" },
+  { key: "camera", label: "📷 Camera" },
+  { key: "accessory", label: "🎧 Accessory" }
 ];
 
 function Banner({ notice, onClose }) { if (!notice) return null; return <div className={`banner ${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}><span>{notice.message}</span><button type="button" onClick={onClose} aria-label="Dismiss message">×</button></div>; }
@@ -61,12 +67,65 @@ export default function SellFlowPanel({ categories }) {
     }
   }
 
+  async function createEntry(event) {
+    event.preventDefault();
+    const formEl = event.currentTarget;
+    const form = new FormData(formEl);
+    setBusy(true);
+    setNotice(null);
+    try {
+      await sellTaxonomyApi.createEntry({
+        categoryId: form.get("categoryId"),
+        kind: form.get("kind"),
+        iconKey: form.get("iconKey"),
+        hint: form.get("hint"),
+        sortOrder: Number(form.get("sortOrder") || 0),
+        isActive: form.get("isActive") === "on"
+      });
+      setNotice({ kind: "success", message: "Sell entry added." });
+      formEl.reset();
+      await load();
+    } catch (error) {
+      setNotice({ kind: "error", message: error.status === 409 ? "This category is already a sell entry." : error.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <>
       <p className="state" role="status" style={{ padding: "12px 0" }}>
         Configure the public sell entries. Categories stay the single catalog source of truth; this only maps which category is a sell entry and how builds resolve component roles.
       </p>
       <Banner notice={notice} onClose={() => setNotice(null)} />
+      <section className="panel formPanel">
+        <p className="eyebrow">ADD SELL ENTRY</p>
+        <h2>Promote a category to a sell entry</h2>
+        <p>The entry key and lifecycle status are derived by the server from the category slug.</p>
+        <form onSubmit={createEntry}>
+          <label><span>Category</span>
+            <select name="categoryId" required>
+              <option value="">Select category</option>
+              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </label>
+          <label><span>Kind</span>
+            <select name="kind" required>
+              <option value="PARTS">PARTS — single parts (maps subcategories)</option>
+              <option value="BUILD">BUILD — full-system build</option>
+            </select>
+          </label>
+          <label><span>Icon</span>
+            <select name="iconKey" defaultValue="desktop" required>
+              {ICON_KEYS.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}
+            </select>
+          </label>
+          <label><span>Hint</span><input name="hint" required maxLength="160" placeholder="Sell a …" /></label>
+          <label><span>Sort order</span><input name="sortOrder" type="number" min="0" defaultValue="50" /></label>
+          <label className="check"><input name="isActive" type="checkbox" defaultChecked /><span>Active (visible to customers)</span></label>
+          <button className="primary" disabled={busy || loading}>{busy ? "Saving…" : "Add sell entry"}</button>
+        </form>
+      </section>
       {loading ? <p className="state" role="status">Loading sell flow…</p> : (
         <div className="grid" style={{ marginTop: 0, marginBottom: 18 }}>
           {entries.map((entry) => (

@@ -70,3 +70,45 @@ test("sell taxonomy command repository updates presentation/config and appends a
     await pool.end();
   }
 });
+
+test("sell taxonomy command repository creates a runtime entry from a category", { skip: !connectionString }, async () => {
+  await runMigrations({ connectionString });
+  const pool = new pg.Pool({ connectionString });
+  const repository = createPostgresSellTaxonomyCommandRepository({ pool });
+  const now = new Date().toISOString();
+  const actorId = "11111111-1111-1111-1111-111111111111";
+  const categoryId = "88888888-0000-0000-0000-000000000001";
+  const entryId = "99999999-0000-0000-0000-000000000001";
+  const duplicateId = "99999999-0000-0000-0000-000000000002";
+  const audit = (targetId) => ({ actorId, action: "TEST", targetType: "SELL_ENTRY", targetId, requestId: "req-create", changes: {}, occurredAt: now });
+  try {
+    await pool.query("INSERT INTO users(id, email, status) VALUES ($1, 'audit-actor@example.com', 'ACTIVE') ON CONFLICT (id) DO NOTHING", [actorId]);
+    await pool.query("INSERT INTO categories(id, parent_id, name, slug, status, sort_order) VALUES ($1, NULL, 'Integration Monitors', 'integration-monitors', 'ACTIVE', 900) ON CONFLICT (id) DO NOTHING", [categoryId]);
+
+    const key = await repository.createEntry(
+      { id: entryId, entryKey: "INTEGRATION_MONITORS", categoryId, kind: "PARTS", iconKey: "monitor", hint: "Sell a monitor", sortOrder: 900, isActive: true },
+      now,
+      { ...audit("INTEGRATION_MONITORS"), id: "dddddddd-dddd-dddd-dddd-dddddddddddd", changes: { entryKey: "INTEGRATION_MONITORS" } }
+    );
+    assert.equal(key, "INTEGRATION_MONITORS");
+
+    const row = await pool.query("SELECT entry_key, category_id, kind, icon_key, hint, sort_order, is_active FROM sell_entry_config WHERE id=$1", [entryId]);
+    assert.deepEqual(row.rows[0], { entry_key: "INTEGRATION_MONITORS", category_id: categoryId, kind: "PARTS", icon_key: "monitor", hint: "Sell a monitor", sort_order: 900, is_active: true });
+
+    // The same category cannot be promoted twice (unique category mapping).
+    await assert.rejects(
+      repository.createEntry(
+        { id: duplicateId, entryKey: "INTEGRATION_MONITORS_2", categoryId, kind: "PARTS", iconKey: "monitor", hint: "Sell a monitor again", sortOrder: 901, isActive: true },
+        now,
+        { ...audit("INTEGRATION_MONITORS_2"), id: "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee" }
+      ),
+      (error) => error?.code === "23505"
+    );
+  } finally {
+    await pool.query("DELETE FROM auth_audit_events WHERE action='TEST'");
+    await pool.query("DELETE FROM sell_entry_config WHERE id IN ($1, $2)", [entryId, duplicateId]);
+    await pool.query("DELETE FROM categories WHERE id=$1", [categoryId]);
+    await pool.query("DELETE FROM users WHERE id=$1", [actorId]);
+    await pool.end();
+  }
+});

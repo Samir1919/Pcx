@@ -58,6 +58,8 @@ function mapped(error) {
     if (error.code === "csrf_invalid") return [403, "CSRF_INVALID", "CSRF validation failed"];
     if (error.code === "forbidden") return [403, "SELL_TAXONOMY_FORBIDDEN", "Sell taxonomy operation is not allowed"];
     if (error.code === "not_found") return [404, "SELL_TAXONOMY_NOT_FOUND", "Sell taxonomy record not found"];
+    if (error.code === "already_exists") return [409, "SELL_TAXONOMY_CONFLICT", "Sell taxonomy entry already exists"];
+    if (error.code === "unavailable") return [503, "SELL_TAXONOMY_UNAVAILABLE", "Sell taxonomy is temporarily unavailable"];
     if (error.code === "invalid_reference") return [422, "INVALID_REFERENCE", "Sell taxonomy reference is invalid"];
     return [error.code === "invalid_request" ? 400 : 422, error.code === "invalid_request" ? "INVALID_REQUEST" : "INVALID_INPUT", "Sell taxonomy input is invalid"];
   }
@@ -99,8 +101,18 @@ export async function handleSellTaxonomyRequest(request, response, { sellTaxonom
   const cookies = parsedCookies(request);
   try {
     if (route.op === "list") {
-      if (request.method !== "GET") { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
-      send(response, 200, await sellTaxonomyService.listAdmin(cookies.pcx_access));
+      if (request.method === "GET") {
+        send(response, 200, await sellTaxonomyService.listAdmin(cookies.pcx_access));
+        return true;
+      }
+      if (request.method === "POST") {
+        requireWriteSecurity(request, allowedOrigins, cookies);
+        const body = await jsonBody(request);
+        const result = await sellTaxonomyService.createEntry(cookies.pcx_access, body, { requestId });
+        send(response, 201, { data: result.data });
+        return true;
+      }
+      send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId));
       return true;
     }
     if (request.method !== "PATCH") { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }

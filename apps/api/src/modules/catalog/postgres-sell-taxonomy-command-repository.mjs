@@ -16,6 +16,19 @@ export function createPostgresSellTaxonomyCommandRepository({ pool }) {
   if (!pool || typeof pool.connect !== "function" || typeof pool.query !== "function") throw new TypeError("PostgreSQL pool is required");
 
   return Object.freeze({
+    async createEntry(entry, updatedAt, auditEvent) {
+      return transaction(pool, async (client) => {
+        const result = await client.query(
+          `INSERT INTO sell_entry_config(id, entry_key, category_id, kind, icon_key, hint, sort_order, is_active, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)
+           RETURNING entry_key`,
+          [entry.id, entry.entryKey, entry.categoryId, entry.kind, entry.iconKey, entry.hint, entry.sortOrder, entry.isActive, updatedAt]
+        );
+        await audit(client, auditEvent);
+        return result.rows[0].entry_key;
+      });
+    },
+
     async updateEntry(entryKey, patch, updatedAt, auditEvent) {
       return transaction(pool, async (client) => {
         const sets = [];

@@ -2,14 +2,18 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { BuildComponentRole, createBuildComponent, parseSellEntry, SellEntry, validateBuildComponents } from "../src/index.mjs";
 
-test("parseSellEntry accepts the four canonical entries and rejects unknown values", () => {
+test("parseSellEntry accepts canonical UPPER_SNAKE_CASE keys and rejects malformed values", () => {
   assert.equal(parseSellEntry("DESKTOP_PC"), SellEntry.DESKTOP_PC);
   assert.equal(parseSellEntry("PC_PARTS"), SellEntry.PC_PARTS);
   assert.equal(parseSellEntry("LAPTOP"), SellEntry.LAPTOP);
   assert.equal(parseSellEntry("LAPTOP_PARTS"), SellEntry.LAPTOP_PARTS);
+  // Runtime-promoted categories (e.g. a "Monitors" sell entry) are valid too.
+  assert.equal(parseSellEntry("MONITORS"), "MONITORS");
   assert.equal(parseSellEntry(null), null);
   assert.equal(parseSellEntry(""), null);
-  assert.throws(() => parseSellEntry("TRADE_IN"), /sellEntry/);
+  assert.throws(() => parseSellEntry("trade_in"), /sellEntry/);
+  assert.throws(() => parseSellEntry("2FA"), /sellEntry/);
+  assert.throws(() => parseSellEntry("TRADE IN"), /sellEntry/);
 });
 
 test("createBuildComponent validates role and requires a product model id", () => {

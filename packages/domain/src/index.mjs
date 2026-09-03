@@ -14,7 +14,7 @@ export { archiveCatalogRecord, CatalogStatus, createBrand, createCategory, creat
 export { assertUniqueModelSpecificationValues, createModelSpecificationValue, createSpecificationDefinition, SpecificationDataType } from "./catalog/specifications.mjs";
 export { advanceSellRequest, assertSellRequestTransition, createSellRequest, createSellerDeclaration, FulfilmentPreference, parseSellRequestStatus, SellRequestStatus, SellRequestTransitions, submitSellRequest } from "./acquisition/sell-request.mjs";
 export { BuildComponentRole, createBuildComponent, parseSellEntry, SellEntry, validateBuildComponents } from "./acquisition/sell-entry.mjs";
-export { createSellBuildComponent, createSellEntryConfig, parseBuildComponentRole, parseSellEntryIcon, parseSellEntryKey, parseSellEntryKind, SellEntryIcon, SellEntryKind } from "./acquisition/sell-taxonomy.mjs";
+export { createSellBuildComponent, createSellEntryConfig, parseBuildComponentRole, parseSellEntryIcon, parseSellEntryKey, parseSellEntryKind, sellEntryKeyFromSlug, SellEntryIcon, SellEntryKind } from "./acquisition/sell-taxonomy.mjs";
 export { acceptOffer, AcquisitionPaymentStatus, AcquisitionSourceType, createAcquisition, createOffer, markAcquisitionPaid, OfferStatus, rejectOffer } from "./acquisition/valuation-offer.mjs";
 export { assertPrimarySerialIdentifier, createInventoryItem, createSerialIdentifier, generatePcxItemId, InventoryItemStatus, normalizeSerialIdentifier, SerialIdentifierType } from "./inventory/inventory-item.mjs";
 export { createItemCost, ItemCostType, parseItemCostType, sumItemCosts } from "./inventory/item-cost.mjs";

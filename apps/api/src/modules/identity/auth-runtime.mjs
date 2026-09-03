@@ -216,7 +216,7 @@ export function createAuthRuntime({ pool, allowedOrigins, adminOrigins, abuseCon
   const mediaService = createMediaService({ authService, repository: createPostgresMediaRepository({ pool }), storage: mediaStorage, malwareScanner });
   const paymentProviderConfigRepository = createPostgresPaymentProviderConfigRepository({ pool });
   const paymentProviderConfigService = createPaymentProviderConfigService({ authService, repository: paymentProviderConfigRepository });
-  const sellTaxonomyService = createSellTaxonomyService({ authService, readRepository: createPostgresSellTaxonomyRepository({ pool }), commandRepository: createPostgresSellTaxonomyCommandRepository({ pool }) });
+  const sellTaxonomyService = createSellTaxonomyService({ authService, catalogService, readRepository: createPostgresSellTaxonomyRepository({ pool }), commandRepository: createPostgresSellTaxonomyCommandRepository({ pool }) });
   const siteFooterService = createSiteFooterService({ authService, repository: createPostgresSiteFooterRepository({ pool }) });
   const orderPaymentRepository = createPostgresOrderPaymentRepository({ pool });
   const orderPaymentService = createOrderPaymentService({ authService, repository: orderPaymentRepository, paymentProviderConfigService, notificationEmitter });

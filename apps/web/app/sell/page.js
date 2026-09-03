@@ -9,7 +9,10 @@ import { validateEmail, validatePhone } from "../../lib/contact-validation";
 // Sell entries are configured server-side (admin Catalog → Sell flow). The
 // storefront renders the active entries returned by the public taxonomy API;
 // the icon is presentation-only and mapped from the server-owned `iconKey`.
-const SELL_ICONS = { desktop: "🖥️", parts: "🔧", laptop: "💻", "laptop-parts": "🔩" };
+const SELL_ICONS = {
+  desktop: "🖥️", parts: "🔧", laptop: "💻", "laptop-parts": "🔩",
+  phone: "📱", tablet: "📲", monitor: "🖥️", audio: "🔊", camera: "📷", accessory: "🎧"
+};
 function iconFor(iconKey) { return SELL_ICONS[iconKey] ?? "📦"; }
 
 const STEP_SPEC = "spec";

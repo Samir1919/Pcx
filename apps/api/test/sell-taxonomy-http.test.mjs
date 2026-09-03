@@ -9,6 +9,7 @@ function service(overrides = {}) {
   return {
     async publicTaxonomy() { return { data: [{ entryKey: "DESKTOP_PC", kind: "BUILD", category: { id: "c1", name: "Desktop PC", slug: "desktop-pc" }, components: [], children: [] }] }; },
     async listAdmin() { return { data: [] }; },
+    async createEntry() { return { data: { entryKey: "MONITORS" } }; },
     async updateEntry() { return { entryKey: "DESKTOP_PC" }; },
     async updateComponent() { return { entryKey: "DESKTOP_PC", role: "gpu" }; },
     ...overrides
@@ -41,9 +42,28 @@ test("public sell taxonomy is read-only", async () => {
   assert.equal((await invoke("/api/v1/sell-taxonomy?x=1")).status, 400);
 });
 
-test("admin list is read-only", async () => {
+test("admin collection lists and creates entries", async () => {
   assert.equal((await invoke("/api/v1/admin/sell-entry-config")).status, 200);
-  assert.equal((await invoke("/api/v1/admin/sell-entry-config", { method: "POST", body: {} })).status, 405);
+  // POST without CSRF is rejected.
+  assert.equal((await invoke("/api/v1/admin/sell-entry-config", { method: "POST", body: { categoryId: "c" } })).status, 403);
+  // POST with CSRF creates an entry.
+  const created = await invoke("/api/v1/admin/sell-entry-config", {
+    method: "POST",
+    body: { categoryId: "11111111-1111-1111-1111-111111111111", kind: "PARTS", iconKey: "monitor", hint: "Sell a monitor", sortOrder: 50 },
+    headers: { cookie: "pcx_csrf=token", "x-csrf-token": "token" }
+  });
+  assert.equal(created.status, 201);
+  assert.equal(created.body.data.entryKey, "MONITORS");
+});
+
+test("admin create conflict maps to 409", async () => {
+  const conflict = await invoke("/api/v1/admin/sell-entry-config", {
+    method: "POST",
+    body: { categoryId: "11111111-1111-1111-1111-111111111111", kind: "PARTS", iconKey: "monitor", hint: "x", sortOrder: 50 },
+    headers: { cookie: "pcx_csrf=token", "x-csrf-token": "token" },
+    sellTaxonomyService: service({ async createEntry() { throw new SellTaxonomyError("already_exists"); } })
+  });
+  assert.equal(conflict.status, 409);
 });
 
 test("admin entry update requires CSRF", async () => {

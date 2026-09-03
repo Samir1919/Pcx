@@ -125,7 +125,7 @@ test("create captures sellEntry and validated build components", async () => {
       contactPhone: "01700000000",
       fulfilmentPreference: FulfilmentPreference.COURIER,
       ownershipDeclared: true,
-      sellEntry: "TRADE_IN"
+      sellEntry: "trade-in"
     }),
     (error) => error instanceof SellRequestError && error.code === "invalid_input"
   );

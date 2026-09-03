@@ -1,18 +1,19 @@
 {
-  "scope": "Customer sell flow derives entries/build/parts from the public sell-taxonomy API so the admin 'Active' toggle takes effect end-to-end",
+  "scope": "Customer sell flow is now fully server-driven: active entries, build roles, and PARTS children come from /api/v1/sell-taxonomy, and new categories can be promoted to sell entries at runtime",
   "headed": true,
   "tool": "Playwright MCP browser (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "Customer /sell entry chooser and build/part wizards render from server taxonomy; inactive entries are hidden",
+    "subject": "Customer /sell renders from server taxonomy and reflects runtime-created sell entries",
     "steps": [
       "customer-opens-sell-entry-chooser",
       "active-entries-render-from-taxonomy-api",
       "inactive-entries-hidden-when-is-active-false",
       "build-wizard-renders-component-roles-from-api",
-      "parts-wizard-renders-child-categories-from-api"
+      "parts-wizard-renders-child-categories-from-api",
+      "runtime-created-sell-entry-appears-on-storefront"
     ]
   },
-  "notes": "Verified headed against the local dev stack (web :3000, api :4000). Public GET /api/v1/sell-taxonomy returns only is_active entries and /sell renders that exact set (is_active=false hid Laptop/Laptop Parts; flipping them true surfaced them immediately). Laptop build roles (Laptop RAM*/Laptop Storage*/Battery/Keyboard/Charger/Screen) and Laptop Parts child categories render from API components/children, not hardcoded constants.",
-  "ranAt": "2026-09-03T13:48:00.000Z"
+  "notes": "Verified headed against the local dev stack (web :3000, api :4000). Public GET /api/v1/sell-taxonomy returns only is_active entries and /sell renders that exact set (is_active=false hid Laptop/Laptop Parts; flipping them true surfaced them immediately). Laptop build roles (Laptop RAM*/Laptop Storage*/Battery/Keyboard/Charger/Screen) and Laptop Parts child categories render from API components/children. A runtime entry was created through POST /api/v1/admin/sell-entry-config (category 'Monitor' -> entryKey 'MONITOR') and immediately appeared as a 'Monitor' card on /sell. The admin 'Add sell entry' form was exercised at the API layer (curl 201) because the Playwright MCP browser does not dispatch React events reliably against the admin Next dev app; the customer-facing surface was verified headed.",
+  "ranAt": "2026-09-03T14:04:30.000Z"
 }

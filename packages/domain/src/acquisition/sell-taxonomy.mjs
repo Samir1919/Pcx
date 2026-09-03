@@ -10,7 +10,7 @@
 // BuildComponentRole; both are enforced here so unknown values can never enter
 // the database or leak to clients.
 
-import { BuildComponentRole, SellEntry } from "./sell-entry.mjs";
+import { BuildComponentRole } from "./sell-entry.mjs";
 
 export const SellEntryKind = Object.freeze({
   BUILD: "BUILD",
@@ -24,10 +24,13 @@ export const SellEntryIcon = Object.freeze({
   LAPTOP_PARTS: "laptop-parts"
 });
 
-const entryKeys = new Set(Object.values(SellEntry));
 const kinds = new Set(Object.values(SellEntryKind));
-const icons = new Set(Object.values(SellEntryIcon));
 const componentRoles = new Set(Object.values(BuildComponentRole));
+// entry_key / sell_entry are canonical UPPER_SNAKE_CASE identifiers derived from
+// a category slug; icon_key is a canonical lowercase slug. New categories can
+// therefore be promoted to sell entries at runtime instead of a closed enum.
+const entryKeyPattern = /^[A-Z][A-Z0-9_]*$/;
+const iconPattern = /^[a-z][a-z0-9-]*$/;
 
 function requiredString(value, name) {
   if (typeof value !== "string" || value.trim().length === 0) throw new TypeError(`${name} is required`);
@@ -46,7 +49,17 @@ function boolean(value, name) {
 
 export function parseSellEntryKey(value) {
   const key = requiredString(value, "entryKey");
-  if (!entryKeys.has(key)) throw new TypeError("entryKey is invalid");
+  if (!entryKeyPattern.test(key)) throw new TypeError("entryKey is invalid");
+  return key;
+}
+
+// Derive the canonical entry key from a category slug (e.g. "desktop-pc" ->
+// "DESKTOP_PC"). The server owns this derivation so a sell entry key is always
+// a stable, predictable function of its source category.
+export function sellEntryKeyFromSlug(slug) {
+  const canonical = requiredString(slug, "slug");
+  const key = canonical.replace(/-/g, "_").toUpperCase();
+  if (!entryKeyPattern.test(key)) throw new TypeError("slug cannot derive a canonical entryKey");
   return key;
 }
 
@@ -57,7 +70,7 @@ export function parseSellEntryKind(value) {
 
 export function parseSellEntryIcon(value) {
   const icon = requiredString(value, "iconKey");
-  if (!icons.has(icon)) throw new TypeError("iconKey is invalid");
+  if (!iconPattern.test(icon)) throw new TypeError("iconKey is invalid");
   return icon;
 }
 
