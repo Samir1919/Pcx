@@ -6,52 +6,11 @@ import StorefrontNav from "../StorefrontNav";
 import IntlPhoneInput from "../components/IntlPhoneInput";
 import { validateEmail, validatePhone } from "../../lib/contact-validation";
 
-const ENTRIES = [
-  { key: "DESKTOP_PC", label: "Desktop PC", icon: "🖥️", hint: "Sell a complete desktop build" },
-  { key: "PC_PARTS", label: "PC Parts", icon: "🔧", hint: "Sell a single desktop part" },
-  { key: "LAPTOP", label: "Laptop", icon: "💻", hint: "Sell a complete laptop" },
-  { key: "LAPTOP_PARTS", label: "Laptop Parts", icon: "🔩", hint: "Sell a single laptop part" }
-];
-
-const BUILDS = {
-  DESKTOP_PC: {
-    title: "Desktop PC",
-    systemCategorySlug: "desktop-pc",
-    roles: [
-      { role: "cpu", categorySlug: "cpu", label: "CPU", required: true },
-      { role: "motherboard", categorySlug: "motherboard", label: "Motherboard", required: true },
-      { role: "ram", categorySlug: "ram", label: "RAM", required: true },
-      { role: "storage", categorySlug: "storage", label: "Storage", required: true },
-      { role: "psu", categorySlug: "psu", label: "PSU", required: false },
-      { role: "gpu", categorySlug: "gpu", label: "GPU", required: false }
-    ]
-  },
-  LAPTOP: {
-    title: "Laptop",
-    systemCategorySlug: "laptop",
-    roles: [
-      { role: "ram", categorySlug: "laptop-ram", label: "RAM", required: true },
-      { role: "storage", categorySlug: "laptop-storage", label: "Storage", required: true },
-      { role: "battery", categorySlug: "battery", label: "Battery", required: false },
-      { role: "keyboard", categorySlug: "keyboard", label: "Keyboard", required: false },
-      { role: "charger", categorySlug: "charger", label: "Charger", required: false },
-      { role: "screen", categorySlug: "screen", label: "Screen", required: false }
-    ]
-  }
-};
-
-const PART_ENTRIES = {
-  PC_PARTS: {
-    title: "PC Parts",
-    parentSlug: "pc-parts",
-    children: ["gpu", "cpu", "motherboard", "ram", "storage", "psu"]
-  },
-  LAPTOP_PARTS: {
-    title: "Laptop Parts",
-    parentSlug: "laptop-parts",
-    children: ["laptop-ram", "laptop-storage", "battery", "keyboard", "charger", "screen"]
-  }
-};
+// Sell entries are configured server-side (admin Catalog → Sell flow). The
+// storefront renders the active entries returned by the public taxonomy API;
+// the icon is presentation-only and mapped from the server-owned `iconKey`.
+const SELL_ICONS = { desktop: "🖥️", parts: "🔧", laptop: "💻", "laptop-parts": "🔩" };
+function iconFor(iconKey) { return SELL_ICONS[iconKey] ?? "📦"; }
 
 const STEP_SPEC = "spec";
 const STEP_DECISION = "decision";
@@ -108,13 +67,15 @@ function SellFlow() {
 
   const rawStep = searchParams.get("step");
   const step = VALID_STEPS.has(rawStep) ? rawStep : STEP_SPEC;
-  const entry = ENTRIES.some((e) => e.key === searchParams.get("entry")) ? searchParams.get("entry") : null;
+  const entryParam = searchParams.get("entry");
   const partCategoryId = searchParams.get("cat") ?? "";
   const partModelId = searchParams.get("model") ?? "";
 
   const [identity, setIdentity] = useState(null);
   const [checking, setChecking] = useState(true);
-  const [categories, setCategories] = useState([]);
+  const [taxonomy, setTaxonomy] = useState([]);
+  const [taxonomyLoading, setTaxonomyLoading] = useState(true);
+  const [taxonomyError, setTaxonomyError] = useState(null);
   const [partModels, setPartModels] = useState([]);
   const [buildModels, setBuildModels] = useState({});
   // Contact fallbacks are only shown when the authenticated identity lacks that
@@ -148,16 +109,32 @@ function SellFlow() {
 
   useEffect(() => {
     let active = true;
-    storefrontApi.categories()
-      .then((r) => { if (active) setCategories(r.data); })
-      .catch(() => { });
+    setTaxonomyLoading(true);
+    storefrontApi.sellTaxonomy()
+      .then((r) => { if (active) { setTaxonomy(r.data ?? []); setTaxonomyError(null); } })
+      .catch((e) => { if (active) setTaxonomyError(e.message); })
+      .finally(() => { if (active) setTaxonomyLoading(false); });
     return () => { active = false; };
   }, []);
 
-  const categoryBySlug = useMemo(() => Object.fromEntries(categories.map((c) => [c.slug, c])), [categories]);
-
-  const build = entry && BUILDS[entry] ? BUILDS[entry] : null;
-  const partEntry = entry && PART_ENTRIES[entry] ? PART_ENTRIES[entry] : null;
+  // The active entry (and its build/part shape) is derived from the server
+  // taxonomy. The URL `entry` param must match a live active entry, so an
+  // inactive or removed entry falls back to the chooser instead of a broken flow.
+  // `build`/`partEntry` are memoized so the effect dependencies that consume them
+  // stay referentially stable across renders (a fresh object on every render
+  // would re-fire the model-loading effects in a tight loop).
+  const entryConfig = entryParam ? taxonomy.find((e) => e.entryKey === entryParam) ?? null : null;
+  const entry = entryConfig ? entryConfig.entryKey : null;
+  const build = useMemo(() => entryConfig && entryConfig.kind === "BUILD"
+    ? {
+        title: entryConfig.category?.name ?? entryConfig.entryKey,
+        systemCategoryId: entryConfig.category?.id,
+        roles: (entryConfig.components ?? []).map((component) => ({ role: component.role, categoryId: component.category?.id, label: component.category?.name ?? component.role, required: component.required }))
+      }
+    : null, [entryConfig]);
+  const partEntry = useMemo(() => entryConfig && entryConfig.kind === "PARTS"
+    ? { title: entryConfig.category?.name ?? entryConfig.entryKey, children: entryConfig.children ?? [] }
+    : null, [entryConfig]);
 
   // Selections are derived from the URL so the flow is deep-linkable and a
   // post-login redirect returns the user to the exact same state.
@@ -193,17 +170,16 @@ function SellFlow() {
     (async () => {
       const models = {};
       await Promise.all(build.roles.map(async (role) => {
-        const category = categoryBySlug[role.categorySlug];
-        if (!category) return;
+        if (!role.categoryId) return;
         try {
-          const r = await storefrontApi.productModels({ categoryId: category.id, limit: 50, sort: "name_asc" });
+          const r = await storefrontApi.productModels({ categoryId: role.categoryId, limit: 50, sort: "name_asc" });
           models[role.role] = r.data ?? [];
         } catch { models[role.role] = []; }
       }));
       if (active) setBuildModels(models);
     })();
     return () => { active = false; };
-  }, [entry, categories, build]);
+  }, [entry, build]);
 
   // Load part models when a part category is selected.
   useEffect(() => {
@@ -310,11 +286,10 @@ function SellFlow() {
       };
       let payload;
       if (build) {
-        const systemCategory = categoryBySlug[build.systemCategorySlug];
-        if (!systemCategory) throw new Error("Catalog is not ready. Please try again later.");
+        if (!build.systemCategoryId) throw new Error("Catalog is not ready. Please try again later.");
         payload = {
           ...common,
-          categoryId: systemCategory.id,
+          categoryId: build.systemCategoryId,
           productModelId: undefined,
           sellEntry: entry,
           buildComponents: build.roles
@@ -405,13 +380,21 @@ function SellFlow() {
               <p>Choose an entry to continue. Your quote is an estimated range — the final offer is made only after physical inspection.</p>
             </div>
             <div className="sellEntries">
-              {ENTRIES.map((e) => (
-                <button key={e.key} type="button" className="sellEntryCard" onClick={() => chooseEntry(e.key)}>
-                  <span className="sellEntryIcon">{e.icon}</span>
-                  <strong>{e.label}</strong>
-                  <small>{e.hint}</small>
-                </button>
-              ))}
+              {taxonomyLoading ? (
+                <p className="state" role="status">Loading sell options…</p>
+              ) : taxonomyError ? (
+                <p className="state" role="alert">Could not load sell options. Please try again later.</p>
+              ) : taxonomy.length === 0 ? (
+                <p className="state">No sell options are available right now. Please check back later.</p>
+              ) : (
+                taxonomy.map((e) => (
+                  <button key={e.entryKey} type="button" className="sellEntryCard" onClick={() => chooseEntry(e.entryKey)}>
+                    <span className="sellEntryIcon">{iconFor(e.iconKey)}</span>
+                    <strong>{e.category?.name ?? e.entryKey}</strong>
+                    <small>{e.hint}</small>
+                  </button>
+                ))
+              )}
             </div>
           </>
         )}
@@ -435,10 +418,7 @@ function SellFlow() {
                 <label><span>Part category *</span>
                   <select value={partCategoryId} onChange={(e) => go({ cat: e.target.value, model: null })} required>
                     <option value="">Select part category</option>
-                    {partEntry.children.map((slug) => {
-                      const c = categoryBySlug[slug];
-                      return c ? <option key={c.id} value={c.id}>{c.name}</option> : null;
-                    })}
+                    {partEntry.children.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </label>
                 <label><span>Part model *</span>

@@ -1,15 +1,18 @@
 {
-  "scope": "Storefront session auto-refresh (fix for repeated logouts)",
+  "scope": "Customer sell flow derives entries/build/parts from the public sell-taxonomy API so the admin 'Active' toggle takes effect end-to-end",
   "headed": true,
-  "tool": "scripts/storefront-session-refresh-check.mjs",
+  "tool": "Playwright MCP browser (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "Signed-in customer stays signed in after the 15-minute access token expires (client auto-refreshes and retries)",
+    "subject": "Customer /sell entry chooser and build/part wizards render from server taxonomy; inactive entries are hidden",
     "steps": [
-      "customer-login",
-      "session-survives-access-expiry",
-      "refresh-called"
+      "customer-opens-sell-entry-chooser",
+      "active-entries-render-from-taxonomy-api",
+      "inactive-entries-hidden-when-is-active-false",
+      "build-wizard-renders-component-roles-from-api",
+      "parts-wizard-renders-child-categories-from-api"
     ]
   },
-  "ranAt": "2026-09-03T12:47:37.941Z"
+  "notes": "Verified headed against the local dev stack (web :3000, api :4000). Public GET /api/v1/sell-taxonomy returns only is_active entries and /sell renders that exact set (is_active=false hid Laptop/Laptop Parts; flipping them true surfaced them immediately). Laptop build roles (Laptop RAM*/Laptop Storage*/Battery/Keyboard/Charger/Screen) and Laptop Parts child categories render from API components/children, not hardcoded constants.",
+  "ranAt": "2026-09-03T13:48:00.000Z"
 }
