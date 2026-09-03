@@ -24,6 +24,13 @@ at runtime.
    four-value enum to canonical forms, and the server derives the entry key from
    the category slug via `sellEntryKeyFromSlug`.
 
+3. **Delete + build-role management** (commit `57510f0`). Admins can remove a
+   sell entry (`DELETE .../:entryKey`), add build components with runtime roles
+   (`POST .../:entryKey/components`), and remove them
+   (`DELETE .../:entryKey/components/:role`). Build component roles are
+   generalized to canonical lowercase slugs (migration `0048`), so arbitrary new
+   BUILD categories can define their own roles.
+
 ## Changed areas
 
 - `apps/web/app/sell/page.js` — replace hardcoded constants with taxonomy fetch;
@@ -58,6 +65,11 @@ at runtime.
       `MONITOR` appeared on `/sell`).
 - [x] Duplicate category promotion returns 409.
 - [x] Migration 0047 applied; constraints verified via psql.
+- [x] Admin can delete a sell entry (DELETE 200), add a build component with a
+      runtime role (`role "strap"` accepted; public taxonomy reflected it), and
+      delete the component (DELETE 200).
+- [x] Migration 0048 applied; `sell_build_components.role` CHECK relaxed to a
+      canonical lowercase slug.
 
 ## Verification
 
@@ -88,11 +100,7 @@ at runtime.
 
 ## Remaining work and next safe action
 
-1. Sell-entry hard delete/archive UI (soft `isActive` already covers hiding).
-2. Drag-to-reorder instead of numeric sort.
-3. Generalize BUILD component roles beyond the seed `BuildComponentRole` enum
-   for arbitrary new build categories (larger change; touches
-   `sell_build_components.role` CHECK + `createBuildComponent`/`validateBuildComponents`).
+1. Drag-to-reorder instead of numeric sort (nice-to-have; numeric sort works).
 
 ## Blockers requiring human decision
 
