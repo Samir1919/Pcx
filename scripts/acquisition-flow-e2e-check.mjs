@@ -74,8 +74,6 @@ async function main() {
           if (await btn.count()) { await btn.click(); await page.waitForTimeout(500); }
         }
         await clickTransition("Reviewing");
-        await clickTransition("Inspection required");
-        await clickTransition("Inspecting");
         await page.waitForTimeout(500);
 
         const createOfferForm = dialog.locator("form").first();
@@ -103,6 +101,13 @@ async function main() {
             rec("offer-accepted", afterAccept.includes("ACCEPTED"), "offer moved to ACCEPTED");
             rec("status-accepted", (await sellStatus()) === "Accepted", `sell status=${await sellStatus()}`);
           }
+
+          // Inspection now follows acceptance: ACCEPTED → INSPECTION_REQUIRED → INSPECTING.
+          await clickTransition("Inspection required");
+          rec("status-inspection-required", (await sellStatus()) === "Inspection required", `sell status=${await sellStatus()}`);
+          await clickTransition("Inspecting");
+          rec("status-inspecting", (await sellStatus()) === "Inspecting", `sell status=${await sellStatus()}`);
+          await page.waitForTimeout(500);
 
           const createAcq = dialog.getByRole("button", { name: "Create acquisition" }).first();
           try { await createAcq.waitFor({ state: "visible", timeout: 15000 }); } catch {}

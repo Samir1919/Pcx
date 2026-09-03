@@ -27,12 +27,12 @@ function Field({ label, name, defaultValue, ...props }) {
 // Server-owned transition graph (mirrors SellRequestTransitions for UI actions).
 const TRANSITIONS = {
   SUBMITTED: ["REVIEWING", "CANCELLED"],
-  REVIEWING: ["INFO_REQUIRED", "INSPECTION_REQUIRED", "REJECTED", "CANCELLED"],
+  REVIEWING: ["OFFERED", "INFO_REQUIRED", "REJECTED", "CANCELLED"],
   INFO_REQUIRED: ["REVIEWING"],
-  INSPECTION_REQUIRED: ["INSPECTING"],
-  INSPECTING: ["OFFERED", "REJECTED"],
   OFFERED: ["ACCEPTED", "REJECTED_BY_SELLER", "EXPIRED"],
-  ACCEPTED: ["ACQUISITION_PENDING"],
+  ACCEPTED: ["INSPECTION_REQUIRED"],
+  INSPECTION_REQUIRED: ["INSPECTING"],
+  INSPECTING: ["ACQUISITION_PENDING", "REJECTED"],
   ACQUISITION_PENDING: ["PAID"],
   PAID: ["CLOSED"]
 };
@@ -283,7 +283,7 @@ export default function SellRequestModal({ request, onClose, onChanged }) {
                                 {o.status === "ACTIVE" ? (
                                   <button type="button" disabled={busy} onClick={() => acceptOfferAdmin(o.id)}>Seller agreed</button>
                                 ) : null}
-                                {o.status === "ACCEPTED" && !acquisition ? (
+                                {o.status === "ACCEPTED" && !acquisition && detail.status === "INSPECTING" ? (
                                   <button type="button" className="primary" disabled={busy} onClick={() => createAcquisitionForOffer(o)}>Create acquisition</button>
                                 ) : null}
                               </div>

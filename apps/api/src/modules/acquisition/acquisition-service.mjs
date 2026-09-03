@@ -11,7 +11,7 @@ const acquisitionFields = new Set(["sellRequestId", "acceptedOfferId", "sellerUs
 
 export function createAcquisitionService({ authService, repository, id = randomUUID, clock = () => new Date(), notificationEmitter = null }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  for (const method of ["createOffer", "acceptOffer", "rejectOffer", "findOwnerUserIdByOffer", "findOfferById", "createAcquisition", "findByOffer", "markPaid", "findOwnerUserIdBySellRequest", "listOffersBySellRequest", "findAcquisitionBySellRequest", "findAcquisitionById"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
+  for (const method of ["createOffer", "acceptOffer", "rejectOffer", "findOwnerUserIdByOffer", "findOfferById", "createAcquisition", "findByOffer", "markPaid", "findOwnerUserIdBySellRequest", "findSellRequestStatus", "listOffersBySellRequest", "findAcquisitionBySellRequest", "findAcquisitionById"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
 
   async function actor(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -115,6 +115,13 @@ export function createAcquisitionService({ authService, repository, id = randomU
 
       const existing = await repository.findByOffer(fields.acceptedOfferId);
       if (existing) return existing; // idempotent replay
+
+      // Acquisition only opens after physical inspection: the sell request must
+      // have advanced ACCEPTED → INSPECTION_REQUIRED → INSPECTING (server-owned),
+      // so a "final" offer accepted on a seller's self-description is never paid
+      // out before the item has actually been verified.
+      const sellRequestStatus = await repository.findSellRequestStatus(fields.sellRequestId);
+      if (sellRequestStatus !== "INSPECTING") throw new AcquisitionError("invalid_state");
 
       let record;
       try {

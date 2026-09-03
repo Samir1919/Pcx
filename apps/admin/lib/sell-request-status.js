@@ -28,9 +28,9 @@ export function sellRequestStatusLabel(status) {
 export const SELL_REQUEST_FLOW = Object.freeze([
   "SUBMITTED",
   "REVIEWING",
-  "INSPECTING",
   "OFFERED",
   "ACCEPTED",
+  "INSPECTING",
   "ACQUISITION_PENDING",
   "PAID",
   "CLOSED"

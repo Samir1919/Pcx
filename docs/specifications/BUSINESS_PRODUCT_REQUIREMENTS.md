@@ -159,10 +159,10 @@ Claim → Eligibility check → Product receive → Serial verify → Technician
 Return fraud prevention: outbound photos, serial, security seal where applicable, condition snapshot এবং inbound comparison।
 
 ## 12. SELL-TO-PCX USER FLOW
-Start → Category → Brand → Model → Specs → Condition questions → Age/warranty → Repair declaration → Photos → Contact/pickup/drop-off preference → Estimated range → Request submitted → Admin review → Physical inspection → Final offer → Accept/Reject → Payment → Inventory intake.
+Start → Category → Brand → Model → Specs → Condition questions → Age/warranty → Repair declaration → Photos → Contact/pickup/drop-off preference → Estimated range → Request submitted → Admin review → Final offer → Accept/Reject → Physical inspection → Payment → Inventory intake.
 
 Statuses:
-DRAFT, SUBMITTED, PRELIMINARY_REVIEW, INSPECTION_REQUIRED, INSPECTING, OFFERED, ACCEPTED, REJECTED, EXPIRED, PAID, CANCELLED.
+DRAFT, SUBMITTED, PRELIMINARY_REVIEW, OFFERED, ACCEPTED, INSPECTION_REQUIRED, INSPECTING, REJECTED, EXPIRED, PAID, CANCELLED.
 
 ## 13. BUYER PURCHASE FLOW
 Home/Search → Product → Verification Passport → Add to Cart / Buy Now → Address → Delivery → Payment → Order confirmation → Packing → Courier → Delivered → Return/check window → Warranty lifecycle.

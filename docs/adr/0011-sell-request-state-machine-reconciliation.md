@@ -3,6 +3,10 @@
 - Status: Accepted
 - Date: 2026-08-20
 
+> Note (2026-09-03): the transition graph below is superseded by ADR 0016, which
+> moves physical inspection to after offer acceptance. This ADR's status-vocabulary
+> reconciliation remains valid.
+
 ## Context
 
 Two approved specifications describe the Sell-to-PCX request lifecycle with

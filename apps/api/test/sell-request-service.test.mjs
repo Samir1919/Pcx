@@ -215,9 +215,12 @@ test("admin transition follows the canonical graph", async () => {
   const adminService = fixture({
     authService: { async authenticateAccess() { return { userId: "admin-1", status: "ACTIVE", roles: ["ADMIN"] }; } }
   }).service;
-  // REVIEWING -> INSPECTION_REQUIRED is valid.
-  const result = await adminService.transition("access", "existing", "INSPECTION_REQUIRED");
-  assert.equal(result.status, "INSPECTION_REQUIRED");
+  // REVIEWING -> OFFERED is valid (offer is made during review, before inspection).
+  const result = await adminService.transition("access", "existing", "OFFERED");
+  assert.equal(result.status, "OFFERED");
+
+  // REVIEWING -> INSPECTION_REQUIRED is no longer allowed (inspection follows acceptance).
+  await assert.rejects(adminService.transition("access", "existing", "INSPECTION_REQUIRED"), (error) => error.code === "invalid_state");
 
   // DRAFT -> ACCEPTED is invalid.
   await assert.rejects(adminService.transition("access", "missing", "ACCEPTED"), (error) => error.code === "not_found");

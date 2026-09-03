@@ -13,4 +13,5 @@ test("SELL_REQUEST_FLOW is the mainline progression", () => {
   assert.ok(SELL_REQUEST_FLOW.includes("OFFERED"));
   assert.ok(SELL_REQUEST_FLOW.includes("PAID"));
   assert.ok(SELL_REQUEST_FLOW.indexOf("ACCEPTED") > SELL_REQUEST_FLOW.indexOf("OFFERED"));
+  assert.ok(SELL_REQUEST_FLOW.indexOf("INSPECTING") > SELL_REQUEST_FLOW.indexOf("ACCEPTED"));
 });

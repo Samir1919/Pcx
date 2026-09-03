@@ -1,19 +1,30 @@
 {
-  "scope": "Admin forms: fix async event.currentTarget.reset() bug (real MFA provider save + all create/save forms)",
+  "scope": "Admin acquisition continuation + sell-request status auto-advance + inventory intake (offer to accept to acquisition to pay to register item)",
   "headed": true,
-  "tool": "Playwright MCP browser (headed)",
+  "tool": "scripts/acquisition-flow-e2e-check.mjs",
   "result": "passed",
   "businessFlow": {
-    "subject": "Real MFA (Email Resend / SMS bdBulksms) provider credentials now save correctly; all admin create/save forms no longer throw after a successful save",
+    "subject": "Admin offer to accept to acquisition to pay to inventory intake with status auto-advance",
     "steps": [
-      "sign in as demo admin",
-      "open /notifications (Email & SMS credentials = real MFA delivery providers)",
-      "switch to Live (real) mode and save Email credentials -> PUT 200, masked value shown",
-      "save Live SMS credentials -> PUT 200, masked token shown",
-      "activate Live SMS -> LIVE ACTIVE pill",
-      "delete the test credentials via Delete credentials"
+      "admin-login",
+      "open-sell-request",
+      "offers-section",
+      "create-offer",
+      "status-offered",
+      "offer-listed-active",
+      "offer-accepted",
+      "status-accepted",
+      "status-inspection-required",
+      "status-inspecting",
+      "create-acquisition",
+      "acquisition-pending",
+      "status-acq-pending",
+      "mark-paid",
+      "acquisition-paid",
+      "status-paid",
+      "register-item",
+      "item-registered-shown"
     ]
   },
-  "notes": "Root cause was event.currentTarget.reset() called after await (React nullifies currentTarget), throwing and suppressing the refresh. Fixed in 8 admin form files and a lint guard (scripts/lint-check.mjs) now blocks the pattern from re-appearing.",
-  "ranAt": "2026-09-01T07:40:00.000Z"
+  "ranAt": "2026-09-03T12:36:35.375Z"
 }

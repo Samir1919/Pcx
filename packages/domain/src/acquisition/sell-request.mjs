@@ -1,7 +1,8 @@
 import { parseSellEntry, validateBuildComponents } from "./sell-entry.mjs";
 
 // Canonical Sell-to-PCX request lifecycle (reconciled from BUSINESS_PRODUCT_REQUIREMENTS
-// §12 and API_SPECIFICATION_STATE_MACHINES §16; see ADR 0011 and the §12 note).
+// §12 and API_SPECIFICATION_STATE_MACHINES §16; see ADR 0011 for the vocabulary and
+// ADR 0016 for the inspection-after-acceptance ordering).
 export const SellRequestStatus = Object.freeze({
   DRAFT: "DRAFT",
   SUBMITTED: "SUBMITTED",
@@ -28,17 +29,18 @@ export const FulfilmentPreference = Object.freeze({
 
 // Server-owned transition graph. A request is advanced only along these edges;
 // any other move is rejected as an invalid state transition. Cancellation is
-// allowed only from pre-ACCEPTED review states; accept/pay/close are terminal
-// progress edges driven by acquisition/payment events.
+// allowed only from pre-ACCEPTED review states; physical inspection happens
+// after the seller accepts the offer (ACCEPTED → INSPECTION_REQUIRED →
+// INSPECTING) and acquisition/payment then close the lifecycle (ADR 0016).
 export const SellRequestTransitions = Object.freeze({
   DRAFT: Object.freeze(["SUBMITTED", "CANCELLED"]),
   SUBMITTED: Object.freeze(["REVIEWING", "CANCELLED"]),
-  REVIEWING: Object.freeze(["INFO_REQUIRED", "INSPECTION_REQUIRED", "REJECTED", "CANCELLED"]),
+  REVIEWING: Object.freeze(["OFFERED", "INFO_REQUIRED", "REJECTED", "CANCELLED"]),
   INFO_REQUIRED: Object.freeze(["REVIEWING"]),
-  INSPECTION_REQUIRED: Object.freeze(["INSPECTING"]),
-  INSPECTING: Object.freeze(["OFFERED", "REJECTED"]),
   OFFERED: Object.freeze(["ACCEPTED", "REJECTED_BY_SELLER", "EXPIRED"]),
-  ACCEPTED: Object.freeze(["ACQUISITION_PENDING"]),
+  ACCEPTED: Object.freeze(["INSPECTION_REQUIRED"]),
+  INSPECTION_REQUIRED: Object.freeze(["INSPECTING"]),
+  INSPECTING: Object.freeze(["ACQUISITION_PENDING", "REJECTED"]),
   ACQUISITION_PENDING: Object.freeze(["PAID"]),
   PAID: Object.freeze(["CLOSED"]),
   REJECTED: Object.freeze([]),

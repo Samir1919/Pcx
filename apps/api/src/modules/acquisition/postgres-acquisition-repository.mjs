@@ -65,7 +65,7 @@ export function createPostgresAcquisitionRepository({ pool }) {
            RETURNING ${offerColumns}`,
           [record.id, record.sellRequestId, record.amount, record.expiresAt, record.createdBy, record.createdAt]
         );
-        await transitionSellRequest(client, record.sellRequestId, "INSPECTING", "OFFERED", record.createdAt);
+        await transitionSellRequest(client, record.sellRequestId, "REVIEWING", "OFFERED", record.createdAt);
         return offer(result.rows[0]);
       });
     },
@@ -128,6 +128,17 @@ export function createPostgresAcquisitionRepository({ pool }) {
       return result.rows[0]?.user_id ?? null;
     },
 
+    // Read the server-owned sell-request status so the acquisition service can
+    // enforce that an acquisition is only created after physical inspection
+    // (INSPECTING), never directly from ACCEPTED.
+    async findSellRequestStatus(sellRequestId) {
+      const result = await pool.query(
+        "SELECT status FROM sell_requests WHERE id::text = $1",
+        [sellRequestId]
+      );
+      return result.rows[0]?.status ?? null;
+    },
+
     async listOffersBySellRequest(sellRequestId) {
       const result = await pool.query(
         `SELECT ${offerColumns} FROM offers WHERE sell_request_id::text = $1 ORDER BY created_at DESC`,
@@ -147,7 +158,7 @@ export function createPostgresAcquisitionRepository({ pool }) {
           [record.id, record.sellRequestId, record.acceptedOfferId, record.sellerUserId, record.sourceType, record.agreedPrice, record.ownershipConfirmedAt, record.acquiredAt, record.idempotencyKey]
         );
         const created = acquisition(inserted.rows[0]);
-        await transitionSellRequest(client, created.sellRequestId, "ACCEPTED", "ACQUISITION_PENDING", now);
+        await transitionSellRequest(client, created.sellRequestId, "INSPECTING", "ACQUISITION_PENDING", now);
         return created;
       });
     },

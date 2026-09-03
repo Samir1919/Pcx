@@ -38,14 +38,14 @@ test("sell request advances only along the canonical transition graph", () => {
   const base = { id: "sr", userId: "u", categoryId: "gpu", contactName: "N", contactPhone: "0", fulfilmentPreference: FulfilmentPreference.PICKUP };
   const record = createSellRequest(base);
 
-  // Valid multi-step path.
+  // Valid multi-step path (inspection happens after the offer is accepted).
   const submitted = advanceSellRequest(record, SellRequestStatus.SUBMITTED);
   const reviewing = advanceSellRequest(submitted, SellRequestStatus.REVIEWING);
-  const inspection = advanceSellRequest(reviewing, SellRequestStatus.INSPECTION_REQUIRED);
-  const inspecting = advanceSellRequest(inspection, SellRequestStatus.INSPECTING);
-  const offered = advanceSellRequest(inspecting, SellRequestStatus.OFFERED);
+  const offered = advanceSellRequest(reviewing, SellRequestStatus.OFFERED);
   const accepted = advanceSellRequest(offered, SellRequestStatus.ACCEPTED);
-  const pending = advanceSellRequest(accepted, SellRequestStatus.ACQUISITION_PENDING);
+  const inspection = advanceSellRequest(accepted, SellRequestStatus.INSPECTION_REQUIRED);
+  const inspecting = advanceSellRequest(inspection, SellRequestStatus.INSPECTING);
+  const pending = advanceSellRequest(inspecting, SellRequestStatus.ACQUISITION_PENDING);
   const paid = advanceSellRequest(pending, SellRequestStatus.PAID);
   assert.equal(advanceSellRequest(paid, SellRequestStatus.CLOSED).status, SellRequestStatus.CLOSED);
 

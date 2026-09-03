@@ -16,6 +16,7 @@ function fixture(overrides = {}) {
     async findByOffer() { calls.foundAcq.push(); return null; },
     async markPaid(acquisitionId, now) { calls.paid.push({ acquisitionId, now }); return { status: "paid", record: { id: acquisitionId, paymentStatus: "PAID" } }; },
     async findOwnerUserIdBySellRequest() { return "customer-1"; },
+    async findSellRequestStatus() { return "INSPECTING"; },
     async listOffersBySellRequest() { return []; },
     async findAcquisitionById() { return null; },
     async findAcquisitionBySellRequest() { return null; },
@@ -98,6 +99,14 @@ test("acquisition rejects unknown fields, non-admin, and non-accepted offer", as
 
   const denied = fixture({ authService: { async authenticateAccess() { return { userId: "u", status: "ACTIVE", roles: ["CUSTOMER"] }; } } });
   await assert.rejects(denied.service.createOffer("access", { sellRequestId: "sr", amount: 1, expiresAt: "2026-08-17T00:00:00.000Z" }), (error) => error.code === "forbidden");
+});
+
+test("acquisition rejects when the sell request is not INSPECTING", async () => {
+  const notInspecting = fixture({ repository: { async findSellRequestStatus() { return "ACCEPTED"; } } });
+  await assert.rejects(
+    notInspecting.service.createAcquisition("access", { sellRequestId: "sr1", acceptedOfferId: "o1", sellerUserId: "u2", idempotencyKey: "idem-1" }),
+    (error) => error.code === "invalid_state"
+  );
 });
 
 test("markAcquisitionPaid is permission-gated and rejects non-payable state", async () => {

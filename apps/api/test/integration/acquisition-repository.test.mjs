@@ -23,7 +23,7 @@ test("acquisition repository persists offer/immutable acquisition with idempoten
     await pool.query("DELETE FROM acquisitions WHERE seller_user_id::text IN ($1,$2)", [seller, admin]);
     await pool.query("DELETE FROM users WHERE email IN ('acq-seller@example.com','acq-admin@example.com')");
     await pool.query("INSERT INTO users(id,email,status) VALUES ($1,'acq-seller@example.com','ACTIVE'),($2,'acq-admin@example.com','ACTIVE')", [seller, admin]);
-    await pool.query("INSERT INTO sell_requests(id, user_id, contact_name, contact_phone, category_id, status, fulfilment_preference, submitted_at, created_at, updated_at) VALUES ($1,$2,'Seller','017','80000000-0000-0000-0000-000000000001','SUBMITTED','PICKUP',now(),now(),now())", [sellRequest, seller]);
+    await pool.query("INSERT INTO sell_requests(id, user_id, contact_name, contact_phone, category_id, status, fulfilment_preference, submitted_at, created_at, updated_at) VALUES ($1,$2,'Seller','017','80000000-0000-0000-0000-000000000001','REVIEWING','PICKUP',now(),now(),now())", [sellRequest, seller]);
 
     const offer = await repository.createOffer({ id: offerId, sellRequestId: sellRequest, amount: 7000, expiresAt: "2026-08-17T00:00:00.000Z", createdBy: admin, createdAt: now });
     assert.equal(offer.status, "ACTIVE");
@@ -34,6 +34,10 @@ test("acquisition repository persists offer/immutable acquisition with idempoten
     assert.equal(acceptResult.status, "accepted");
     assert.equal(acceptResult.record.status, "ACCEPTED");
 
+    // Physical inspection happens after acceptance; simulate the admin advancing
+    // ACCEPTED → INSPECTION_REQUIRED → INSPECTING before acquisition.
+    await pool.query("UPDATE sell_requests SET status = 'INSPECTING' WHERE id::text = $1", [sellRequest]);
+
     const acquisition = await repository.createAcquisition(
       { id: acquisitionId, sellRequestId: sellRequest, acceptedOfferId: offerId, sellerUserId: seller, sourceType: "SELL_TO_PCX", agreedPrice: 7000, ownershipConfirmedAt: null, acquiredAt: now, idempotencyKey: "idem-1" },
       acceptResult.record,
@@ -41,6 +45,9 @@ test("acquisition repository persists offer/immutable acquisition with idempoten
     );
     assert.equal(Number(acquisition.agreedPrice), 7000);
     assert.equal(acquisition.paymentStatus, "PENDING");
+
+    const afterAcq = await pool.query("SELECT status FROM sell_requests WHERE id::text = $1", [sellRequest]);
+    assert.equal(afterAcq.rows[0].status, "ACQUISITION_PENDING");
 
     assert.equal((await repository.findByOffer(offerId)).id, acquisitionId);
 
