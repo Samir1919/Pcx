@@ -1,7 +1,7 @@
 # PCX Project Status
 
 - Updated: 2026-09-03
-- Current main evidence commit: `a4714c4` (real ClamAV clamd malware gate, E19, merged into `origin/main`)
+- Current main evidence commit: `67ab48d` (runtime sell-entry creation + API-driven customer sell flow, E3, merged into `origin/main`)
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: Stage 3 control-plane completion and next dependency-ready work
 - Current autonomy maturity: Stage 2 in progress; Stage 3 control plane complete for bounded local/CI parallel orchestration (ADR 0008)
@@ -138,6 +138,13 @@ Re-verified 2026-09-01: several "remaining" items were confirmed complete and mo
 - ~~**Scheduled export delete**~~ — **COMPLETE 2026-09-01** (`DELETE /admin/scheduled-exports/:id`).
 - ~~**Data retention**~~ — **COMPLETE 2026-09-01** (ADR 0015; worker 24h-throttled retention job purges closed reservations, delivered notifications, expired/revoked sessions, closed offers — never financial/legal, inventory, inspections, or audit events).
 - Handoff: `docs/handoffs/ADMIN_FULL_CRUD_RETENTION.md`.
+
+## Sell flow runtime configuration (2026-09-03)
+
+- ~~**Customer /sell hardcoded entries**~~ — **COMPLETE 2026-09-03** (commit `9e4bc76`): the customer `/sell` page no longer renders hardcoded `ENTRIES`/`BUILDS`/`PART_ENTRIES`; it derives the entry chooser, build component roles, and PARTS children from the public `GET /api/v1/sell-taxonomy` payload (with loading/empty/error states). This makes the admin "Active" toggle and icon/hint/sort/component config actually take effect on the storefront.
+- ~~**Add sell entry (runtime category promotion)**~~ — **COMPLETE 2026-09-03** (commit `67ab48d`): `POST /api/v1/admin/sell-entry-config` (`createEntry`, CATALOG_MANAGE + CSRF/origin, 409 on duplicate, audit) promotes any catalog category to a sell entry. `entry_key`/`sell_entry`/`icon_key` generalized to canonical forms (migration `0047`), with `sellEntryKeyFromSlug` deriving the key server-side from the category slug. Admin "Add sell entry" multi-field form + expanded icon presets; storefront icon map expanded.
+- Handoff: `docs/handoffs/SELL_FLOW_RUNTIME_CONFIG.md`.
+- Remaining polish (non-blocking): sell-entry hard delete/archive UI, drag-to-reorder, and generalizing BUILD component roles beyond the seed `BuildComponentRole` enum for arbitrary new build categories.
 
 
 
