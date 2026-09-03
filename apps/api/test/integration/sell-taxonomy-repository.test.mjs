@@ -112,3 +112,50 @@ test("sell taxonomy command repository creates a runtime entry from a category",
     await pool.end();
   }
 });
+
+test("sell taxonomy command repository creates a runtime build role and deletes entry/components", { skip: !connectionString }, async () => {
+  await runMigrations({ connectionString });
+  const pool = new pg.Pool({ connectionString });
+  const repository = createPostgresSellTaxonomyCommandRepository({ pool });
+  const now = new Date().toISOString();
+  const actorId = "11111111-1111-1111-1111-111111111111";
+  const systemCategoryId = "88888888-0000-0000-0000-000000000002";
+  const panelCategoryId = "88888888-0000-0000-0000-000000000003";
+  const entryId = "99999999-0000-0000-0000-000000000003";
+  const componentId = "99999999-0000-0000-0000-000000000011";
+  let auditSeq = 0;
+  const auditEvent = (targetType, targetId, action, changes = {}) => ({ actorId, action, targetType, targetId, requestId: "req-comp", changes, occurredAt: now, id: `aaaaaaaa-0000-0000-0000-0000000000${String(++auditSeq).padStart(2, "0")}` });
+  try {
+    await pool.query("INSERT INTO users(id, email, status) VALUES ($1, 'audit-actor@example.com', 'ACTIVE') ON CONFLICT (id) DO NOTHING", [actorId]);
+    await pool.query("INSERT INTO categories(id, parent_id, name, slug, status, sort_order) VALUES ($1, NULL, 'Integration Display', 'integration-display', 'ACTIVE', 901) ON CONFLICT (id) DO NOTHING", [systemCategoryId]);
+    await pool.query("INSERT INTO categories(id, parent_id, name, slug, status, sort_order) VALUES ($1, NULL, 'Integration Panel', 'integration-panel', 'ACTIVE', 902) ON CONFLICT (id) DO NOTHING", [panelCategoryId]);
+
+    await repository.createEntry(
+      { id: entryId, entryKey: "INTEGRATION_DISPLAY", categoryId: systemCategoryId, kind: "BUILD", iconKey: "monitor", hint: "Sell a display", sortOrder: 901, isActive: true },
+      now,
+      auditEvent("SELL_ENTRY", "INTEGRATION_DISPLAY", "TEST", { entryKey: "INTEGRATION_DISPLAY" })
+    );
+
+    // A runtime role (not in the seed enum) must be accepted by the relaxed CHECK.
+    const componentKey = await repository.createComponent(
+      { id: componentId, entryKey: "INTEGRATION_DISPLAY", role: "panel", categoryId: panelCategoryId, required: true, sortOrder: 10 },
+      now,
+      auditEvent("SELL_BUILD_COMPONENT", "INTEGRATION_DISPLAY:panel", "TEST", { role: "panel" })
+    );
+    assert.equal(componentKey, componentId);
+
+    const compRow = await pool.query("SELECT role, category_id, required, sort_order FROM sell_build_components WHERE id=$1", [componentId]);
+    assert.deepEqual(compRow.rows[0], { role: "panel", category_id: panelCategoryId, required: true, sort_order: 10 });
+
+    assert.equal(await repository.deleteComponent("INTEGRATION_DISPLAY", "panel", auditEvent("SELL_BUILD_COMPONENT", "INTEGRATION_DISPLAY:panel", "TEST")), true);
+    assert.equal(await repository.deleteEntry("INTEGRATION_DISPLAY", auditEvent("SELL_ENTRY", "INTEGRATION_DISPLAY", "TEST")), true);
+    const remaining = await pool.query("SELECT count(*)::int AS count FROM sell_entry_config WHERE entry_key='INTEGRATION_DISPLAY'");
+    assert.equal(remaining.rows[0].count, 0);
+  } finally {
+    await pool.query("DELETE FROM auth_audit_events WHERE action='TEST'");
+    await pool.query("DELETE FROM sell_entry_config WHERE entry_key='INTEGRATION_DISPLAY'");
+    await pool.query("DELETE FROM categories WHERE id IN ($1, $2)", [systemCategoryId, panelCategoryId]);
+    await pool.query("DELETE FROM users WHERE id=$1", [actorId]);
+    await pool.end();
+  }
+});

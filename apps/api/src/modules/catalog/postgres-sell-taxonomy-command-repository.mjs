@@ -29,6 +29,18 @@ export function createPostgresSellTaxonomyCommandRepository({ pool }) {
       });
     },
 
+    async deleteEntry(entryKey, auditEvent) {
+      return transaction(pool, async (client) => {
+        // Build components reference the entry with ON DELETE RESTRICT, so remove
+        // them first, then the entry itself.
+        await client.query("DELETE FROM sell_build_components WHERE entry_key=$1", [entryKey]);
+        const result = await client.query("DELETE FROM sell_entry_config WHERE entry_key=$1 RETURNING entry_key", [entryKey]);
+        if (result.rowCount !== 1) return false;
+        await audit(client, auditEvent);
+        return true;
+      });
+    },
+
     async updateEntry(entryKey, patch, updatedAt, auditEvent) {
       return transaction(pool, async (client) => {
         const sets = [];
@@ -64,6 +76,28 @@ export function createPostgresSellTaxonomyCommandRepository({ pool }) {
           `UPDATE sell_build_components SET ${sets.join(", ")} WHERE entry_key=$1 AND role=$2 RETURNING id`,
           values
         );
+        if (result.rowCount !== 1) return false;
+        await audit(client, auditEvent);
+        return true;
+      });
+    },
+
+    async createComponent(component, updatedAt, auditEvent) {
+      return transaction(pool, async (client) => {
+        const result = await client.query(
+          `INSERT INTO sell_build_components(id, entry_key, role, category_id, required, sort_order, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
+           RETURNING id`,
+          [component.id, component.entryKey, component.role, component.categoryId, component.required, component.sortOrder, updatedAt]
+        );
+        await audit(client, auditEvent);
+        return result.rows[0].id;
+      });
+    },
+
+    async deleteComponent(entryKey, role, auditEvent) {
+      return transaction(pool, async (client) => {
+        const result = await client.query("DELETE FROM sell_build_components WHERE entry_key=$1 AND role=$2 RETURNING id", [entryKey, role]);
         if (result.rowCount !== 1) return false;
         await audit(client, auditEvent);
         return true;

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createSellEntryConfig, parseSellEntryIcon, parseSellEntryKey, sellEntryKeyFromSlug, SellEntryKind } from "../src/index.mjs";
+import { createSellEntryConfig, parseBuildComponentRole, parseSellEntryIcon, parseSellEntryKey, sellEntryKeyFromSlug, SellEntryKind } from "../src/index.mjs";
 
 test("sellEntryKeyFromSlug derives a canonical key from a category slug", () => {
   assert.equal(sellEntryKeyFromSlug("desktop-pc"), "DESKTOP_PC");
@@ -24,6 +24,13 @@ test("parseSellEntryIcon accepts canonical lowercase slugs", () => {
   assert.equal(parseSellEntryIcon("monitor"), "monitor");
   assert.throws(() => parseSellEntryIcon("Desktop"), /iconKey/);
   assert.throws(() => parseSellEntryIcon("raw emoji"), /iconKey/);
+});
+
+test("parseBuildComponentRole accepts canonical lowercase slugs", () => {
+  assert.equal(parseBuildComponentRole("cpu"), "cpu");
+  assert.equal(parseBuildComponentRole("panel"), "panel");
+  assert.throws(() => parseBuildComponentRole("CPU"), /role/);
+  assert.throws(() => parseBuildComponentRole("panel!"), /role/);
 });
 
 test("createSellEntryConfig validates the whole record", () => {

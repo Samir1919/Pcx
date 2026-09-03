@@ -72,6 +72,7 @@ function matchAdmin(url) {
   if (!url.pathname.startsWith(`${prefix}/`)) return null;
   const rest = url.pathname.slice(prefix.length + 1).split("/");
   if (rest.length === 1 && rest[0]) return { op: "entry", entryKey: rest[0] };
+  if (rest.length === 2 && rest[0] && rest[1] === "components") return { op: "components", entryKey: rest[0] };
   if (rest.length === 3 && rest[0] && rest[1] === "components" && rest[2]) return { op: "component", entryKey: rest[0], role: rest[2] };
   return null;
 }
@@ -115,10 +116,33 @@ export async function handleSellTaxonomyRequest(request, response, { sellTaxonom
       send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId));
       return true;
     }
+    const context = { requestId };
+
+    if (route.op === "entry" && request.method === "DELETE") {
+      requireWriteSecurity(request, allowedOrigins, cookies);
+      const result = await sellTaxonomyService.deleteEntry(cookies.pcx_access, id(route.entryKey), context);
+      send(response, 200, { data: result });
+      return true;
+    }
+
+    if (route.op === "components" && request.method === "POST") {
+      requireWriteSecurity(request, allowedOrigins, cookies);
+      const body = await jsonBody(request);
+      const result = await sellTaxonomyService.createComponent(cookies.pcx_access, id(route.entryKey), body, context);
+      send(response, 201, { data: result });
+      return true;
+    }
+
+    if (route.op === "component" && request.method === "DELETE") {
+      requireWriteSecurity(request, allowedOrigins, cookies);
+      const result = await sellTaxonomyService.deleteComponent(cookies.pcx_access, id(route.entryKey), id(route.role), context);
+      send(response, 200, { data: result });
+      return true;
+    }
+
     if (request.method !== "PATCH") { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
     requireWriteSecurity(request, allowedOrigins, cookies);
     const body = await jsonBody(request);
-    const context = { requestId };
     let result;
     if (route.op === "entry") {
       result = await sellTaxonomyService.updateEntry(cookies.pcx_access, id(route.entryKey), body, context);

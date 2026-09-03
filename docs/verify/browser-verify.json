@@ -1,5 +1,5 @@
 {
-  "scope": "Customer sell flow is now fully server-driven: active entries, build roles, and PARTS children come from /api/v1/sell-taxonomy, and new categories can be promoted to sell entries at runtime",
+  "scope": "Customer sell flow is now fully server-driven and admin-configurable: active entries/build roles/PARTS children come from /api/v1/sell-taxonomy, and categories can be added (with runtime build roles) and removed at runtime",
   "headed": true,
   "tool": "Playwright MCP browser (headed)",
   "result": "passed",
@@ -11,9 +11,10 @@
       "inactive-entries-hidden-when-is-active-false",
       "build-wizard-renders-component-roles-from-api",
       "parts-wizard-renders-child-categories-from-api",
-      "runtime-created-sell-entry-appears-on-storefront"
+      "runtime-created-sell-entry-appears-on-storefront",
+      "runtime-build-role-and-entry-delete-lifecycle"
     ]
   },
-  "notes": "Verified headed against the local dev stack (web :3000, api :4000). Public GET /api/v1/sell-taxonomy returns only is_active entries and /sell renders that exact set (is_active=false hid Laptop/Laptop Parts; flipping them true surfaced them immediately). Laptop build roles (Laptop RAM*/Laptop Storage*/Battery/Keyboard/Charger/Screen) and Laptop Parts child categories render from API components/children. A runtime entry was created through POST /api/v1/admin/sell-entry-config (category 'Monitor' -> entryKey 'MONITOR') and immediately appeared as a 'Monitor' card on /sell. The admin 'Add sell entry' form was exercised at the API layer (curl 201) because the Playwright MCP browser does not dispatch React events reliably against the admin Next dev app; the customer-facing surface was verified headed.",
+  "notes": "Verified headed against the local dev stack (web :3000, api :4000). Public GET /api/v1/sell-taxonomy returns only is_active entries and /sell renders that exact set (is_active=false hid Laptop/Laptop Parts; flipping them true surfaced them immediately). Laptop build roles (Laptop RAM*/Laptop Storage*/Battery/Keyboard/Charger/Screen) and Laptop Parts child categories render from API components/children. A runtime entry was created through POST /api/v1/admin/sell-entry-config (category 'Monitor' -> entryKey 'MONITOR') and immediately appeared as a 'Monitor' card on /sell. The full runtime lifecycle (create entry -> create build component with a runtime role 'strap' -> public taxonomy reflects it -> delete component -> delete entry) was verified against the live API (curl 201/200) because the Playwright MCP browser does not dispatch React events reliably against the admin Next dev app; the customer-facing surface was verified headed.",
   "ranAt": "2026-09-03T14:04:30.000Z"
 }

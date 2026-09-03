@@ -92,6 +92,58 @@ export default function SellFlowPanel({ categories }) {
     }
   }
 
+  async function deleteEntry(entryKey) {
+    if (!window.confirm(`Remove this sell entry (${entryKey})? Its build components are removed too.`)) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      await sellTaxonomyApi.deleteEntry(entryKey);
+      setNotice({ kind: "success", message: "Sell entry removed." });
+      await load();
+    } catch (error) {
+      setNotice({ kind: "error", message: error.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createComponent(event, entryKey) {
+    event.preventDefault();
+    const formEl = event.currentTarget;
+    const form = new FormData(formEl);
+    setBusy(true);
+    setNotice(null);
+    try {
+      await sellTaxonomyApi.createComponent(entryKey, {
+        role: form.get("role"),
+        categoryId: form.get("categoryId"),
+        required: form.get("required") === "on",
+        sortOrder: Number(form.get("sortOrder") || 0)
+      });
+      setNotice({ kind: "success", message: "Build component added." });
+      formEl.reset();
+      await load();
+    } catch (error) {
+      setNotice({ kind: "error", message: error.status === 409 ? "That role already exists for this entry." : error.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteComponent(entryKey, role) {
+    setBusy(true);
+    setNotice(null);
+    try {
+      await sellTaxonomyApi.deleteComponent(entryKey, role);
+      setNotice({ kind: "success", message: "Build component removed." });
+      await load();
+    } catch (error) {
+      setNotice({ kind: "error", message: error.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <>
       <p className="state" role="status" style={{ padding: "12px 0" }}>
@@ -136,7 +188,10 @@ export default function SellFlowPanel({ categories }) {
                   <h2>{entry.category?.name ?? entry.entryKey}</h2>
                   <small style={{ color: "var(--muted, #667)" }}>{entry.entryKey} → {entry.category?.slug ?? entry.category?.id}</small>
                 </div>
-                <label className="check"><input type="checkbox" checked={entry.isActive} disabled={busy} onChange={(e) => patchEntry(entry.entryKey, { isActive: e.target.checked })} /><span>Active</span></label>
+                <div className="actions">
+                  <label className="check"><input type="checkbox" checked={entry.isActive} disabled={busy} onChange={(e) => patchEntry(entry.entryKey, { isActive: e.target.checked })} /><span>Active</span></label>
+                  <button type="button" className="danger" disabled={busy} onClick={() => deleteEntry(entry.entryKey)}>Remove</button>
+                </div>
               </div>
 
               <label><span>Icon</span>
@@ -161,27 +216,40 @@ export default function SellFlowPanel({ categories }) {
               )}
 
               {entry.kind === "BUILD" && (
-                <div className="tableWrap" style={{ marginTop: 10 }}>
-                  <table>
-                    <thead><tr><th>Role</th><th>Component category</th><th>Required</th><th>Order</th></tr></thead>
-                    <tbody>
-                      {entry.components.map((component) => (
-                        <tr key={component.role}>
-                          <td><code>{component.role}</code></td>
-                          <td>
-                            <select value={component.category.id} disabled={busy} onChange={(e) => patchComponent(entry.entryKey, component.role, { categoryId: e.target.value })}>
-                              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                            </select>
-                          </td>
-                          <td><input type="checkbox" checked={component.required} disabled={busy} onChange={(e) => patchComponent(entry.entryKey, component.role, { required: e.target.checked })} /></td>
-                          <td>
-                            <input type="number" min="0" defaultValue={component.sortOrder} style={{ width: 80 }} disabled={busy} onBlur={(e) => { const value = Number(e.target.value); if (Number.isSafeInteger(value) && value !== component.sortOrder) patchComponent(entry.entryKey, component.role, { sortOrder: value }); }} />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <>
+                  <div className="tableWrap" style={{ marginTop: 10 }}>
+                    <table>
+                      <thead><tr><th>Role</th><th>Component category</th><th>Required</th><th>Order</th><th></th></tr></thead>
+                      <tbody>
+                        {entry.components.length === 0
+                          ? <tr><td colSpan="5"><span className="state">No build roles yet. Add one below.</span></td></tr>
+                          : entry.components.map((component) => (
+                            <tr key={component.role}>
+                              <td><code>{component.role}</code></td>
+                              <td>
+                                <select value={component.category.id} disabled={busy} onChange={(e) => patchComponent(entry.entryKey, component.role, { categoryId: e.target.value })}>
+                                  {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                </select>
+                              </td>
+                              <td><input type="checkbox" checked={component.required} disabled={busy} onChange={(e) => patchComponent(entry.entryKey, component.role, { required: e.target.checked })} /></td>
+                              <td>
+                                <input type="number" min="0" defaultValue={component.sortOrder} style={{ width: 80 }} disabled={busy} onBlur={(e) => { const value = Number(e.target.value); if (Number.isSafeInteger(value) && value !== component.sortOrder) patchComponent(entry.entryKey, component.role, { sortOrder: value }); }} />
+                              </td>
+                              <td><button type="button" className="danger" disabled={busy} onClick={() => deleteComponent(entry.entryKey, component.role)}>Remove</button></td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <form className="panel formPanel" style={{ marginTop: 10 }} onSubmit={(e) => createComponent(e, entry.entryKey)}>
+                    <p className="eyebrow">ADD BUILD ROLE</p>
+                    <label><span>Role</span><input name="role" required pattern="[a-z][a-z0-9-]*" maxLength="40" placeholder="e.g. panel" /></label>
+                    <label><span>Component category</span><select name="categoryId" required><option value="">Select category</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+                    <label><span>Sort order</span><input name="sortOrder" type="number" min="0" defaultValue="0" /></label>
+                    <label className="check"><input name="required" type="checkbox" /><span>Required</span></label>
+                    <button className="primary" disabled={busy}>Add role</button>
+                  </form>
+                </>
               )}
             </section>
           ))}

@@ -18,7 +18,9 @@ test("parseSellEntry accepts canonical UPPER_SNAKE_CASE keys and rejects malform
 
 test("createBuildComponent validates role and requires a product model id", () => {
   assert.deepEqual(createBuildComponent({ role: "cpu", productModelId: "cpu-model" }), { role: BuildComponentRole.CPU, productModelId: "cpu-model" });
-  assert.throws(() => createBuildComponent({ role: "fan", productModelId: "x" }), /role/);
+  // Runtime roles (e.g. a new build category's own component) are valid too.
+  assert.deepEqual(createBuildComponent({ role: "panel", productModelId: "m" }), { role: "panel", productModelId: "m" });
+  assert.throws(() => createBuildComponent({ role: "Panel", productModelId: "x" }), /role/);
   assert.throws(() => createBuildComponent({ role: "cpu", productModelId: "" }), /productModelId/);
 });
 

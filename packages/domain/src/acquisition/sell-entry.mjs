@@ -27,7 +27,10 @@ export const BuildComponentRole = Object.freeze({
   CHARGER: "charger"
 });
 
-const componentRoles = new Set(Object.values(BuildComponentRole));
+// Build component roles are canonical lowercase slugs (e.g. "cpu", "panel").
+// New BUILD categories can introduce their own roles at runtime instead of a
+// closed enum; `BuildComponentRole` above stays as the documented seed set.
+const componentRolePattern = /^[a-z][a-z0-9-]*$/;
 // Sell entries are configured at runtime (admin Catalog -> Sell flow), so a
 // sell request may reference any canonical UPPER_SNAKE_CASE entry key derived
 // from a category slug — not only the four seed values. `SellEntry` above stays
@@ -46,7 +49,7 @@ export function parseSellEntry(value) {
 }
 
 export function createBuildComponent({ role, productModelId }) {
-  if (typeof role !== "string" || !componentRoles.has(role)) throw new TypeError("build component role is invalid");
+  if (typeof role !== "string" || !componentRolePattern.test(role)) throw new TypeError("build component role is invalid");
   return Object.freeze({
     role,
     productModelId: requiredString(productModelId, "productModelId")

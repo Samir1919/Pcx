@@ -10,8 +10,11 @@ function service(overrides = {}) {
     async publicTaxonomy() { return { data: [{ entryKey: "DESKTOP_PC", kind: "BUILD", category: { id: "c1", name: "Desktop PC", slug: "desktop-pc" }, components: [], children: [] }] }; },
     async listAdmin() { return { data: [] }; },
     async createEntry() { return { data: { entryKey: "MONITORS" } }; },
+    async deleteEntry() { return { entryKey: "DESKTOP_PC" }; },
     async updateEntry() { return { entryKey: "DESKTOP_PC" }; },
     async updateComponent() { return { entryKey: "DESKTOP_PC", role: "gpu" }; },
+    async createComponent() { return { entryKey: "DESKTOP_PC", role: "panel" }; },
+    async deleteComponent() { return { entryKey: "DESKTOP_PC", role: "gpu" }; },
     ...overrides
   };
 }
@@ -85,6 +88,28 @@ test("admin component update requires CSRF", async () => {
     headers: { cookie: "pcx_csrf=token", "x-csrf-token": "token" }
   });
   assert.equal(ok.status, 200);
+});
+
+test("admin entry delete and component create/delete routes", async () => {
+  const del = await invoke("/api/v1/admin/sell-entry-config/DESKTOP_PC", {
+    method: "DELETE",
+    headers: { cookie: "pcx_csrf=token", "x-csrf-token": "token" }
+  });
+  assert.equal(del.status, 200);
+
+  const createComp = await invoke("/api/v1/admin/sell-entry-config/DESKTOP_PC/components", {
+    method: "POST",
+    body: { role: "panel", categoryId: "11111111-1111-1111-1111-111111111111" },
+    headers: { cookie: "pcx_csrf=token", "x-csrf-token": "token" }
+  });
+  assert.equal(createComp.status, 201);
+  assert.equal(createComp.body.data.role, "panel");
+
+  const deleteComp = await invoke("/api/v1/admin/sell-entry-config/DESKTOP_PC/components/gpu", {
+    method: "DELETE",
+    headers: { cookie: "pcx_csrf=token", "x-csrf-token": "token" }
+  });
+  assert.equal(deleteComp.status, 200);
 });
 
 test("admin errors map safely", async () => {

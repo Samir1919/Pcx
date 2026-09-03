@@ -6,11 +6,11 @@
 // and — for BUILD entries — which component roles map to which component
 // categories and whether each role is required.
 //
-// entryKey mirrors the canonical SellEntry enum and role mirrors
-// BuildComponentRole; both are enforced here so unknown values can never enter
-// the database or leak to clients.
+// entry_key, role, and icon_key are canonical forms (UPPER_SNAKE_CASE for entry
+// keys, lowercase slugs for roles/icons) enforced here so malformed values can
+// never enter the database or leak to clients.
 
-import { BuildComponentRole } from "./sell-entry.mjs";
+
 
 export const SellEntryKind = Object.freeze({
   BUILD: "BUILD",
@@ -25,12 +25,13 @@ export const SellEntryIcon = Object.freeze({
 });
 
 const kinds = new Set(Object.values(SellEntryKind));
-const componentRoles = new Set(Object.values(BuildComponentRole));
 // entry_key / sell_entry are canonical UPPER_SNAKE_CASE identifiers derived from
-// a category slug; icon_key is a canonical lowercase slug. New categories can
-// therefore be promoted to sell entries at runtime instead of a closed enum.
+// a category slug; icon_key and build component role are canonical lowercase
+// slugs. New categories (and their build roles) can therefore be introduced at
+// runtime instead of a closed enum.
 const entryKeyPattern = /^[A-Z][A-Z0-9_]*$/;
 const iconPattern = /^[a-z][a-z0-9-]*$/;
+const componentRolePattern = /^[a-z][a-z0-9-]*$/;
 
 function requiredString(value, name) {
   if (typeof value !== "string" || value.trim().length === 0) throw new TypeError(`${name} is required`);
@@ -76,7 +77,7 @@ export function parseSellEntryIcon(value) {
 
 export function parseBuildComponentRole(value) {
   const role = requiredString(value, "role");
-  if (!componentRoles.has(role)) throw new TypeError("build component role is invalid");
+  if (!componentRolePattern.test(role)) throw new TypeError("build component role is invalid");
   return role;
 }
 
