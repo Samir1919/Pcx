@@ -23,6 +23,7 @@ export default function SellFlowPanel({ categories }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
+  const [editingRole, setEditingRole] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -146,7 +147,7 @@ export default function SellFlowPanel({ categories }) {
 
   return (
     <>
-      <p className="state" role="status" style={{ padding: "12px 0" }}>
+      <p className="panelIntro" role="status">
         Configure the public sell entries. Categories stay the single catalog source of truth; this only maps which category is a sell entry and how builds resolve component roles.
       </p>
       <Banner notice={notice} onClose={() => setNotice(null)} />
@@ -179,14 +180,14 @@ export default function SellFlowPanel({ categories }) {
         </form>
       </section>
       {loading ? <p className="state" role="status">Loading sell flow…</p> : (
-        <div className="grid" style={{ marginTop: 0, marginBottom: 18 }}>
+        <div className="cardGrid">
           {entries.map((entry) => (
             <section key={entry.entryKey} className="panel">
               <div className="panelTitle">
                 <div>
                   <p className="eyebrow">SELL ENTRY · {entry.kind}</p>
                   <h2>{entry.category?.name ?? entry.entryKey}</h2>
-                  <small style={{ color: "var(--muted, #667)" }}>{entry.entryKey} → {entry.category?.slug ?? entry.category?.id}</small>
+                  <small className="entryRef">{entry.entryKey} → {entry.category?.slug ?? entry.category?.id}</small>
                 </div>
                 <div className="actions">
                   <label className="check"><input type="checkbox" checked={entry.isActive} disabled={busy} onChange={(e) => patchEntry(entry.entryKey, { isActive: e.target.checked })} /><span>Active</span></label>
@@ -203,7 +204,7 @@ export default function SellFlowPanel({ categories }) {
               <label><span>Sort order</span><input type="number" min="0" defaultValue={entry.sortOrder} disabled={busy} onBlur={(e) => { const value = Number(e.target.value); if (Number.isSafeInteger(value) && value !== entry.sortOrder) patchEntry(entry.entryKey, { sortOrder: value }); }} /></label>
 
               {entry.kind === "PARTS" && (
-                <div className="tableWrap" style={{ marginTop: 10 }}>
+                <div className="tableWrap entryTable">
                   <table>
                     <thead><tr><th>Part subcategories</th></tr></thead>
                     <tbody>
@@ -217,7 +218,7 @@ export default function SellFlowPanel({ categories }) {
 
               {entry.kind === "BUILD" && (
                 <>
-                  <div className="tableWrap" style={{ marginTop: 10 }}>
+                  <div className="tableWrap entryTable">
                     <table>
                       <thead><tr><th>Role</th><th>Component category</th><th>Required</th><th>Order</th><th></th></tr></thead>
                       <tbody>
@@ -227,13 +228,17 @@ export default function SellFlowPanel({ categories }) {
                             <tr key={component.role}>
                               <td><code>{component.role}</code></td>
                               <td>
-                                <select value={component.category.id} disabled={busy} onChange={(e) => patchComponent(entry.entryKey, component.role, { categoryId: e.target.value })}>
-                                  {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
+                                {editingRole === component.role ? (
+                                  <select value={component.category.id} disabled={busy} autoFocus onBlur={() => setEditingRole(null)} onChange={(e) => { patchComponent(entry.entryKey, component.role, { categoryId: e.target.value }); setEditingRole(null); }}>
+                                    {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                  </select>
+                                ) : (
+                                  <button type="button" className="categoryLink" disabled={busy} onClick={() => setEditingRole(component.role)}>{component.category?.name ?? "Choose category"}</button>
+                                )}
                               </td>
                               <td><input type="checkbox" checked={component.required} disabled={busy} onChange={(e) => patchComponent(entry.entryKey, component.role, { required: e.target.checked })} /></td>
                               <td>
-                                <input type="number" min="0" defaultValue={component.sortOrder} style={{ width: 80 }} disabled={busy} onBlur={(e) => { const value = Number(e.target.value); if (Number.isSafeInteger(value) && value !== component.sortOrder) patchComponent(entry.entryKey, component.role, { sortOrder: value }); }} />
+                                <input type="number" min="0" defaultValue={component.sortOrder} className="numInput" disabled={busy} onBlur={(e) => { const value = Number(e.target.value); if (Number.isSafeInteger(value) && value !== component.sortOrder) patchComponent(entry.entryKey, component.role, { sortOrder: value }); }} />
                               </td>
                               <td><button type="button" className="danger" disabled={busy} onClick={() => deleteComponent(entry.entryKey, component.role)}>Remove</button></td>
                             </tr>
@@ -241,7 +246,7 @@ export default function SellFlowPanel({ categories }) {
                       </tbody>
                     </table>
                   </div>
-                  <form className="panel formPanel" style={{ marginTop: 10 }} onSubmit={(e) => createComponent(e, entry.entryKey)}>
+                  <form className="subPanel" onSubmit={(e) => createComponent(e, entry.entryKey)}>
                     <p className="eyebrow">ADD BUILD ROLE</p>
                     <label><span>Role</span><input name="role" required pattern="[a-z][a-z0-9-]*" maxLength="40" placeholder="e.g. panel" /></label>
                     <label><span>Component category</span><select name="categoryId" required><option value="">Select category</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
