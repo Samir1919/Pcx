@@ -97,3 +97,91 @@ test("storefront surfaces stable server errors", async () => {
     global.fetch = priorFetch;
   }
 });
+
+test("storefront auto-refreshes a 401 on a protected read and retries once", async () => {
+  const priorFetch = global.fetch;
+  const priorDocument = global.document;
+  const calls = [];
+  global.document = { cookie: "pcx_csrf=csrf-token-1" };
+  global.fetch = async (url, options) => {
+    calls.push({ url, options });
+    if (url === "/api/v1/auth/refresh") {
+      return { ok: true, status: 200, async json() { return { data: { status: "ok" } }; } };
+    }
+    if (calls.filter((c) => c.url === "/api/v1/me").length === 1) {
+      return { ok: false, status: 401, async text() { return JSON.stringify({ error: { code: "UNAUTHENTICATED", message: "Authentication required" } }); } };
+    }
+    return { ok: true, status: 200, async text() { return JSON.stringify({ data: { email: "seller@example.com" } }); } };
+  };
+  try {
+    const result = await storefrontApi.me();
+    assert.equal(result.data.email, "seller@example.com");
+    assert.deepEqual(calls.map((c) => c.url), ["/api/v1/me", "/api/v1/auth/refresh", "/api/v1/me"]);
+    assert.equal(calls[1].options.method, "POST");
+    assert.equal(calls[1].options.headers["x-csrf-token"], "csrf-token-1");
+  } finally {
+    global.fetch = priorFetch;
+    global.document = priorDocument;
+  }
+});
+
+test("storefront does not self-refresh on auth endpoints", async () => {
+  const priorFetch = global.fetch;
+  const priorDocument = global.document;
+  const calls = [];
+  global.document = { cookie: "pcx_csrf=csrf-token-1" };
+  global.fetch = async (url) => {
+    calls.push(url);
+    return { ok: false, status: 401, async text() { return JSON.stringify({ error: { code: "UNAUTHENTICATED", message: "Authentication failed" } }); } };
+  };
+  try {
+    await assert.rejects(() => storefrontApi.login("a@b.c", "pw"), (e) => e.status === 401);
+    assert.deepEqual(calls, ["/api/v1/auth/login"]);
+  } finally {
+    global.fetch = priorFetch;
+    global.document = priorDocument;
+  }
+});
+
+test("storefront does not refresh on non-401 errors", async () => {
+  const priorFetch = global.fetch;
+  const calls = [];
+  global.fetch = async (url) => {
+    calls.push(url);
+    return { ok: false, status: 404, async text() { return JSON.stringify({ error: { code: "NOT_FOUND", message: "Nope" } }); } };
+  };
+  try {
+    await assert.rejects(() => storefrontApi.passport("missing"), (e) => e.status === 404);
+    assert.deepEqual(calls, ["/api/v1/passport/missing"]);
+  } finally {
+    global.fetch = priorFetch;
+  }
+});
+
+test("storefront refreshes the CSRF token before retrying a write", async () => {
+  const priorFetch = global.fetch;
+  const priorDocument = global.document;
+  const calls = [];
+  global.document = { cookie: "pcx_csrf=old-token" };
+  global.fetch = async (url, options) => {
+    calls.push({ url, options });
+    if (url === "/api/v1/auth/refresh") {
+      global.document.cookie = "pcx_csrf=new-token"; // refresh rotates the CSRF cookie
+      return { ok: true, status: 200, async json() { return { data: { status: "ok" } }; } };
+    }
+    if (calls.filter((c) => c.url === "/api/v1/me").length === 1) {
+      return { ok: false, status: 401, async text() { return JSON.stringify({ error: { code: "UNAUTHENTICATED", message: "x" } }); } };
+    }
+    return { ok: true, status: 200, async text() { return JSON.stringify({ data: {} }); } };
+  };
+  try {
+    await storefrontApi.updateProfile({ fullName: "New" });
+    const retry = calls[calls.length - 1];
+    assert.equal(retry.url, "/api/v1/me");
+    assert.equal(retry.options.method, "PATCH");
+    assert.equal(retry.options.headers["x-csrf-token"], "new-token");
+  } finally {
+    global.fetch = priorFetch;
+    global.document = priorDocument;
+  }
+});

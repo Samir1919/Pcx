@@ -1,30 +1,15 @@
 {
-  "scope": "Admin acquisition continuation + sell-request status auto-advance + inventory intake (offer to accept to acquisition to pay to register item)",
+  "scope": "Storefront session auto-refresh (fix for repeated logouts)",
   "headed": true,
-  "tool": "scripts/acquisition-flow-e2e-check.mjs",
+  "tool": "scripts/storefront-session-refresh-check.mjs",
   "result": "passed",
   "businessFlow": {
-    "subject": "Admin offer to accept to acquisition to pay to inventory intake with status auto-advance",
+    "subject": "Signed-in customer stays signed in after the 15-minute access token expires (client auto-refreshes and retries)",
     "steps": [
-      "admin-login",
-      "open-sell-request",
-      "offers-section",
-      "create-offer",
-      "status-offered",
-      "offer-listed-active",
-      "offer-accepted",
-      "status-accepted",
-      "status-inspection-required",
-      "status-inspecting",
-      "create-acquisition",
-      "acquisition-pending",
-      "status-acq-pending",
-      "mark-paid",
-      "acquisition-paid",
-      "status-paid",
-      "register-item",
-      "item-registered-shown"
+      "customer-login",
+      "session-survives-access-expiry",
+      "refresh-called"
     ]
   },
-  "ranAt": "2026-09-03T12:36:35.375Z"
+  "ranAt": "2026-09-03T12:47:37.941Z"
 }

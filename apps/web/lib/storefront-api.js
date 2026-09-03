@@ -1,4 +1,38 @@
-async function request(path, options = {}) {
+// Auth lifecycle endpoints must never trigger a self-refresh loop: a 401 from
+// them means the credentials themselves were rejected (or there is no session).
+const authPaths = new Set([
+  "/api/v1/auth/login",
+  "/api/v1/auth/register",
+  "/api/v1/auth/refresh",
+  "/api/v1/auth/logout",
+  "/api/v1/auth/verify-mfa"
+]);
+
+let refreshInFlight = null;
+
+async function refreshSession() {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      const token = cookieValue("pcx_csrf");
+      // `refresh` is CSRF-gated by the auth boundary, so it fails closed when the
+      // double-submit token is missing (mirrors the admin client).
+      if (!token) throw new StorefrontApiError("CSRF_MISSING", "Your secure session is incomplete. Sign in again.", 403);
+      const response = await fetch("/api/v1/auth/refresh", {
+        method: "POST",
+        headers: { accept: "application/json", "content-type": "application/json", "x-csrf-token": token },
+        credentials: "include",
+        body: "{}"
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new StorefrontApiError(payload?.error?.code ?? "REFRESH_FAILED", payload?.error?.message ?? "Session refresh failed", response.status);
+      }
+    })().finally(() => { refreshInFlight = null; });
+  }
+  return refreshInFlight;
+}
+
+async function requestOnce(path, options = {}) {
   const headers = { accept: "application/json", ...(options.headers ?? {}) };
   if (options.body != null) headers["content-type"] = "application/json";
   const response = await fetch(path, {
@@ -12,6 +46,30 @@ async function request(path, options = {}) {
   try { payload = text ? JSON.parse(text) : null; } catch { payload = null; }
   if (!response.ok) throw new StorefrontApiError(payload?.error?.code ?? "REQUEST_FAILED", payload?.error?.message ?? "The request could not be completed", response.status);
   return payload;
+}
+
+// Transparently refresh the 15-minute access token once (single-flight) when a
+// privileged request returns 401, then retry — matching the admin client. The
+// refresh token is HttpOnly and sent automatically via `credentials: "include"`.
+async function request(path, options = {}) {
+  try {
+    return await requestOnce(path, options);
+  } catch (error) {
+    if (!(error instanceof StorefrontApiError) || error.status !== 401 || authPaths.has(path)) throw error;
+    try {
+      await refreshSession();
+      // Refresh rotates the CSRF cookie; recompute the double-submit header for a
+      // write retry so it uses the fresh token rather than the stale call-site one.
+      if (options.method && options.method !== "GET") {
+        const token = cookieValue("pcx_csrf");
+        if (token) options.headers = { ...(options.headers ?? {}), "x-csrf-token": token };
+      }
+      return await requestOnce(path, options);
+    } catch {
+      // Preserve the original 401 so callers keep their existing error handling.
+      throw error;
+    }
+  }
 }
 
 export class StorefrontApiError extends Error {
