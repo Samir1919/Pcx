@@ -11,7 +11,7 @@ export { authorize, authorizeRoleAssignment, hasPermission, permissionsForRole }
 export { createSecurityAuditEvent } from "./identity/audit-event.mjs";
 export { createCustomerRegistrationCandidate, createOwnAddress } from "./identity/identity-record.mjs";
 export { archiveCatalogRecord, setCatalogStatus, CatalogStatus, createBrand, createCategory, createProductModel } from "./catalog/catalog-records.mjs";
-export { assertUniqueModelSpecificationValues, createModelSpecificationValue, createSpecificationDefinition, SpecificationDataType } from "./catalog/specifications.mjs";
+export { assertRequiredSpecificationValues, assertUniqueModelSpecificationValues, createModelSpecificationValue, createSpecificationDefinition, SpecificationDataType } from "./catalog/specifications.mjs";
 export { advanceSellRequest, assertSellRequestTransition, createSellRequest, createSellerDeclaration, FulfilmentPreference, parseSellRequestStatus, SellRequestStatus, SellRequestTransitions, submitSellRequest } from "./acquisition/sell-request.mjs";
 export { BuildComponentRole, createBuildComponent, parseSellEntry, SellEntry, validateBuildComponents } from "./acquisition/sell-entry.mjs";
 export { createSellBuildComponent, createSellEntryConfig, parseBuildComponentRole, parseSellEntryIcon, parseSellEntryKey, parseSellEntryKind, sellEntryKeyFromSlug, SellEntryIcon, SellEntryKind } from "./acquisition/sell-taxonomy.mjs";

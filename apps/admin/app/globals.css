@@ -704,6 +704,40 @@ select:focus {
   margin: 0
 }
 
+.specForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.completeness {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+}
+
+.completeness.complete {
+  color: var(--success-text);
+  background: var(--mint);
+}
+
+.completeness.incomplete {
+  color: var(--pill-warn-text);
+  background: var(--pill-warn-bg);
+}
+
+.specSaveBar {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  position: sticky;
+  bottom: 0;
+  padding: var(--space-3) 0;
+  background: var(--paper);
+}
+
 textarea {
   width: 100%;
   min-height: var(--field-area-min);

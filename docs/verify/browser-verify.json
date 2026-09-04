@@ -1,24 +1,25 @@
 {
-  "scope": "Admin catalog Categories edit form: category ACTIVE/INACTIVE visibility toggle (server-owned status, storefront-hidden)",
+  "scope": "Catalog Attributes: server-enforced required completeness + atomic bulk model-spec save + public passport archived-definition fix",
   "headed": true,
   "tool": "Playwright MCP browser (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "Admin edits a category and toggles its status between Active (storefront-visible) and Inactive (storefront-hidden, still reactivatable in admin), with the list showing a muted Inactive pill",
+    "subject": "Admin edits a product model's specifications via a single bulk form; the server enforces required-attribute completeness atomically (reject incomplete, persist complete) and shows a completeness indicator",
     "steps": [
       "admin-sign-in-mfa",
-      "open-catalog-categories-tab",
-      "open-category-edit-modal",
-      "edit-form-shows-status-select",
-      "set-status-to-inactive-and-save",
-      "list-shows-inactive-pill",
-      "public-category-endpoint-hides-inactive-category",
-      "reactivate-to-active-and-save",
-      "no-console-errors-during-flow"
+      "open-model-specifications-page",
+      "bulk-form-renders-all-attributes-with-save-all-button",
+      "completeness-indicator-shows-required-count",
+      "clear-required-value-and-save-is-rejected-422",
+      "db-value-unchanged-after-rejection-atomic",
+      "set-value-and-save-persists",
+      "restore-demo-value",
+      "no-unexpected-console-errors"
     ]
   },
-  "notes": "Category status now supports ACTIVE/INACTIVE (migration 0050 relaxes the two CHECK constraints) in addition to ARCHIVED/DELETE. The edit modal has a Status select; saving a status change calls PATCH /api/v1/admin/categories/:id/status which is validated by the domain setCatalogStatus (never ARCHIVED — archive is a separate audited command) and audited as CATALOG_CATEGORY_DEACTIVATED/ACTIVATED. The admin list uses GET /api/v1/admin/categories (ACTIVE+INACTIVE, never ARCHIVED) so a deactivated category remains visible with a muted 'Inactive' pill and can be reactivated. The public storefront category endpoint stays ACTIVE-only, so the inactive category disappears from the storefront. Verified headed: deactivate -> 200, list shows Inactive, public endpoint excludes the category; reactivate -> 200, status restored.",
-  "ranAt": "2026-09-04T03:07:00.000Z"
+  "notes": "Model specifications now save atomically through a single bulk form (PUT /api/v1/admin/product-models/:id/specifications). The domain assertRequiredSpecificationValues enforces that every required definition has a value before any row is written (all-or-nothing in one transaction), so a model can never be left half-complete. The admin page shows a 'N of M required attributes set' completeness banner. The public passport listing repository now filters archived spec definitions (d.status='ACTIVE') for consistency with the catalog read. Verified headed: clearing the required value and saving returned 422 'Specification values are invalid' with the DB value unchanged (atomic); setting 15.6 persisted; restored to 14. The single 422 console entry is the deliberate rejection, not a defect.",
+  "ranAt": "2026-09-04T03:46:00.000Z"
 }
+
 
 

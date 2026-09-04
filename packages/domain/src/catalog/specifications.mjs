@@ -144,3 +144,17 @@ export function assertUniqueModelSpecificationValues(values) {
   if (modelIds.size > 1) throw new TypeError("specification value set must belong to one ProductModel");
   return values;
 }
+
+// Enforce that every `required` definition for the category has a value in the
+// submitted set. This is the server-owned completeness check: a ProductModel
+// cannot be saved as "complete" while a required attribute is missing.
+export function assertRequiredSpecificationValues(values, definitions) {
+  if (!Array.isArray(values)) throw new TypeError("model specification values must be an array");
+  if (!Array.isArray(definitions)) throw new TypeError("specification definitions must be an array");
+  const provided = new Set(values.map((value) => value.specificationDefinitionId));
+  const missing = definitions
+    .filter((definition) => definition.required === true && !provided.has(definition.id))
+    .map((definition) => definition.key);
+  if (missing.length > 0) throw new TypeError(`missing required specification values: ${missing.join(", ")}`);
+  return values;
+}

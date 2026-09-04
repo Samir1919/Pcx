@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   archiveCatalogRecord,
+  assertRequiredSpecificationValues,
   assertUniqueModelSpecificationValues,
   createModelSpecificationValue,
   createProductModel,
@@ -72,4 +73,15 @@ test("model specification sets reject duplicate definitions and mixed models", (
   assert.deepEqual(assertUniqueModelSpecificationValues([value]), [value]);
   assert.throws(() => assertUniqueModelSpecificationValues([value, { ...value, id: "value-2" }]), /duplicate/);
   assert.throws(() => assertUniqueModelSpecificationValues([value, { ...value, id: "value-3", productModelId: "model-2", specificationDefinitionId: "spec-other" }]), /one ProductModel/);
+});
+
+test("assertRequiredSpecificationValues enforces required completeness", () => {
+  const req = definition({ id: "req", key: "vram_gb", required: true });
+  const opt = definition({ id: "opt", key: "chipset", dataType: "TEXT", unit: null, required: false });
+  const value = createModelSpecificationValue({ id: "v1", productModel: model, definition: req, value: 12, createdAt });
+  // All required present -> pass.
+  assert.deepEqual(assertRequiredSpecificationValues([value], [req, opt]), [value]);
+  // Missing a required definition -> throw.
+  assert.throws(() => assertRequiredSpecificationValues([], [req, opt]), /missing required/);
+  assert.throws(() => assertRequiredSpecificationValues([], [req]), /vram_gb/);
 });
