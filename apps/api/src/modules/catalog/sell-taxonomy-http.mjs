@@ -47,6 +47,23 @@ async function jsonBody(request) {
   } catch { throw new SellTaxonomyError("invalid_request"); }
 }
 
+// Icon uploads are raw image bytes (application/octet-stream), bounded to the
+// media module's upload cap. The media module re-validates type + size on save.
+const MAX_ICON_BYTES = 8 * 1024 * 1024;
+async function binaryBody(request) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of request) {
+    const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    size += bytes.length;
+    if (size > MAX_ICON_BYTES) throw new SellTaxonomyError("invalid_input");
+    chunks.push(bytes);
+  }
+  const buffer = Buffer.concat(chunks);
+  if (buffer.length === 0) throw new SellTaxonomyError("invalid_input");
+  return buffer;
+}
+
 function id(value) {
   try { const decoded = decodeURIComponent(value); return decoded && decoded.length <= 128 && !decoded.includes("/") ? decoded : null; } catch { return null; }
 }
@@ -60,6 +77,7 @@ function mapped(error) {
     if (error.code === "not_found") return [404, "SELL_TAXONOMY_NOT_FOUND", "Sell taxonomy record not found"];
     if (error.code === "already_exists") return [409, "SELL_TAXONOMY_CONFLICT", "Sell taxonomy entry already exists"];
     if (error.code === "unavailable") return [503, "SELL_TAXONOMY_UNAVAILABLE", "Sell taxonomy is temporarily unavailable"];
+    if (error.code === "malware_detected") return [422, "MALWARE_DETECTED", "Upload failed a security scan and was rejected"];
     if (error.code === "invalid_reference") return [422, "INVALID_REFERENCE", "Sell taxonomy reference is invalid"];
     return [error.code === "invalid_request" ? 400 : 422, error.code === "invalid_request" ? "INVALID_REQUEST" : "INVALID_INPUT", "Sell taxonomy input is invalid"];
   }
@@ -73,6 +91,7 @@ function matchAdmin(url) {
   const rest = url.pathname.slice(prefix.length + 1).split("/");
   if (rest.length === 1 && rest[0]) return { op: "entry", entryKey: rest[0] };
   if (rest.length === 2 && rest[0] && rest[1] === "components") return { op: "components", entryKey: rest[0] };
+  if (rest.length === 2 && rest[0] && rest[1] === "icon") return { op: "icon", entryKey: rest[0] };
   if (rest.length === 3 && rest[0] && rest[1] === "components" && rest[2]) return { op: "component", entryKey: rest[0], role: rest[2] };
   return null;
 }
@@ -136,6 +155,21 @@ export async function handleSellTaxonomyRequest(request, response, { sellTaxonom
     if (route.op === "component" && request.method === "DELETE") {
       requireWriteSecurity(request, allowedOrigins, cookies);
       const result = await sellTaxonomyService.deleteComponent(cookies.pcx_access, id(route.entryKey), id(route.role), context);
+      send(response, 200, { data: result });
+      return true;
+    }
+
+    // Custom icon image upload (POST) and revert-to-emoji (DELETE).
+    if (route.op === "icon") {
+      if (request.method !== "POST" && request.method !== "DELETE") { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
+      requireWriteSecurity(request, allowedOrigins, cookies);
+      if (request.method === "POST") {
+        const buffer = await binaryBody(request);
+        const result = await sellTaxonomyService.setEntryIcon(cookies.pcx_access, id(route.entryKey), buffer, context);
+        send(response, 201, { data: result });
+        return true;
+      }
+      const result = await sellTaxonomyService.clearEntryIcon(cookies.pcx_access, id(route.entryKey), context);
       send(response, 200, { data: result });
       return true;
     }

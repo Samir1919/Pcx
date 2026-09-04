@@ -15,12 +15,14 @@ function service(overrides = {}) {
     async updateComponent() { return { entryKey: "DESKTOP_PC", role: "gpu" }; },
     async createComponent() { return { entryKey: "DESKTOP_PC", role: "panel" }; },
     async deleteComponent() { return { entryKey: "DESKTOP_PC", role: "gpu" }; },
+    async setEntryIcon() { return { entryKey: "DESKTOP_PC", iconMediaId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" }; },
+    async clearEntryIcon() { return { entryKey: "DESKTOP_PC", iconMediaId: null }; },
     ...overrides
   };
 }
 
-async function invoke(path, { method = "GET", body, headers = {}, sellTaxonomyService = service(), allowedOrigins = new Set([origin]) } = {}) {
-  const serialized = body == null ? "" : JSON.stringify(body);
+async function invoke(path, { method = "GET", body, rawBody, headers = {}, sellTaxonomyService = service(), allowedOrigins = new Set([origin]) } = {}) {
+  const serialized = rawBody != null ? rawBody : (body == null ? "" : JSON.stringify(body));
   const result = { headers: {} };
   const response = {
     setHeader(name, value) { result.headers[name] = value; },
@@ -110,6 +112,30 @@ test("admin entry delete and component create/delete routes", async () => {
     headers: { cookie: "pcx_csrf=token", "x-csrf-token": "token" }
   });
   assert.equal(deleteComp.status, 200);
+});
+
+test("admin icon upload and revert routes", async () => {
+  const upload = await invoke("/api/v1/admin/sell-entry-config/DESKTOP_PC/icon", {
+    method: "POST",
+    rawBody: Buffer.from("fake-image-bytes"),
+    headers: { cookie: "pcx_csrf=token", "x-csrf-token": "token", "content-type": "application/octet-stream" }
+  });
+  assert.equal(upload.status, 201);
+  assert.equal(upload.body.data.iconMediaId, "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+
+  // Upload without CSRF is rejected.
+  const noCsrf = await invoke("/api/v1/admin/sell-entry-config/DESKTOP_PC/icon", { method: "POST", rawBody: Buffer.from("x") });
+  assert.equal(noCsrf.status, 403);
+
+  const revert = await invoke("/api/v1/admin/sell-entry-config/DESKTOP_PC/icon", {
+    method: "DELETE",
+    headers: { cookie: "pcx_csrf=token", "x-csrf-token": "token" }
+  });
+  assert.equal(revert.status, 200);
+  assert.equal(revert.body.data.iconMediaId, null);
+
+  // Unsupported method on the icon route.
+  assert.equal((await invoke("/api/v1/admin/sell-entry-config/DESKTOP_PC/icon", { method: "GET" })).status, 405);
 });
 
 test("admin errors map safely", async () => {

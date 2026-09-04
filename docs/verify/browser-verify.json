@@ -1,18 +1,22 @@
 {
-  "scope": "Admin app responsive/dynamic CSS conversion + Sell flow BUILD/PARTS fixes (design tokens, fluid widths, rem type, checkbox, chips)",
+  "scope": "Admin catalog Sell flow: custom icon image upload (media-backed) + storefront image render + revert-to-emoji",
   "headed": true,
   "tool": "Playwright MCP browser (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "Admin catalog Sell flow renders correctly across viewports with token-driven styles and fixed BUILD/PARTS controls",
+    "subject": "Admin uploads a custom icon image for a BUILD entry, sees live image preview, the storefront renders the image instead of the emoji, and Revert restores the library emoji",
     "steps": [
-      "sell-flow-tab-renders",
-      "color-tokens-apply-sidebar-and-surfaces",
-      "build-required-checkbox-properly-sized",
-      "parts-subcategories-render-as-chips",
-      "no-horizontal-overflow-320-to-1280"
+      "admin-sign-in-mfa",
+      "open-catalog-sell-flow-tab",
+      "verify-icon-field-has-select-and-upload-button",
+      "upload-icon-image-via-file-input",
+      "admin-icon-preview-shows-uploaded-image",
+      "storefront-sell-page-renders-uploaded-image",
+      "revert-clears-icon-and-restores-emoji",
+      "no-console-errors-during-flow"
     ]
   },
-  "notes": "Converted globals.css to design tokens (all hex/rgba/white moved into :root and consumed via var()), fluid widths via clamp()/rem, and font sizes to rem. Fixed the BUILD Required checkbox (was a bare 60x13 stretched input, now a 17x17 labeled .check control) and the empty Remove-column header (aria-label). PARTS subcategories now render as .partChip chips. Verified headed at 320/375/768/1024/1280px with scrollWidth === clientWidth at every width.",
-  "ranAt": "2026-09-04T00:15:00.000Z"
+  "notes": "Custom icon upload stores the image in the shared media table (PUBLIC, purpose ICON) and records the media id on sell_entry_config.icon_media_id. The server persists and validates the image (malware scan + WebP conversion); the client never authors the media id or URL. Upload returned 201, revert returned 200; the storefront rendered /api/v1/media/{id} for the uploaded entry and reverted to the emoji glyph after clear. The combobox is now correctly labeled 'Icon' (fixed a nested-label issue from the first pass).",
+  "ranAt": "2026-09-04T02:20:00.000Z"
 }
+

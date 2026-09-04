@@ -11,7 +11,7 @@ export function createPostgresSellTaxonomyRepository({ pool }) {
     async listEntries({ activeOnly = false } = {}) {
       const where = activeOnly ? "WHERE sec.is_active" : "";
       const entriesResult = await pool.query(
-        `SELECT sec.id AS config_id, sec.entry_key, sec.kind, sec.icon_key, sec.hint, sec.sort_order, sec.is_active,
+        `SELECT sec.id AS config_id, sec.entry_key, sec.kind, sec.icon_key, sec.icon_media_id, sec.hint, sec.sort_order, sec.is_active,
                 c.id AS category_id, c.name, c.slug, c.parent_id, c.sort_order AS category_sort_order
          FROM sell_entry_config sec
          JOIN categories c ON c.id = sec.category_id AND c.status = 'ACTIVE'
@@ -24,6 +24,7 @@ export function createPostgresSellTaxonomyRepository({ pool }) {
         entryKey: row.entry_key,
         kind: row.kind,
         iconKey: row.icon_key,
+        iconMediaId: row.icon_media_id ?? null,
         hint: row.hint,
         sortOrder: row.sort_order,
         isActive: row.is_active,

@@ -2,12 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { SellTaxonomyError, createSellTaxonomyService } from "../src/modules/catalog/sell-taxonomy-service.mjs";
 
-function fixture(roles = ["ADMIN"], commandRepository, catalogService) {
+function fixture(roles = ["ADMIN"], commandRepository, catalogService, mediaService) {
   let sequence = 0;
   const calls = [];
   const service = createSellTaxonomyService({
     authService: { async authenticateAccess() { return { userId: "actor-1", status: "ACTIVE", roles }; } },
     catalogService: catalogService ?? { async listCategories() { return { data: [{ id: "11111111-1111-1111-1111-111111111111", name: "Monitors", slug: "monitors" }] }; } },
+    mediaService: mediaService === undefined ? { async storeSellEntryIcon(...input) { calls.push(["storeIcon", ...input]); return { id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" }; } } : mediaService,
     readRepository: { async listEntries(...input) { calls.push(["list", ...input]); return [{ entryKey: "DESKTOP_PC", kind: "BUILD", category: { id: "c1", name: "Desktop PC", slug: "desktop-pc" }, components: [] }]; } },
     commandRepository: commandRepository ?? {
       async createEntry(...input) { calls.push(["createEntry", ...input]); return input[0].entryKey; },
@@ -160,4 +161,55 @@ test("deleteComponent validates and removes", async () => {
   assert.equal(del[2], "gpu");
   assert.equal(del[3].action, "SELL_BUILD_COMPONENT_DELETED");
   await assert.rejects(service.deleteComponent("access", "DESKTOP_PC", "GPU"), (error) => error.code === "invalid_input");
+});
+
+test("updateEntry accepts a nullable iconMediaId and rejects non-uuid values", async () => {
+  const { service, calls } = fixture();
+  const mediaId = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+  const result = await service.updateEntry("access", "DESKTOP_PC", { iconMediaId: mediaId }, { requestId: "r-icon" });
+  assert.equal(result.iconMediaId, mediaId);
+  const update = calls.find(([name]) => name === "updateEntry");
+  assert.equal(update[2].iconMediaId, mediaId);
+
+  const cleared = await service.updateEntry("access", "DESKTOP_PC", { iconMediaId: null });
+  assert.equal(cleared.iconMediaId, null);
+
+  await assert.rejects(service.updateEntry("access", "DESKTOP_PC", { iconMediaId: "not-a-uuid" }), (error) => error.code === "invalid_input");
+});
+
+test("setEntryIcon uploads via mediaService and records the media id", async () => {
+  const { service, calls } = fixture();
+  const buffer = Buffer.from("fake-image");
+  const result = await service.setEntryIcon("access", "DESKTOP_PC", buffer, { requestId: "r-icon-set" });
+  assert.equal(result.iconMediaId, "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+  const store = calls.find(([name]) => name === "storeIcon");
+  assert.equal(store[1], "access");
+  assert.deepEqual(store[2], buffer);
+  const update = calls.find(([name]) => name === "updateEntry");
+  assert.equal(update[2].iconMediaId, "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+  assert.equal(update[4].action, "SELL_ENTRY_ICON_SET");
+});
+
+test("setEntryIcon rejects non-buffer and propagates malware rejection", async () => {
+  const { service } = fixture();
+  await assert.rejects(service.setEntryIcon("access", "DESKTOP_PC", "not-buffer"), (error) => error.code === "invalid_input");
+
+  const malwareService = { async storeSellEntryIcon() { const error = new Error("blocked"); error.code = "malware_detected"; throw error; } };
+  const malicious = fixture(["ADMIN"], undefined, undefined, malwareService);
+  await assert.rejects(malicious.service.setEntryIcon("access", "DESKTOP_PC", Buffer.from("x")), (error) => error.code === "malware_detected");
+});
+
+test("setEntryIcon requires a media service", async () => {
+  const { service } = fixture(["ADMIN"], undefined, undefined, null);
+  await assert.rejects(service.setEntryIcon("access", "DESKTOP_PC", Buffer.from("x")), (error) => error.code === "unavailable");
+});
+
+test("clearEntryIcon nulls the icon reference and audits", async () => {
+  const { service, calls } = fixture();
+  const result = await service.clearEntryIcon("access", "DESKTOP_PC", { requestId: "r-icon-clear" });
+  assert.equal(result.iconMediaId, null);
+  const update = calls.find(([name]) => name === "updateEntry");
+  assert.equal(update[2].iconMediaId, null);
+  assert.equal(update[4].action, "SELL_ENTRY_ICON_CLEARED");
+  await assert.rejects(service.clearEntryIcon("access", "unknown"), (error) => error.code === "invalid_input");
 });

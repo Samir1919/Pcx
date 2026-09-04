@@ -148,6 +148,34 @@ export default function SellFlowPanel({ categories }) {
     }
   }
 
+  async function uploadIcon(entryKey, file) {
+    setBusy(true);
+    setNotice(null);
+    try {
+      await sellTaxonomyApi.uploadIcon(entryKey, file);
+      setNotice({ kind: "success", message: "Entry icon uploaded." });
+      await load();
+    } catch (error) {
+      setNotice({ kind: "error", message: error.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function clearIcon(entryKey) {
+    setBusy(true);
+    setNotice(null);
+    try {
+      await sellTaxonomyApi.clearIcon(entryKey);
+      setNotice({ kind: "success", message: "Entry icon reverted to the library icon." });
+      await load();
+    } catch (error) {
+      setNotice({ kind: "error", message: error.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <>
       <p className="panelIntro" role="status">
@@ -199,14 +227,26 @@ export default function SellFlowPanel({ categories }) {
               </div>
 
               <div className="entryMeta">
-                <label><span>Icon</span>
+                <div className="iconLabel">
+                  <label htmlFor={`icon-select-${entry.entryKey}`}>Icon</label>
                   <span className="iconField">
-                    <span className="iconPreview" aria-hidden="true">{iconEmoji(entry.iconKey)}</span>
-                    <select value={entry.iconKey} disabled={busy} onChange={(e) => patchEntry(entry.entryKey, { iconKey: e.target.value })}>
-                      {ICON_KEYS.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}
-                    </select>
+                    <span className="iconPreview" aria-hidden="true">
+                      {entry.iconMediaId ? <img src={sellTaxonomyApi.iconUrl(entry.iconMediaId)} alt="" /> : iconEmoji(entry.iconKey)}
+                    </span>
+                    <span className="iconControls">
+                      <select id={`icon-select-${entry.entryKey}`} value={entry.iconKey} disabled={busy} onChange={(e) => patchEntry(entry.entryKey, { iconKey: e.target.value })}>
+                        {ICON_KEYS.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}
+                      </select>
+                      <span className="iconActions">
+                        <label className="uploadBtn" htmlFor={`icon-file-${entry.entryKey}`} title="Upload a custom icon image">
+                          Upload image
+                        </label>
+                        <input id={`icon-file-${entry.entryKey}`} className="visuallyHiddenInput" type="file" accept="image/png,image/jpeg,image/webp" disabled={busy} onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadIcon(entry.entryKey, file); }} />
+                        {entry.iconMediaId && <button type="button" className="danger" disabled={busy} onClick={() => clearIcon(entry.entryKey)}>Revert</button>}
+                      </span>
+                    </span>
                   </span>
-                </label>
+                </div>
                 <label><span>Hint</span><input type="text" defaultValue={entry.hint} disabled={busy} onBlur={(e) => { const value = e.target.value.trim(); if (value && value !== entry.hint) patchEntry(entry.entryKey, { hint: value }); }} /></label>
                 <label><span>Sort order</span><input type="number" min="0" defaultValue={entry.sortOrder} disabled={busy} onBlur={(e) => { const value = Number(e.target.value); if (Number.isSafeInteger(value) && value !== entry.sortOrder) patchEntry(entry.entryKey, { sortOrder: value }); }} /></label>
               </div>

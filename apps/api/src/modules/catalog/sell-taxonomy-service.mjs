@@ -5,7 +5,7 @@ export class SellTaxonomyError extends Error {
   constructor(code) { super(code); this.name = "SellTaxonomyError"; this.code = code; }
 }
 
-const entryFields = new Set(["iconKey", "hint", "sortOrder", "isActive"]);
+const entryFields = new Set(["iconKey", "iconMediaId", "hint", "sortOrder", "isActive"]);
 const createFields = new Set(["categoryId", "kind", "iconKey", "hint", "sortOrder", "isActive"]);
 const componentFields = new Set(["role", "categoryId", "required", "sortOrder"]);
 const createComponentFields = new Set(["role", "categoryId", "required", "sortOrder"]);
@@ -22,6 +22,10 @@ function normalizeEntry(input) {
   const patch = {};
   if (value.iconKey !== undefined) {
     try { patch.iconKey = parseSellEntryIcon(value.iconKey); } catch { throw new SellTaxonomyError("invalid_input"); }
+  }
+  if (value.iconMediaId !== undefined) {
+    if (value.iconMediaId !== null && (typeof value.iconMediaId !== "string" || !uuidPattern.test(value.iconMediaId))) throw new SellTaxonomyError("invalid_input");
+    patch.iconMediaId = value.iconMediaId;
   }
   if (value.hint !== undefined) {
     if (typeof value.hint !== "string" || value.hint.trim().length === 0) throw new SellTaxonomyError("invalid_input");
@@ -102,7 +106,7 @@ function normalizeCreateComponent(input) {
   return record;
 }
 
-export function createSellTaxonomyService({ authService, readRepository, commandRepository, catalogService = null, id = randomUUID, clock = () => new Date() }) {
+export function createSellTaxonomyService({ authService, readRepository, commandRepository, catalogService = null, mediaService = null, id = randomUUID, clock = () => new Date() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
   if (!readRepository || typeof readRepository.listEntries !== "function") throw new TypeError("readRepository.listEntries is required");
   if (!commandRepository || ["createEntry", "deleteEntry", "updateEntry", "updateComponent", "createComponent", "deleteComponent"].some((method) => typeof commandRepository[method] !== "function")) throw new TypeError("sell taxonomy command repository is required");
@@ -190,6 +194,45 @@ export function createSellTaxonomyService({ authService, readRepository, command
       const updated = await commandRepository.updateEntry(key, patch, now, event(identity, "SELL_ENTRY", key, context.requestId, "SELL_ENTRY_UPDATED", patch, now));
       if (!updated) throw new SellTaxonomyError("not_found");
       return Object.freeze({ entryKey: key, ...patch, updatedAt: now });
+    },
+
+    // Upload a custom image icon: the binary is persisted by the media module
+    // (PUBLIC, purpose ICON) and this module only records the returned media id
+    // on the entry. The caller never authors the media id or the icon URL.
+    async setEntryIcon(accessCredential, entryKey, buffer, context = {}) {
+      const identity = await actor(accessCredential);
+      let key;
+      try { key = parseSellEntryKey(entryKey); } catch { throw new SellTaxonomyError("invalid_input"); }
+      if (!mediaService || typeof mediaService.storeSellEntryIcon !== "function") throw new SellTaxonomyError("unavailable");
+      if (!Buffer.isBuffer(buffer)) throw new SellTaxonomyError("invalid_input");
+      let media;
+      try {
+        media = await mediaService.storeSellEntryIcon(accessCredential, buffer);
+      } catch (error) {
+        // Translate media-module failures into taxonomy error codes the HTTP
+        // layer already maps (malware/type/forbidden/not-found).
+        if (error?.code === "malware_detected") throw new SellTaxonomyError("malware_detected");
+        if (error?.code === "unsupported_type" || error?.code === "invalid_input") throw new SellTaxonomyError("invalid_input");
+        if (error?.code === "forbidden") throw new SellTaxonomyError("forbidden");
+        throw error;
+      }
+      const now = clock().toISOString();
+      const patch = { iconMediaId: media.id };
+      const updated = await commandRepository.updateEntry(key, patch, now, event(identity, "SELL_ENTRY", key, context.requestId, "SELL_ENTRY_ICON_SET", patch, now));
+      if (!updated) throw new SellTaxonomyError("not_found");
+      return Object.freeze({ entryKey: key, iconMediaId: media.id, updatedAt: now });
+    },
+
+    // Revert to the emoji library (clear the custom icon reference).
+    async clearEntryIcon(accessCredential, entryKey, context = {}) {
+      const identity = await actor(accessCredential);
+      let key;
+      try { key = parseSellEntryKey(entryKey); } catch { throw new SellTaxonomyError("invalid_input"); }
+      const now = clock().toISOString();
+      const patch = { iconMediaId: null };
+      const updated = await commandRepository.updateEntry(key, patch, now, event(identity, "SELL_ENTRY", key, context.requestId, "SELL_ENTRY_ICON_CLEARED", patch, now));
+      if (!updated) throw new SellTaxonomyError("not_found");
+      return Object.freeze({ entryKey: key, iconMediaId: null, updatedAt: now });
     },
 
     async updateComponent(accessCredential, entryKey, role, input, context = {}) {

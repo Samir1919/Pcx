@@ -38,5 +38,13 @@ test("createSellEntryConfig validates the whole record", () => {
   assert.equal(record.entryKey, "MONITORS");
   assert.equal(record.kind, "PARTS");
   assert.equal(record.isActive, true);
+  assert.equal(record.iconMediaId, null);
   assert.throws(() => createSellEntryConfig({ id: "e1", entryKey: "monitors", categoryId: "c1", kind: "PARTS", iconKey: "monitor", hint: "x" }), /entryKey/);
+});
+
+test("createSellEntryConfig accepts an optional icon media id", () => {
+  const mediaId = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+  const record = createSellEntryConfig({ id: "e1", entryKey: "MONITORS", categoryId: "c1", kind: SellEntryKind.PARTS, iconKey: "monitor", hint: "x", iconMediaId: mediaId });
+  assert.equal(record.iconMediaId, mediaId);
+  assert.throws(() => createSellEntryConfig({ id: "e1", entryKey: "MONITORS", categoryId: "c1", kind: "PARTS", iconKey: "monitor", hint: "x", iconMediaId: "not-a-uuid" }), /iconMediaId/);
 });

@@ -34,6 +34,12 @@ export function createMediaService({ authService, repository, storage, malwareSc
     return identity;
   }
 
+  async function catalogAdmin(accessCredential) {
+    const identity = await authService.authenticateAccess({ accessCredential });
+    if (!hasPermission(identity, Permission.CATALOG_MANAGE)) throw new MediaError("forbidden");
+    return identity;
+  }
+
   async function shipmentActor(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
     if (!hasPermission(identity, Permission.INVENTORY_MANAGE) && !hasPermission(identity, Permission.SYSTEM_CONFIGURE)) throw new MediaError("forbidden");
@@ -157,6 +163,15 @@ export function createMediaService({ authService, repository, storage, malwareSc
       const listingMedia = await repository.listListingMedia(listingId);
       const promotedIds = new Set(listingMedia.map((m) => m.id));
       return Object.freeze(sellerMedia.map((m) => Object.freeze({ ...m, promoted: promotedIds.has(m.id) })));
+    },
+
+    // Admin attaches a custom image icon to a sell entry (catalog config). The
+    // image is PUBLIC so the storefront can render it without auth; the entry's
+    // `icon_media_id` column then references the returned media id.
+    async storeSellEntryIcon(accessCredential, buffer) {
+      const identity = await catalogAdmin(accessCredential);
+      const media = await persist(buffer, { visibility: "PUBLIC", purpose: "ICON", uploadedBy: identity.userId });
+      return Object.freeze(media);
     },
 
     async read(accessCredential, mediaId, { thumb = false } = {}) {

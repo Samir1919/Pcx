@@ -1,7 +1,7 @@
 "use client";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { storefrontApi } from "../../lib/storefront-api";
+import { storefrontApi, mediaUrl } from "../../lib/storefront-api";
 import StorefrontNav from "../StorefrontNav";
 import IntlPhoneInput from "../components/IntlPhoneInput";
 import { validateEmail, validatePhone } from "../../lib/contact-validation";
@@ -392,7 +392,7 @@ function SellFlow() {
               ) : (
                 taxonomy.map((e) => (
                   <button key={e.entryKey} type="button" className="sellEntryCard" onClick={() => chooseEntry(e.entryKey)}>
-                    <span className="sellEntryIcon">{iconFor(e.iconKey)}</span>
+                    <span className="sellEntryIcon">{e.iconMediaId ? <img src={mediaUrl(e.iconMediaId)} alt="" /> : iconFor(e.iconKey)}</span>
                     <strong>{e.category?.name ?? e.entryKey}</strong>
                     <small>{e.hint}</small>
                   </button>

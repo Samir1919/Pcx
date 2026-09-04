@@ -38,6 +38,13 @@ function requiredString(value, name) {
   return value.trim();
 }
 
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function optionalUuid(value, name) {
+  if (value == null) return null;
+  if (typeof value !== "string" || !uuidPattern.test(value)) throw new TypeError(`${name} must be a uuid`);
+  return value;
+}
+
 function nonNegativeInteger(value, name) {
   if (!Number.isSafeInteger(value) || value < 0) throw new TypeError(`${name} must be a non-negative integer`);
   return value;
@@ -81,7 +88,7 @@ export function parseBuildComponentRole(value) {
   return role;
 }
 
-export function createSellEntryConfig({ id, entryKey, categoryId, kind, iconKey, hint, sortOrder = 0, isActive = true, createdAt = new Date() }) {
+export function createSellEntryConfig({ id, entryKey, categoryId, kind, iconKey, hint, sortOrder = 0, isActive = true, iconMediaId = null, createdAt = new Date() }) {
   return Object.freeze({
     id: requiredString(id, "id"),
     entryKey: parseSellEntryKey(entryKey),
@@ -91,6 +98,7 @@ export function createSellEntryConfig({ id, entryKey, categoryId, kind, iconKey,
     hint: requiredString(hint, "hint"),
     sortOrder: nonNegativeInteger(sortOrder, "sortOrder"),
     isActive: boolean(isActive, "isActive"),
+    iconMediaId: optionalUuid(iconMediaId, "iconMediaId"),
     createdAt: createdAt instanceof Date ? createdAt.toISOString() : requiredString(createdAt, "createdAt"),
     updatedAt: createdAt instanceof Date ? createdAt.toISOString() : requiredString(createdAt, "createdAt")
   });
