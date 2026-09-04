@@ -147,7 +147,8 @@ Re-verified 2026-09-01: several "remaining" items were confirmed complete and mo
 - Handoff: `docs/handoffs/SELL_FLOW_RUNTIME_CONFIG.md`.
 - ~~**Responsive/dynamic CSS + BUILD/PARTS fixes**~~ — **COMPLETE 2026-09-04** (commit `f0f885a`): admin globals.css fully tokenized (all hex/rgba/white moved into :root tokens), fixed pixel widths → clamp()/rem, font sizes → rem. Sell flow BUILD "Required" checkbox fixed (was a bare stretched input), PARTS subcategories render as chips. No horizontal overflow verified headed at 320–1280px.
 - Handoff: `docs/handoffs/SELL_FLOW_RUNTIME_CONFIG.md`.
-- Remaining polish (non-blocking): drag-to-reorder instead of numeric sort.
+- Remaining polish (non-blocking): drag-to-reorder instead of numeric sort; media-row cleanup when an icon is replaced/cleared (currently orphaned PUBLIC ICON media rows are left behind by design — small, admin-only volume).
+- ~~**Custom sell-entry icon image upload**~~ — **COMPLETE 2026-09-04** (commit `d025c2b`): admin uploads an image (PNG/JPEG/WebP) for a sell entry; the media module persists it as PUBLIC/ICON (malware scan + WebP conversion) and the taxonomy module records `sell_entry_config.icon_media_id` (migration `0049`). Storefront renders `<img>` when set; Revert clears the reference and restores the emoji. Server owns the media id/URL (client uploads raw bytes only); CATALOG_MANAGE gates upload + clear.
 
 
 
