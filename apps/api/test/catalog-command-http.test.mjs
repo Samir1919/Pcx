@@ -4,7 +4,7 @@ import { CatalogCommandError } from "../src/modules/catalog/catalog-command-serv
 import { createRequestHandler } from "../src/server.mjs";
 
 const origin="https://pcx.example";
-function service(overrides={}){return{async createCategory(_a,input){return{id:"c1",...input,status:"ACTIVE"};},async createBrand(_a,input){return{id:"b1",...input,status:"ACTIVE"};},async createProductModel(_a,input){return{id:"m1",...input,status:"ACTIVE"};},async update(_a,_kind,id,input){return{id,...input,status:"ACTIVE"};},async archive(){},async remove(){},...overrides};}
+function service(overrides={}){return{async createCategory(_a,input){return{id:"c1",...input,status:"ACTIVE"};},async createBrand(_a,input){return{id:"b1",...input,status:"ACTIVE"};},async createProductModel(_a,input){return{id:"m1",...input,status:"ACTIVE"};},async update(_a,_kind,id,input){return{id,...input,status:"ACTIVE"};},async archive(){},async remove(){},async listCategories(){return{data:[]};},async setStatus(_a,_kind,id,status){return{id,status};},...overrides};}
 async function invoke(path,{method="POST",body={},headers={},catalogCommandService=service()}={}){const result={headers:{}};const response={setHeader(n,v){result.headers[n]=v;},writeHead(s){result.status=s;return response;},end(v){result.body=v?JSON.parse(v):undefined;return response;}};const payload=JSON.stringify(body);const request={url:path,method,headers:{origin,"content-type":"application/json",cookie:"pcx_access=access; pcx_csrf=csrf","x-csrf-token":"csrf","x-request-id":"admin-request",...headers},async *[Symbol.asyncIterator](){if(payload)yield Buffer.from(payload);}};await createRequestHandler({catalogCommandService,allowedOrigins:new Set([origin])})(request,response);return result;}
 
 test("admin catalog collections create server-owned records without reflecting access",async()=>{
@@ -19,6 +19,23 @@ test("admin catalog writes fail closed for authz, CSRF, origin, mass assignment,
   assert.equal((await invoke("/api/v1/admin/brands",{headers:{"x-csrf-token":"bad"}})).status,403);
   for(const [code,status] of [["forbidden",403],["invalid_input",422],["invalid_reference",422],["conflict",409],["not_found",404]]){const response=await invoke("/api/v1/admin/categories",{catalogCommandService:service({async createCategory(){throw new CatalogCommandError(code);}})});assert.equal(response.status,status);}
   assert.equal((await invoke("/api/v1/admin/categories",{catalogCommandService:null})).status,503);
-  assert.equal((await invoke("/api/v1/admin/categories",{method:"GET"})).status,405);
+  assert.equal((await invoke("/api/v1/admin/brands",{method:"GET"})).status,405);
+});
+
+test("admin GET categories lists active and inactive categories",async()=>{
+  let call;
+  const response=await invoke("/api/v1/admin/categories",{method:"GET",catalogCommandService:service({async listCategories(...args){call=args;return{data:[{id:"c1",name:"GPU",slug:"gpu",status:"INACTIVE"}]};}})});
+  assert.equal(response.status,200);
+  assert.equal(response.body.data[0].status,"INACTIVE");
+  assert.deepEqual(call,["access"]);
+});
+
+test("admin PATCH category status toggles visibility through setStatus",async()=>{
+  let call;
+  const response=await invoke("/api/v1/admin/categories/c1/status",{method:"PATCH",body:{status:"INACTIVE"},catalogCommandService:service({async setStatus(...args){call=args;return{id:"c1",status:"INACTIVE"};}})});
+  assert.equal(response.status,200);
+  assert.equal(response.body.data.status,"INACTIVE");
+  assert.deepEqual(call.slice(0,3),["access","category","c1"]);
+  assert.equal(call[3],"INACTIVE");
 });
 test("admin catalog internal errors do not leak",async()=>{const response=await invoke("/api/v1/admin/categories",{catalogCommandService:service({async createCategory(){throw new Error("database secret");}})});assert.equal(response.status,500);assert.equal(JSON.stringify(response.body).includes("database secret"),false);});

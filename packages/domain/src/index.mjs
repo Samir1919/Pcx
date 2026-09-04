@@ -10,7 +10,7 @@ export { Permission, Role, UserStatus } from "./identity/constants.mjs";
 export { authorize, authorizeRoleAssignment, hasPermission, permissionsForRole } from "./identity/role-policy.mjs";
 export { createSecurityAuditEvent } from "./identity/audit-event.mjs";
 export { createCustomerRegistrationCandidate, createOwnAddress } from "./identity/identity-record.mjs";
-export { archiveCatalogRecord, CatalogStatus, createBrand, createCategory, createProductModel } from "./catalog/catalog-records.mjs";
+export { archiveCatalogRecord, setCatalogStatus, CatalogStatus, createBrand, createCategory, createProductModel } from "./catalog/catalog-records.mjs";
 export { assertUniqueModelSpecificationValues, createModelSpecificationValue, createSpecificationDefinition, SpecificationDataType } from "./catalog/specifications.mjs";
 export { advanceSellRequest, assertSellRequestTransition, createSellRequest, createSellerDeclaration, FulfilmentPreference, parseSellRequestStatus, SellRequestStatus, SellRequestTransitions, submitSellRequest } from "./acquisition/sell-request.mjs";
 export { BuildComponentRole, createBuildComponent, parseSellEntry, SellEntry, validateBuildComponents } from "./acquisition/sell-entry.mjs";

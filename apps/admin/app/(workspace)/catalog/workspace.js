@@ -22,9 +22,10 @@ function CatalogEditModal({ active, record, categories, brands, busy, onClose, o
   function submit(event) {
     event.preventDefault();
     const changes = buildChanges(active, form);
-    if (Object.keys(changes).length === 0) { setError("No changes to save."); return; }
+    const statusChanged = active === "categories" && (form.status ?? "ACTIVE") !== (record.status ?? "ACTIVE") ? form.status : null;
+    if (Object.keys(changes).length === 0 && !statusChanged) { setError("No changes to save."); return; }
     setError(null);
-    onSave(changes);
+    onSave(changes, statusChanged);
   }
 
   return createPortal(
@@ -43,6 +44,12 @@ function CatalogEditModal({ active, record, categories, brands, busy, onClose, o
               <select name="parentId" value={form.parentId ?? ""} onChange={(e) => set("parentId", e.target.value || null)}>
                 <option value="">Catalog root</option>
                 {categories.filter((c) => c.id !== record.id).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </label>
+            <label><span>Status</span>
+              <select name="status" value={form.status ?? "ACTIVE"} onChange={(e) => set("status", e.target.value)}>
+                <option value="ACTIVE">Active — visible on the storefront</option>
+                <option value="INACTIVE">Inactive — hidden from the storefront</option>
               </select>
             </label>
           </>
@@ -105,6 +112,7 @@ function initialForm(active, record) {
     name: record.name ?? "",
     slug: record.slug ?? "",
     sortOrder: record.sortOrder ?? 0,
+    status: record.status ?? "ACTIVE",
     parentId: record.parentId ?? null,
     categoryId: record.categoryId ?? null,
     brandId: record.brandId ?? null,
@@ -148,6 +156,7 @@ export default function CatalogWorkspace() {
   const [modelsCursor, setModelsCursor] = useState(null);
   const [modelsNextCursor, setModelsNextCursor] = useState(null);
   const [editRecord, setEditRecord] = useState(null);
+  const [adminCategories, setAdminCategories] = useState([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -159,6 +168,7 @@ export default function CatalogWorkspace() {
         catalogApi.definitions(categoryFilter)
       ]);
       setData({ categories: categories.data, brands: brands.data, models: models.data, definitions: definitions.data });
+      setAdminCategories((await catalogApi.adminCategories()).data);
       setModelsCursor(null);
       setModelsNextCursor(models.meta?.nextCursor ?? null);
       setNotice(null);
@@ -239,12 +249,17 @@ export default function CatalogWorkspace() {
     }
   }
 
-  async function saveEdit(changes) {
+  async function saveEdit(changes, status) {
     if (!editRecord) return;
     setBusy(true);
     setNotice(null);
     try {
-      await catalogApi.update(plural[active], editRecord.id, changes);
+      if (Object.keys(changes).length > 0) {
+        await catalogApi.update(plural[active], editRecord.id, changes);
+      }
+      if (status) {
+        await catalogApi.setStatus(editRecord.id, status);
+      }
       setEditRecord(null);
       setNotice({ kind: "success", message: "Record updated." });
       await load();
@@ -255,7 +270,7 @@ export default function CatalogWorkspace() {
     }
   }
 
-  const rows = data[active];
+  const rows = active === "categories" ? adminCategories : data[active];
 
   return (
     <>
@@ -335,7 +350,13 @@ export default function CatalogWorkspace() {
                                 ? `${names.category[r.categoryId] ?? "Unknown category"} · ${r.dataType}${r.unit ? ` · ${r.unit}` : ""}`
                                 : r.parentId ? "Nested category" : "Catalog root"}
                           </td>
-                          <td><span className="pill">Active</span></td>
+                          <td>
+                            {active === "categories"
+                              ? (r.status === "INACTIVE"
+                                ? <span className="pill muted">Inactive</span>
+                                : <span className="pill">Active</span>)
+                              : <span className="pill">Active</span>}
+                          </td>
                           <td>
                             <div className="actions">
                               <button type="button" disabled={busy} onClick={() => setEditRecord(r)}>Edit</button>

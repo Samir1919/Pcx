@@ -1,22 +1,24 @@
 {
-  "scope": "Admin catalog Sell flow: custom icon image upload (media-backed) + storefront image render + revert-to-emoji",
+  "scope": "Admin catalog Categories edit form: category ACTIVE/INACTIVE visibility toggle (server-owned status, storefront-hidden)",
   "headed": true,
   "tool": "Playwright MCP browser (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "Admin uploads a custom icon image for a BUILD entry, sees live image preview, the storefront renders the image instead of the emoji, and Revert restores the library emoji",
+    "subject": "Admin edits a category and toggles its status between Active (storefront-visible) and Inactive (storefront-hidden, still reactivatable in admin), with the list showing a muted Inactive pill",
     "steps": [
       "admin-sign-in-mfa",
-      "open-catalog-sell-flow-tab",
-      "verify-icon-field-has-select-and-upload-button",
-      "upload-icon-image-via-file-input",
-      "admin-icon-preview-shows-uploaded-image",
-      "storefront-sell-page-renders-uploaded-image",
-      "revert-clears-icon-and-restores-emoji",
+      "open-catalog-categories-tab",
+      "open-category-edit-modal",
+      "edit-form-shows-status-select",
+      "set-status-to-inactive-and-save",
+      "list-shows-inactive-pill",
+      "public-category-endpoint-hides-inactive-category",
+      "reactivate-to-active-and-save",
       "no-console-errors-during-flow"
     ]
   },
-  "notes": "Custom icon upload stores the image in the shared media table (PUBLIC, purpose ICON) and records the media id on sell_entry_config.icon_media_id. The server persists and validates the image (malware scan + WebP conversion); the client never authors the media id or URL. Upload returned 201, revert returned 200; the storefront rendered /api/v1/media/{id} for the uploaded entry and reverted to the emoji glyph after clear. The combobox is now correctly labeled 'Icon' (fixed a nested-label issue from the first pass).",
-  "ranAt": "2026-09-04T02:20:00.000Z"
+  "notes": "Category status now supports ACTIVE/INACTIVE (migration 0050 relaxes the two CHECK constraints) in addition to ARCHIVED/DELETE. The edit modal has a Status select; saving a status change calls PATCH /api/v1/admin/categories/:id/status which is validated by the domain setCatalogStatus (never ARCHIVED — archive is a separate audited command) and audited as CATALOG_CATEGORY_DEACTIVATED/ACTIVATED. The admin list uses GET /api/v1/admin/categories (ACTIVE+INACTIVE, never ARCHIVED) so a deactivated category remains visible with a muted 'Inactive' pill and can be reactivated. The public storefront category endpoint stays ACTIVE-only, so the inactive category disappears from the storefront. Verified headed: deactivate -> 200, list shows Inactive, public endpoint excludes the category; reactivate -> 200, status restored.",
+  "ranAt": "2026-09-04T03:07:00.000Z"
 }
+
 

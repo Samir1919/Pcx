@@ -6,6 +6,7 @@ export { ApiError as CatalogApiError, csrfToken } from "./api-client.js";
 
 export const catalogApi = Object.freeze({
   categories: () => apiRequest("/api/v1/categories"),
+  adminCategories: () => apiRequest("/api/v1/admin/categories"),
   brands: () => apiRequest("/api/v1/brands"),
   models: ({ cursor, categoryId } = {}) => apiRequest(`/api/v1/product-models?limit=50${categoryId ? `&categoryId=${encodeURIComponent(categoryId)}` : ""}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`),
   model: (id) => apiRequest(`/api/v1/product-models/${encodeURIComponent(id)}`),
@@ -17,6 +18,7 @@ export const catalogApi = Object.freeze({
   createDefinition: (body) => apiRequest("/api/v1/admin/attribute-definitions", { method: "POST", body }),
   importCsv: (csv) => apiRequest("/api/v1/admin/catalog/import", { method: "POST", body: { csv } }),
   update: (resource, id, body) => apiRequest(`/api/v1/admin/${resource}/${encodeURIComponent(id)}`, { method: "PATCH", body }),
+  setStatus: (id, status) => apiRequest(`/api/v1/admin/categories/${encodeURIComponent(id)}/status`, { method: "PATCH", body: { status } }),
   archive: (resource, id) => apiRequest(`/api/v1/admin/${resource}/${encodeURIComponent(id)}`, { method: "DELETE" }),
   remove: (resource, id) => apiRequest(`/api/v1/admin/${resource}/${encodeURIComponent(id)}?purge=1`, { method: "DELETE" }),
   setModelValue: (modelId, definitionId, value) => apiRequest(`/api/v1/admin/product-models/${encodeURIComponent(modelId)}/specifications/${encodeURIComponent(definitionId)}`, { method: "PUT", body: { value } })

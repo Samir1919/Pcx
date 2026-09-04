@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createBrand, createCategory, createProductModel, hasPermission, Permission } from "@pcx/domain";
+import { createBrand, createCategory, createProductModel, hasPermission, Permission, setCatalogStatus } from "@pcx/domain";
 
 export class CatalogCommandError extends Error { constructor(code) { super(code); this.name = "CatalogCommandError"; this.code = code; } }
 
@@ -11,7 +11,7 @@ const fields = Object.freeze({
 
 export function createCatalogCommandService({ authService, repository, id = randomUUID, clock = () => new Date() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
-  if (!repository || ["create","find","update","archive","remove"].some((method) => typeof repository[method] !== "function")) throw new TypeError("catalog command repository is required");
+  if (!repository || ["create","find","update","archive","setStatus","listCategories","remove"].some((method) => typeof repository[method] !== "function")) throw new TypeError("catalog command repository is required");
 
   async function actor(accessCredential) {
     const identity = await authService.authenticateAccess({ accessCredential });
@@ -74,6 +74,35 @@ export function createCatalogCommandService({ authService, repository, id = rand
       const now = clock().toISOString();
       const archived = await repository.archive(targetId, kind, now, event(identity, kind, targetId, context.requestId, `CATALOG_${kind.toUpperCase()}_ARCHIVED`, now));
       if (!archived) throw new CatalogCommandError("not_found");
+    },
+
+    // Toggle category visibility (ACTIVE ↔ INACTIVE). The server validates the
+    // transition via the domain (never ARCHIVED here — archive is separate) and
+    // owns the status value; the client only picks the intended state.
+    async setStatus(accessCredential, kind, targetId, status, context = {}) {
+      if (!fields[kind] || typeof targetId !== "string" || !targetId) throw new CatalogCommandError("not_found");
+      if (status !== "ACTIVE" && status !== "INACTIVE") throw new CatalogCommandError("invalid_input");
+      const identity = await actor(accessCredential);
+      const existing = await repository.find(kind, targetId);
+      if (!existing) throw new CatalogCommandError("not_found");
+      const now = clock().toISOString();
+      try {
+        setCatalogStatus(existing, status, { updatedAt: now });
+        const updated = await repository.setStatus(targetId, kind, status, now, event(identity, kind, targetId, context.requestId, `CATALOG_${kind.toUpperCase()}_${status === "INACTIVE" ? "DEACTIVATED" : "ACTIVATED"}`, now));
+        if (!updated) throw new CatalogCommandError("not_found");
+      } catch (error) {
+        if (error instanceof CatalogCommandError) throw error;
+        if (error instanceof TypeError) throw new CatalogCommandError("invalid_input");
+        throw error;
+      }
+    },
+
+    // Admin read: categories including INACTIVE (never ARCHIVED) so a
+    // deactivated category remains visible and can be reactivated.
+    async listCategories(accessCredential) {
+      await actor(accessCredential);
+      if (typeof repository.listCategories !== "function") throw new TypeError("catalog admin list is unavailable");
+      return Object.freeze({ data: Object.freeze(await repository.listCategories()) });
     },
 
     // Hard delete (unreferenced only). A referenced record yields `in_use` so the

@@ -1,5 +1,6 @@
 export const CatalogStatus = Object.freeze({
   ACTIVE: "ACTIVE",
+  INACTIVE: "INACTIVE",
   ARCHIVED: "ARCHIVED"
 });
 
@@ -43,23 +44,24 @@ function timestamp(value, name) {
   return date.toISOString();
 }
 
-function catalogBase({ id, name, slug, createdAt = new Date() }) {
+function catalogBase({ id, name, slug, status = CatalogStatus.ACTIVE, createdAt = new Date() }) {
+  if (status !== CatalogStatus.ACTIVE && status !== CatalogStatus.INACTIVE) throw new TypeError("status must be ACTIVE or INACTIVE");
   const now = timestamp(createdAt, "createdAt");
   return {
     id: requiredString(id, "id"),
     name: requiredString(name, "name"),
     slug: canonicalSlug(slug),
-    status: CatalogStatus.ACTIVE,
+    status,
     createdAt: now,
     updatedAt: now,
     archivedAt: null
   };
 }
 
-export function createCategory({ id, parentId, name, slug, sortOrder = 0, createdAt }) {
+export function createCategory({ id, parentId, name, slug, sortOrder = 0, status = CatalogStatus.ACTIVE, createdAt }) {
   if (!Number.isSafeInteger(sortOrder) || sortOrder < 0) throw new TypeError("sortOrder must be a non-negative integer");
   return Object.freeze({
-    ...catalogBase({ id, name, slug, createdAt }),
+    ...catalogBase({ id, name, slug, status, createdAt }),
     parentId: optionalString(parentId, "parentId"),
     sortOrder
   });
@@ -97,4 +99,16 @@ export function archiveCatalogRecord(record, { archivedAt = new Date() } = {}) {
   if (record.status !== CatalogStatus.ACTIVE) throw new TypeError("catalog record has an unknown status");
   const archived = timestamp(archivedAt, "archivedAt");
   return Object.freeze({ ...record, status: CatalogStatus.ARCHIVED, updatedAt: archived, archivedAt: archived });
+}
+
+// Toggle visibility without deleting: ACTIVE ↔ INACTIVE. Archiving is a
+// separate, audited transition (archiveCatalogRecord) so this only allows the
+// reversible ACTIVE/INACTIVE pair and never resurrects an archived record.
+export function setCatalogStatus(record, status, { updatedAt = new Date() } = {}) {
+  if (!record || typeof record !== "object" || typeof record.id !== "string") throw new TypeError("catalog record is required");
+  if (status !== CatalogStatus.ACTIVE && status !== CatalogStatus.INACTIVE) throw new TypeError("catalog status must be ACTIVE or INACTIVE");
+  if (record.status === CatalogStatus.ARCHIVED) throw new TypeError("archived catalog record cannot be reactivated");
+  if (record.status !== CatalogStatus.ACTIVE && record.status !== CatalogStatus.INACTIVE) throw new TypeError("catalog record has an unknown status");
+  const updated = timestamp(updatedAt, "updatedAt");
+  return Object.freeze({ ...record, status, updatedAt: updated, archivedAt: null });
 }

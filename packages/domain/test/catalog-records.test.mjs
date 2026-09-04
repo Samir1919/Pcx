@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   archiveCatalogRecord,
+  setCatalogStatus,
   CatalogStatus,
   createBrand,
   createCategory,
@@ -74,4 +75,20 @@ test("archive transition preserves historical identity and is idempotent", () =>
   assert.equal(archived.archivedAt, "2026-08-16T03:00:00.000Z");
   assert.equal(archiveCatalogRecord(archived), archived);
   assert.equal(brand.status, CatalogStatus.ACTIVE);
+});
+
+test("setCatalogStatus toggles ACTIVE ↔ INACTIVE and never resurrects archived records", () => {
+  const category = createCategory({ id: "category-1", name: "GPUs", slug: "gpus", createdAt });
+
+  const inactive = setCatalogStatus(category, CatalogStatus.INACTIVE, { updatedAt: "2026-08-16T04:00:00.000Z" });
+  assert.equal(inactive.status, CatalogStatus.INACTIVE);
+  assert.equal(inactive.archivedAt, null);
+  assert.equal(inactive.updatedAt, "2026-08-16T04:00:00.000Z");
+
+  const reactivated = setCatalogStatus(inactive, CatalogStatus.ACTIVE);
+  assert.equal(reactivated.status, CatalogStatus.ACTIVE);
+
+  const archived = archiveCatalogRecord(category);
+  assert.throws(() => setCatalogStatus(archived, CatalogStatus.ACTIVE), /archived/);
+  assert.throws(() => setCatalogStatus(category, CatalogStatus.ARCHIVED), /ACTIVE or INACTIVE/);
 });
