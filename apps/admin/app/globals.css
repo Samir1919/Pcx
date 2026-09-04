@@ -1343,6 +1343,36 @@ textarea:focus-visible {
   padding: var(--space-4);
 }
 
+/* Icon picker: live emoji preview beside the dropdown so the chosen icon is
+   obvious at a glance (NN/g: icons need visible feedback + a text label). */
+.iconField {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.iconPreview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  flex: 0 0 auto;
+  font-size: 1.5rem;
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+}
+
+/* Inline-edit role slug (was a read-only <code>). */
+.roleInput {
+  max-width: 8rem;
+  font: 0.8125rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--green);
+  font-weight: 700;
+  padding: var(--space-1) var(--space-2);
+}
+
 /* BUILD entry cards hold a 5-column role table, so they span the full grid row
    instead of squeezing into a narrow card column (which forced horizontal
    scroll to reach Order/Remove). */

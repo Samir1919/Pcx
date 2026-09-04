@@ -128,6 +128,29 @@ test("createComponent validates role and category", async () => {
   await assert.rejects(service.createComponent("access", "DESKTOP_PC", { role: "panel", categoryId: "not-a-uuid" }), (error) => error.code === "invalid_input");
 });
 
+test("updateComponent supports renaming a role", async () => {
+  const { service, calls } = fixture();
+  const result = await service.updateComponent("access", "DESKTOP_PC", "gpu", { role: "graphics" }, { requestId: "r-rename" });
+  assert.equal(result.role, "graphics");
+  const update = calls.find(([name]) => name === "updateComponent");
+  assert.equal(update[1], "DESKTOP_PC");
+  assert.equal(update[2], "gpu");
+  assert.equal(update[3].role, "graphics");
+  await assert.rejects(service.updateComponent("access", "DESKTOP_PC", "gpu", { role: "Bad Role" }), (error) => error.code === "invalid_input");
+});
+
+test("updateComponent surfaces already_exists on a role-name collision", async () => {
+  const { service } = fixture(["ADMIN"], {
+    createEntry: async () => false,
+    deleteEntry: async () => false,
+    updateEntry: async () => false,
+    createComponent: async () => false,
+    deleteComponent: async () => false,
+    updateComponent: async () => { const error = new Error("duplicate"); error.code = "23505"; throw error; }
+  });
+  await assert.rejects(service.updateComponent("access", "DESKTOP_PC", "gpu", { role: "cpu" }), (error) => error.code === "already_exists");
+});
+
 test("deleteComponent validates and removes", async () => {
   const { service, calls } = fixture();
   const result = await service.deleteComponent("access", "DESKTOP_PC", "gpu", { requestId: "r6" });

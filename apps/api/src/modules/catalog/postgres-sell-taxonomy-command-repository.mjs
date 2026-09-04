@@ -67,6 +67,7 @@ export function createPostgresSellTaxonomyCommandRepository({ pool }) {
         const sets = [];
         const values = [entryKey, role];
         const add = (v) => { values.push(v); return `$${values.length}`; };
+        if (patch.role !== undefined) sets.push(`role=${add(patch.role)}`);
         if (patch.categoryId !== undefined) sets.push(`category_id=${add(patch.categoryId)}`);
         if (patch.required !== undefined) sets.push(`required=${add(patch.required)}`);
         if (patch.sortOrder !== undefined) sets.push(`sort_order=${add(patch.sortOrder)}`);

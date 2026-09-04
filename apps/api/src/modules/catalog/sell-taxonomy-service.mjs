@@ -7,7 +7,7 @@ export class SellTaxonomyError extends Error {
 
 const entryFields = new Set(["iconKey", "hint", "sortOrder", "isActive"]);
 const createFields = new Set(["categoryId", "kind", "iconKey", "hint", "sortOrder", "isActive"]);
-const componentFields = new Set(["categoryId", "required", "sortOrder"]);
+const componentFields = new Set(["role", "categoryId", "required", "sortOrder"]);
 const createComponentFields = new Set(["role", "categoryId", "required", "sortOrder"]);
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -62,6 +62,9 @@ function normalizeCreate(input) {
 function normalizeComponent(input) {
   const value = exact(input, componentFields);
   const patch = {};
+  if (value.role !== undefined) {
+    try { patch.role = parseBuildComponentRole(value.role); } catch { throw new SellTaxonomyError("invalid_input"); }
+  }
   if (value.categoryId !== undefined) {
     if (typeof value.categoryId !== "string" || !uuidPattern.test(value.categoryId)) throw new SellTaxonomyError("invalid_input");
     patch.categoryId = value.categoryId;
@@ -204,10 +207,11 @@ export function createSellTaxonomyService({ authService, readRepository, command
         if (!updated) throw new SellTaxonomyError("not_found");
       } catch (error) {
         if (error instanceof SellTaxonomyError) throw error;
+        if (error?.code === "23505") throw new SellTaxonomyError("already_exists");
         if (error?.code === "23503") throw new SellTaxonomyError("invalid_reference");
         throw error;
       }
-      return Object.freeze({ entryKey: key, role: componentRole, ...patch, updatedAt: now });
+      return Object.freeze({ entryKey: key, role: patch.role ?? componentRole, ...patch, updatedAt: now });
     },
 
     async createComponent(accessCredential, entryKey, input, context = {}) {

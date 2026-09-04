@@ -16,6 +16,10 @@ const ICON_KEYS = [
   { key: "accessory", label: "🎧 Accessory" }
 ];
 
+// Live preview emoji for the selected icon key (falls back to a box).
+const ICON_EMOJI = Object.fromEntries(ICON_KEYS.map((i) => [i.key, i.label.split(" ")[0]]));
+function iconEmoji(key) { return ICON_EMOJI[key] ?? "📦"; }
+
 function Banner({ notice, onClose }) { if (!notice) return null; return <div className={`banner ${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}><span>{notice.message}</span><button type="button" onClick={onClose} aria-label="Dismiss message">×</button></div>; }
 
 export default function SellFlowPanel({ categories }) {
@@ -23,7 +27,6 @@ export default function SellFlowPanel({ categories }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
-  const [editingRole, setEditingRole] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -197,9 +200,12 @@ export default function SellFlowPanel({ categories }) {
 
               <div className="entryMeta">
                 <label><span>Icon</span>
-                  <select value={entry.iconKey} disabled={busy} onChange={(e) => patchEntry(entry.entryKey, { iconKey: e.target.value })}>
-                    {ICON_KEYS.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}
-                  </select>
+                  <span className="iconField">
+                    <span className="iconPreview" aria-hidden="true">{iconEmoji(entry.iconKey)}</span>
+                    <select value={entry.iconKey} disabled={busy} onChange={(e) => patchEntry(entry.entryKey, { iconKey: e.target.value })}>
+                      {ICON_KEYS.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}
+                    </select>
+                  </span>
                 </label>
                 <label><span>Hint</span><input type="text" defaultValue={entry.hint} disabled={busy} onBlur={(e) => { const value = e.target.value.trim(); if (value && value !== entry.hint) patchEntry(entry.entryKey, { hint: value }); }} /></label>
                 <label><span>Sort order</span><input type="number" min="0" defaultValue={entry.sortOrder} disabled={busy} onBlur={(e) => { const value = Number(e.target.value); if (Number.isSafeInteger(value) && value !== entry.sortOrder) patchEntry(entry.entryKey, { sortOrder: value }); }} /></label>
@@ -223,15 +229,13 @@ export default function SellFlowPanel({ categories }) {
                           ? <tr><td colSpan="5"><span className="state">No build roles yet. Add one below.</span></td></tr>
                           : entry.components.map((component) => (
                             <tr key={component.role}>
-                              <td><code>{component.role}</code></td>
                               <td>
-                                {editingRole === component.role ? (
-                                  <select value={component.category.id} disabled={busy} autoFocus onBlur={() => setEditingRole(null)} onChange={(e) => { patchComponent(entry.entryKey, component.role, { categoryId: e.target.value }); setEditingRole(null); }}>
-                                    {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                  </select>
-                                ) : (
-                                  <button type="button" className="categoryLink" disabled={busy} onClick={() => setEditingRole(component.role)}>{component.category?.name ?? "Choose category"}</button>
-                                )}
+                                <input type="text" className="roleInput" defaultValue={component.role} disabled={busy} pattern="[a-z][a-z0-9-]*" maxLength="40" title="Lowercase slug, e.g. panel" onBlur={(e) => { const value = e.target.value.trim(); if (value && value !== component.role) patchComponent(entry.entryKey, component.role, { role: value }); }} />
+                              </td>
+                              <td>
+                                <select value={component.category.id} disabled={busy} onChange={(e) => patchComponent(entry.entryKey, component.role, { categoryId: e.target.value })}>
+                                  {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                </select>
                               </td>
                               <td><label className="check"><input type="checkbox" checked={component.required} disabled={busy} onChange={(e) => patchComponent(entry.entryKey, component.role, { required: e.target.checked })} /></label></td>
                               <td>
