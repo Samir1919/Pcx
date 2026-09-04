@@ -204,15 +204,10 @@ export default function SellFlowPanel({ categories }) {
               <label><span>Sort order</span><input type="number" min="0" defaultValue={entry.sortOrder} disabled={busy} onBlur={(e) => { const value = Number(e.target.value); if (Number.isSafeInteger(value) && value !== entry.sortOrder) patchEntry(entry.entryKey, { sortOrder: value }); }} /></label>
 
               {entry.kind === "PARTS" && (
-                <div className="tableWrap entryTable">
-                  <table>
-                    <thead><tr><th>Part subcategories</th></tr></thead>
-                    <tbody>
-                      {entry.children.length === 0
-                        ? <tr><td><span className="state">No active part subcategories.</span></td></tr>
-                        : entry.children.map((child) => <tr key={child.id}><td>{child.name}</td></tr>)}
-                    </tbody>
-                  </table>
+                <div className="partsList entryTable">
+                  {entry.children.length === 0
+                    ? <span className="state">No active part subcategories.</span>
+                    : entry.children.map((child) => <span key={child.id} className="partChip">{child.name}</span>)}
                 </div>
               )}
 
@@ -220,7 +215,7 @@ export default function SellFlowPanel({ categories }) {
                 <>
                   <div className="tableWrap entryTable">
                     <table>
-                      <thead><tr><th>Role</th><th>Component category</th><th>Required</th><th>Order</th><th></th></tr></thead>
+                      <thead><tr><th>Role</th><th>Component category</th><th>Required</th><th>Order</th><th aria-label="Actions"></th></tr></thead>
                       <tbody>
                         {entry.components.length === 0
                           ? <tr><td colSpan="5"><span className="state">No build roles yet. Add one below.</span></td></tr>
@@ -236,7 +231,7 @@ export default function SellFlowPanel({ categories }) {
                                   <button type="button" className="categoryLink" disabled={busy} onClick={() => setEditingRole(component.role)}>{component.category?.name ?? "Choose category"}</button>
                                 )}
                               </td>
-                              <td><input type="checkbox" checked={component.required} disabled={busy} onChange={(e) => patchComponent(entry.entryKey, component.role, { required: e.target.checked })} /></td>
+                              <td><label className="check"><input type="checkbox" checked={component.required} disabled={busy} onChange={(e) => patchComponent(entry.entryKey, component.role, { required: e.target.checked })} /></label></td>
                               <td>
                                 <input type="number" min="0" defaultValue={component.sortOrder} className="numInput" disabled={busy} onBlur={(e) => { const value = Number(e.target.value); if (Number.isSafeInteger(value) && value !== component.sortOrder) patchComponent(entry.entryKey, component.role, { sortOrder: value }); }} />
                               </td>
