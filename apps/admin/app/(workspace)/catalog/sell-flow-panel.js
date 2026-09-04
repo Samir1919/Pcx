@@ -182,7 +182,7 @@ export default function SellFlowPanel({ categories }) {
       {loading ? <p className="state" role="status">Loading sell flow…</p> : (
         <div className="cardGrid">
           {entries.map((entry) => (
-            <section key={entry.entryKey} className="panel">
+            <section key={entry.entryKey} className={`panel${entry.kind === "BUILD" ? " panelWide" : ""}`}>
               <div className="panelTitle">
                 <div>
                   <p className="eyebrow">SELL ENTRY · {entry.kind}</p>
@@ -195,13 +195,15 @@ export default function SellFlowPanel({ categories }) {
                 </div>
               </div>
 
-              <label><span>Icon</span>
-                <select value={entry.iconKey} disabled={busy} onChange={(e) => patchEntry(entry.entryKey, { iconKey: e.target.value })}>
-                  {ICON_KEYS.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}
-                </select>
-              </label>
-              <label><span>Hint</span><input type="text" defaultValue={entry.hint} disabled={busy} onBlur={(e) => { const value = e.target.value.trim(); if (value && value !== entry.hint) patchEntry(entry.entryKey, { hint: value }); }} /></label>
-              <label><span>Sort order</span><input type="number" min="0" defaultValue={entry.sortOrder} disabled={busy} onBlur={(e) => { const value = Number(e.target.value); if (Number.isSafeInteger(value) && value !== entry.sortOrder) patchEntry(entry.entryKey, { sortOrder: value }); }} /></label>
+              <div className="entryMeta">
+                <label><span>Icon</span>
+                  <select value={entry.iconKey} disabled={busy} onChange={(e) => patchEntry(entry.entryKey, { iconKey: e.target.value })}>
+                    {ICON_KEYS.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}
+                  </select>
+                </label>
+                <label><span>Hint</span><input type="text" defaultValue={entry.hint} disabled={busy} onBlur={(e) => { const value = e.target.value.trim(); if (value && value !== entry.hint) patchEntry(entry.entryKey, { hint: value }); }} /></label>
+                <label><span>Sort order</span><input type="number" min="0" defaultValue={entry.sortOrder} disabled={busy} onBlur={(e) => { const value = Number(e.target.value); if (Number.isSafeInteger(value) && value !== entry.sortOrder) patchEntry(entry.entryKey, { sortOrder: value }); }} /></label>
+              </div>
 
               {entry.kind === "PARTS" && (
                 <div className="partsList entryTable">
