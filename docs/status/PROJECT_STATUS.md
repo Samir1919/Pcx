@@ -133,6 +133,7 @@ Re-verified 2026-09-01: several "remaining" items were confirmed complete and mo
 ## Admin full CRUD + data retention (2026-09-01)
 
 - ~~**Catalog hard delete**~~ — **COMPLETE 2026-09-01** (`DELETE /admin/:kind/:id?purge=1`, FK RESTRICT → 409 `CATALOG_IN_USE`, Delete + Archive buttons).
+- ~~**Category ACTIVE/INACTIVE visibility toggle**~~ — **COMPLETE 2026-09-04** (commit `0d13043`): category edit form gains a Status select (Active/Inactive). INACTIVE hides the category from the storefront (public category endpoint stays ACTIVE-only) while keeping it visible in the admin list (muted "Inactive" pill) so it can be reactivated. Domain `setCatalogStatus` only allows the reversible ACTIVE↔INACTIVE pair (never resurrects archived); command service audits `CATALOG_CATEGORY_DEACTIVATED/ACTIVATED`; migration `0050` relaxes the two categories CHECK constraints; new `PATCH /api/v1/admin/categories/:id/status` + `GET /api/v1/admin/categories` routes.
 - ~~**Listings pause/unpublish/archive**~~ — **COMPLETE 2026-09-01** (domain `pauseListing`/`unpublishListing`/`archiveListing` + repo/service/HTTP + status-aware UI; archive is soft-delete, RESERVED/SOLD never archived).
 - ~~**Provider config delete**~~ — **COMPLETE 2026-09-01** (payment + notification `DELETE /admin/:providers/:provider/config/:mode`).
 - ~~**Scheduled export delete**~~ — **COMPLETE 2026-09-01** (`DELETE /admin/scheduled-exports/:id`).
