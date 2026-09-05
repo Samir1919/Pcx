@@ -1,22 +1,24 @@
 {
-  "scope": "Storefront layered-navigation attribute filters: filterable spec definitions now drive a facet filter panel on the marketplace search",
+  "scope": "Catalog admin create forms (slug fields) + product-model ACTIVE/INACTIVE visibility toggle: create forms for category/brand/model expose a Slug field, and the product-model edit form gains a Status select backed by a new admin model list and status route",
   "headed": true,
   "tool": "Playwright MCP browser (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "Storefront marketplace renders a facet filter panel from filterable attributes and narrows listings when a value is selected",
+    "subject": "Admin catalog workspace exposes Slug on category/brand/product-model create forms and toggles a product model ACTIVE<->INACTIVE with server-enforced status and an INACTIVE-visible admin list",
     "steps": [
-      "open-storefront-marketplace",
-      "facet-panel-renders-filterable-attributes-with-values-and-units",
-      "select-vram-12-and-apply",
-      "search-request-includes-spec-filter-param",
-      "listings-narrow-to-matching-models",
-      "reset-filter",
-      "no-unexpected-console-errors"
+      "open-admin-catalog",
+      "category-create-form-renders-slug-field",
+      "product-model-create-form-renders-slug-field",
+      "product-model-edit-modal-renders-status-select",
+      "toggle-model-to-inactive-and-save",
+      "model-shows-muted-inactive-pill-without-error",
+      "toggle-model-back-to-active-and-save",
+      "attribute-create-form-renders-all-declared-controls",
+      "fresh-reload-makes-no-failed-api-requests"
     ]
   },
-  "notes": "The 'filterable' flag on attribute definitions is now functional. The public storefront search (GET /api/v1/listings) accepts spec[key]=value layered-navigation filters (validated allow-list), and a new GET /api/v1/listings/facets returns filterable attribute keys + distinct values across published listings (optionally category-scoped). The storefront marketplace renders a facet panel (CPU/GPU/Motherboard/PSU/RAM/Storage/VRAM with units) and appends spec[] params on search. Verified headed: selecting VRAM=12 sent spec[vram_gb]=12 (200) and narrowed results to the RTX 3060 12GB models; reset cleared the filter. The only console errors are the pre-existing unauthenticated /api/v1/me 401s on the public storefront.",
-  "ranAt": "2026-09-04T03:55:00.000Z"
+  "notes": "This slice completes the 'all declared options are exposed' verification: the attribute create form already rendered every declared control (category, key, label, dataType TEXT/NUMBER/BOOLEAN/JSON, unit, sortOrder, filterable, required). The product-model (and, for consistency, category/brand) create forms now expose an optional Slug field (auto-derived from the name when blank, matching the edit modal). The product-model edit modal now exposes a Status select (Active/Inactive) that drives a new PATCH /api/v1/admin/product-models/:id/status route (server-enforced via setCatalogStatus, audited CATALOG_PRODUCT_MODEL_DEACTIVATED/ACTIVATED) and a new GET /api/v1/admin/product-models admin list that includes INACTIVE models so they can be reactivated; migration 0051 relaxes the two product_models CHECK constraints. Verified headed end-to-end: PCX Gaming Tower toggled to Inactive (muted pill) then back to Active with no error banner; a fresh page load records zero failed API requests.",
+  "ranAt": "2026-09-05T12:05:00.000Z"
 }
 
 

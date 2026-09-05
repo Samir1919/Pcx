@@ -22,7 +22,7 @@ function CatalogEditModal({ active, record, categories, brands, busy, onClose, o
   function submit(event) {
     event.preventDefault();
     const changes = buildChanges(active, form);
-    const statusChanged = active === "categories" && (form.status ?? "ACTIVE") !== (record.status ?? "ACTIVE") ? form.status : null;
+    const statusChanged = (active === "categories" || active === "models") && (form.status ?? "ACTIVE") !== (record.status ?? "ACTIVE") ? form.status : null;
     if (Object.keys(changes).length === 0 && !statusChanged) { setError("No changes to save."); return; }
     setError(null);
     onSave(changes, statusChanged);
@@ -70,6 +70,12 @@ function CatalogEditModal({ active, record, categories, brands, busy, onClose, o
             <label><span>Brand</span><select name="brandId" value={form.brandId ?? ""} onChange={(e) => set("brandId", e.target.value)} required><option value="">Select brand</option>{brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
             <Field label="Model code (optional)" name="modelCode" defaultValue={form.modelCode ?? ""} onChange={(e) => set("modelCode", e.target.value)} />
             <Field label="Search aliases (comma separated)" name="aliases" defaultValue={(form.searchAliases ?? []).join(", ")} onChange={(e) => set("searchAliases", e.target.value)} />
+            <label><span>Status</span>
+              <select name="status" value={form.status ?? "ACTIVE"} onChange={(e) => set("status", e.target.value)}>
+                <option value="ACTIVE">Active — visible on the storefront</option>
+                <option value="INACTIVE">Inactive — hidden from the storefront</option>
+              </select>
+            </label>
           </>
         )}
 
@@ -164,7 +170,7 @@ export default function CatalogWorkspace() {
       const [categories, brands, models, definitions] = await Promise.all([
         catalogApi.categories(),
         catalogApi.brands(),
-        catalogApi.models(),
+        catalogApi.adminModels(),
         catalogApi.definitions(categoryFilter)
       ]);
       setData({ categories: categories.data, brands: brands.data, models: models.data, definitions: definitions.data });
@@ -182,7 +188,7 @@ export default function CatalogWorkspace() {
   const loadModelsPage = useCallback(async (cursor) => {
     setLoading(true);
     try {
-      const result = await catalogApi.models({ cursor });
+      const result = await catalogApi.adminModels({ cursor });
       setData((prev) => ({ ...prev, models: result.data }));
       setModelsCursor(cursor ?? null);
       setModelsNextCursor(result.meta?.nextCursor ?? null);
@@ -207,9 +213,9 @@ export default function CatalogWorkspace() {
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
     try {
-      if (active === "categories") await catalogApi.createCategory({ name: form.get("name"), slug: slug(form.get("name")), sortOrder: Number(form.get("sortOrder") || 0) });
-      if (active === "brands") await catalogApi.createBrand({ name: form.get("name"), slug: slug(form.get("name")) });
-      if (active === "models") await catalogApi.createModel({ name: form.get("name"), slug: slug(form.get("name")), categoryId: form.get("categoryId"), brandId: form.get("brandId"), modelCode: form.get("modelCode") || null, searchAliases: form.get("aliases").split(",").map((v) => v.trim()).filter(Boolean) });
+      if (active === "categories") await catalogApi.createCategory({ name: form.get("name"), slug: form.get("slug")?.trim() || slug(form.get("name")), sortOrder: Number(form.get("sortOrder") || 0) });
+      if (active === "brands") await catalogApi.createBrand({ name: form.get("name"), slug: form.get("slug")?.trim() || slug(form.get("name")) });
+      if (active === "models") await catalogApi.createModel({ name: form.get("name"), slug: form.get("slug")?.trim() || slug(form.get("name")), categoryId: form.get("categoryId"), brandId: form.get("brandId"), modelCode: form.get("modelCode") || null, searchAliases: form.get("aliases").split(",").map((v) => v.trim()).filter(Boolean) });
       if (active === "definitions") await catalogApi.createDefinition({ categoryId: form.get("categoryId"), key: form.get("key"), label: form.get("label"), dataType: form.get("dataType"), unit: form.get("unit") || null, filterable: form.get("filterable") === "on", required: form.get("required") === "on", sortOrder: Number(form.get("sortOrder") || 0) });
       formElement.reset();
       setNotice({ kind: "success", message: "Catalog record saved." });
@@ -258,7 +264,7 @@ export default function CatalogWorkspace() {
         await catalogApi.update(plural[active], editRecord.id, changes);
       }
       if (status) {
-        await catalogApi.setStatus(editRecord.id, status);
+        await catalogApi.setStatus(plural[active], editRecord.id, status);
       }
       setEditRecord(null);
       setNotice({ kind: "success", message: "Record updated." });
@@ -351,7 +357,7 @@ export default function CatalogWorkspace() {
                                 : r.parentId ? "Nested category" : "Catalog root"}
                           </td>
                           <td>
-                            {active === "categories"
+                            {(active === "categories" || active === "models")
                               ? (r.status === "INACTIVE"
                                 ? <span className="pill muted">Inactive</span>
                                 : <span className="pill">Active</span>)
@@ -383,11 +389,12 @@ export default function CatalogWorkspace() {
             <h2>New {singular[active]}</h2>
             <p>IDs, lifecycle status and audit actor are assigned by the server.</p>
             <form onSubmit={create}>
-              {active === "categories" && (<><Field label="Category name" name="name" required maxLength="120" /><Field label="Sort order" name="sortOrder" type="number" min="0" defaultValue="0" /></>)}
-              {active === "brands" && <Field label="Brand name" name="name" required maxLength="120" />}
+              {active === "categories" && (<><Field label="Category name" name="name" required maxLength="120" /><Field label="Slug" name="slug" placeholder="Auto-generated from name" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" maxLength="120" /><Field label="Sort order" name="sortOrder" type="number" min="0" defaultValue="0" /></>)}
+              {active === "brands" && (<><Field label="Brand name" name="name" required maxLength="120" /><Field label="Slug" name="slug" placeholder="Auto-generated from name" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" maxLength="120" /></>)}
               {active === "models" && (
                 <>
                   <Field label="Model name" name="name" required maxLength="160" />
+                  <Field label="Slug" name="slug" placeholder="Auto-generated from name" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" maxLength="160" />
                   <label><span>Category</span><select name="categoryId" required><option value="">Select category</option>{data.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
                   <label><span>Brand</span><select name="brandId" required><option value="">Select brand</option>{data.brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
                   <Field label="Model code (optional)" name="modelCode" />

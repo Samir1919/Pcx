@@ -38,4 +38,21 @@ test("admin PATCH category status toggles visibility through setStatus",async()=
   assert.deepEqual(call.slice(0,3),["access","category","c1"]);
   assert.equal(call[3],"INACTIVE");
 });
+test("admin PATCH product-model status toggles visibility through setStatus",async()=>{
+  let call;
+  const response=await invoke("/api/v1/admin/product-models/m1/status",{method:"PATCH",body:{status:"INACTIVE"},catalogCommandService:service({async setStatus(...args){call=args;return{id:"m1",status:"INACTIVE"};}})});
+  assert.equal(response.status,200);
+  assert.equal(response.body.data.status,"INACTIVE");
+  assert.deepEqual(call.slice(0,3),["access","product_model","m1"]);
+  assert.equal(call[3],"INACTIVE");
+});
+test("admin GET product-models lists active and inactive models and rejects unknown filters",async()=>{
+  let call;
+  const response=await invoke("/api/v1/admin/product-models?limit=50",{method:"GET",catalogCommandService:service({async listProductModels(...args){call=args;return{data:[{id:"m1",name:"Model",slug:"model",status:"INACTIVE"}],meta:{nextCursor:null}};}})});
+  assert.equal(response.status,200);
+  assert.equal(response.body.data[0].status,"INACTIVE");
+  assert.deepEqual(call,["access",{limit:50}]);
+  assert.equal((await invoke("/api/v1/admin/product-models?foo=1",{method:"GET"})).status,400);
+  assert.equal((await invoke("/api/v1/admin/brands",{method:"GET"})).status,405);
+});
 test("admin catalog internal errors do not leak",async()=>{const response=await invoke("/api/v1/admin/categories",{catalogCommandService:service({async createCategory(){throw new Error("database secret");}})});assert.equal(response.status,500);assert.equal(JSON.stringify(response.body).includes("database secret"),false);});

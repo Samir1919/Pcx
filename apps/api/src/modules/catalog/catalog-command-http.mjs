@@ -33,19 +33,31 @@ export async function handleCatalogCommandRequest(request,response,{ catalogComm
   const parts=url.pathname.slice(prefix.length).split("/");
   const kind=paths.get(parts[0]);
   if(!kind) return false;
-  // Admin list of categories (includes INACTIVE so they can be reactivated).
+  // Admin list of categories and product models (includes INACTIVE so they can
+  // be reactivated).
   if(parts.length===1 && request.method==="GET"){
-    if(kind!=="category"){send(response,405,failure("METHOD_NOT_ALLOWED","Method not allowed",requestId));return true;}
+    if(kind!=="category" && kind!=="product_model"){send(response,405,failure("METHOD_NOT_ALLOWED","Method not allowed",requestId));return true;}
     if(!catalogCommandService){send(response,503,failure("CATALOG_ADMIN_UNAVAILABLE","Catalog administration is temporarily unavailable",requestId));return true;}
-    if(url.searchParams.size>0){send(response,400,failure("INVALID_REQUEST","Query parameters are not supported",requestId));return true;}
     const parsed=cookies(request);
-    try{send(response,200,await catalogCommandService.listCategories(parsed.pcx_access));}
+    if(kind==="category"){
+      if(url.searchParams.size>0){send(response,400,failure("INVALID_REQUEST","Query parameters are not supported",requestId));return true;}
+      try{send(response,200,await catalogCommandService.listCategories(parsed.pcx_access));}
+      catch(error){const [status,code,message]=mapped(error);send(response,status,failure(code,message,requestId));}
+      return true;
+    }
+    const allowed=new Set(["cursor","limit","sort"]);
+    if([...url.searchParams.keys()].some((key)=>!allowed.has(key))){send(response,400,failure("INVALID_REQUEST","Query parameters are not supported",requestId));return true;}
+    const filters={};
+    if(url.searchParams.has("cursor")) filters.cursor=url.searchParams.get("cursor");
+    if(url.searchParams.has("limit")) filters.limit=Number(url.searchParams.get("limit"));
+    if(url.searchParams.has("sort")) filters.sort=url.searchParams.get("sort");
+    try{send(response,200,await catalogCommandService.listProductModels(parsed.pcx_access,filters));}
     catch(error){const [status,code,message]=mapped(error);send(response,status,failure(code,message,requestId));}
     return true;
   }
-  // Category visibility toggle: PATCH /api/v1/admin/categories/:id/status
+  // Category/product-model visibility toggle: PATCH /api/v1/admin/:resource/:id/status
   if(parts.length===3 && parts[2]==="status" && request.method==="PATCH"){
-    if(kind!=="category") return false;
+    if(kind!=="category" && kind!=="product_model") return false;
     if(!catalogCommandService){send(response,503,failure("CATALOG_ADMIN_UNAVAILABLE","Catalog administration is temporarily unavailable",requestId));return true;}
     if(url.searchParams.size>0){send(response,400,failure("INVALID_REQUEST","Query parameters are not supported",requestId));return true;}
     const parsed=cookies(request);

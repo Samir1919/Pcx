@@ -9,6 +9,34 @@ async function audit(client, { id, actorId, action, targetType, targetId, reques
   await client.query("INSERT INTO auth_audit_events(id,actor_id,action,target_type,target_id,request_id,changes,occurred_at) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8)", [id, actorId, action, targetType, targetId, requestId, JSON.stringify(changes), occurredAt]);
 }
 
+function timestamp(value) { return new Date(value).toISOString(); }
+
+function adminModel(row) {
+  return Object.freeze({
+    id: row.id,
+    categoryId: row.category_id,
+    brandId: row.brand_id,
+    name: row.name,
+    slug: row.slug,
+    modelCode: row.model_code,
+    searchAliases: Object.freeze([...(row.search_aliases ?? [])]),
+    status: row.status,
+    createdAt: timestamp(row.created_at),
+    updatedAt: timestamp(row.updated_at)
+  });
+}
+
+function decodeAdminCursor(value, sort) {
+  if (value == null) return null;
+  if (typeof value !== "string" || !/^[A-Za-z0-9_-]+$/.test(value)) throw new TypeError("catalog cursor is invalid");
+  try {
+    const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
+    if (!Array.isArray(parsed) || parsed.length !== 3 || parsed[0] !== sort || typeof parsed[1] !== "string" || typeof parsed[2] !== "string" || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(parsed[2])) throw new Error();
+    return { name: parsed[1], id: parsed[2] };
+  } catch { throw new TypeError("catalog cursor is invalid"); }
+}
+function encodeAdminCursor(row, sort) { return Buffer.from(JSON.stringify([sort, row.name, row.id])).toString("base64url"); }
+
 export function createPostgresCatalogCommandRepository({ pool }) {
   if (!pool || typeof pool.connect !== "function" || typeof pool.query !== "function") throw new TypeError("PostgreSQL pool is required");
   async function create(record, kind, auditEvent) {
@@ -92,5 +120,23 @@ export function createPostgresCatalogCommandRepository({ pool }) {
     const result = await pool.query("SELECT id,parent_id,name,slug,status,sort_order,created_at,updated_at FROM categories WHERE status IN ('ACTIVE','INACTIVE') ORDER BY sort_order,name,id");
     return result.rows.map((row) => ({ id: row.id, parentId: row.parent_id, name: row.name, slug: row.slug, status: row.status, sortOrder: row.sort_order, createdAt: new Date(row.created_at).toISOString(), updatedAt: new Date(row.updated_at).toISOString() }));
   }
-  return Object.freeze({ create, find, update, archive, setStatus, listCategories, remove });
+  // Admin list of product models including INACTIVE (but never ARCHIVED) so a
+  // deactivated model can be found and reactivated. Mirrors the public list's
+  // cursor contract but widens the status filter.
+  async function listProductModelsAdmin({ cursor, limit = 50, sort = "name_asc" } = {}) {
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50 || !new Set(["name_asc", "name_desc"]).has(sort)) throw new TypeError("catalog filters are invalid");
+    const decoded = decodeAdminCursor(cursor, sort);
+    const values = [limit + 1];
+    const where = ["status IN ('ACTIVE','INACTIVE')"];
+    const descending = sort === "name_desc";
+    if (decoded) {
+      values.push(decoded.name, decoded.id);
+      where.push(`(name,id) ${descending ? "<" : ">"} ($${values.length - 1},$${values.length}::uuid)`);
+    }
+    const result = await pool.query(`SELECT id,category_id,brand_id,name,slug,model_code,search_aliases,status,created_at,updated_at FROM product_models WHERE ${where.join(" AND ")} ORDER BY name ${descending ? "DESC" : "ASC"},id ${descending ? "DESC" : "ASC"} LIMIT $1`, values);
+    const hasNext = result.rows.length > limit;
+    const rows = result.rows.slice(0, limit);
+    return { records: rows.map(adminModel), nextCursor: hasNext ? encodeAdminCursor(rows.at(-1), sort) : null };
+  }
+  return Object.freeze({ create, find, update, archive, setStatus, listCategories, listProductModelsAdmin, remove });
 }

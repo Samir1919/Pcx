@@ -101,3 +101,20 @@ test("catalog listCategories returns admin categories via the repository", async
   assert.equal(result.data[0].slug, "gpu");
   assert.equal(calls[0][0], "listCategories");
 });
+
+test("catalog listProductModels returns admin models (active + inactive) and maps bad filters to invalid_input", async () => {
+  const base = { create() {}, find() {}, update() {}, archive() {}, setStatus() {}, listCategories() {}, remove() {} };
+  const ok = createCatalogCommandService({
+    authService: { async authenticateAccess() { return { userId: "a", status: "ACTIVE", roles: ["ADMIN"] }; } },
+    repository: { ...base, async listProductModelsAdmin() { return { records: [{ id: "m1", name: "Model", slug: "model", status: "INACTIVE" }], nextCursor: null }; } }
+  });
+  const result = await ok.listProductModels("access", { limit: 50 });
+  assert.equal(result.data[0].status, "INACTIVE");
+  assert.equal(result.meta.nextCursor, null);
+
+  const bad = createCatalogCommandService({
+    authService: { async authenticateAccess() { return { userId: "a", status: "ACTIVE", roles: ["ADMIN"] }; } },
+    repository: { ...base, async listProductModelsAdmin() { throw new TypeError("catalog filters are invalid"); } }
+  });
+  await assert.rejects(bad.listProductModels("access", { limit: 999 }), (e) => e.code === "invalid_input");
+});

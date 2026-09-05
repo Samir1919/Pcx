@@ -37,6 +37,34 @@ test("catalog commands commit create/archive with actor audit atomically", { ski
   } finally { await pool.end(); }
 });
 
+test("catalog admin model list includes INACTIVE models for reactivation", { skip: !connectionString }, async () => {
+  await runMigrations({ connectionString });
+  const pool = new pg.Pool({ connectionString });
+  const repository = createPostgresCatalogCommandRepository({ pool });
+  const categoryId = "77000000-0000-0000-0000-000000000001";
+  const brandId = "77000000-0000-0000-0000-000000000002";
+  const activeId = "77000000-0000-0000-0000-000000000003";
+  const inactiveId = "77000000-0000-0000-0000-000000000004";
+  try {
+    await pool.query("DELETE FROM product_models WHERE id IN ($1,$2)", [activeId, inactiveId]);
+    await pool.query("DELETE FROM brands WHERE id=$1", [brandId]);
+    await pool.query("DELETE FROM categories WHERE id=$1", [categoryId]);
+    await pool.query("INSERT INTO categories(id,name,slug,status) VALUES ($1,'Admin Models','admin-models','ACTIVE')", [categoryId]);
+    await pool.query("INSERT INTO brands(id,name,slug,status) VALUES ($1,'Admin Brand','admin-brand','ACTIVE')", [brandId]);
+    await pool.query("INSERT INTO product_models(id,category_id,brand_id,name,slug,status) VALUES ($1,$3,$4,'Active Model','active-model','ACTIVE'),($2,$3,$4,'Inactive Model','inactive-model','INACTIVE')", [activeId, inactiveId, categoryId, brandId]);
+    const result = await repository.listProductModelsAdmin({ limit: 50, sort: "name_asc" });
+    const names = result.records.map(({ name }) => name).sort();
+    assert.deepEqual(names, ["Active Model", "Inactive Model"]);
+    assert.equal(result.records.find(({ id }) => id === inactiveId).status, "INACTIVE");
+    assert.equal(result.nextCursor, null);
+  } finally {
+    await pool.query("DELETE FROM product_models WHERE id IN ($1,$2)", [activeId, inactiveId]);
+    await pool.query("DELETE FROM brands WHERE id=$1", [brandId]);
+    await pool.query("DELETE FROM categories WHERE id=$1", [categoryId]);
+    await pool.end();
+  }
+});
+
 test("catalog remove hard-deletes unreferenced rows and reports in_use for referenced", { skip: !connectionString }, async () => {
   await runMigrations({ connectionString });
   const pool = new pg.Pool({ connectionString });

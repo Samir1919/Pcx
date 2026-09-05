@@ -105,6 +105,23 @@ export function createCatalogCommandService({ authService, repository, id = rand
       return Object.freeze({ data: Object.freeze(await repository.listCategories()) });
     },
 
+    // Admin list of product models including INACTIVE so a deactivated model
+    // remains visible and can be reactivated.
+    async listProductModels(accessCredential, filters = {}) {
+      await actor(accessCredential);
+      if (typeof repository.listProductModelsAdmin !== "function") throw new TypeError("catalog admin list is unavailable");
+      try {
+        const result = await repository.listProductModelsAdmin(filters);
+        const records = Array.isArray(result) ? result : result?.records ?? [];
+        const nextCursor = Array.isArray(result) ? null : result?.nextCursor ?? null;
+        return Object.freeze({ data: Object.freeze(records), meta: Object.freeze({ nextCursor }) });
+      } catch (error) {
+        if (error instanceof CatalogCommandError) throw error;
+        if (error instanceof TypeError) throw new CatalogCommandError("invalid_input");
+        throw error;
+      }
+    },
+
     // Hard delete (unreferenced only). A referenced record yields `in_use` so the
     // caller can fall back to archive — never a destructive cascade.
     async remove(accessCredential, kind, targetId, context = {}) {
