@@ -193,7 +193,7 @@ export function createListingService({ authService, repository, auditLogService,
     },
 
     async searchPublic(filters) {
-      const result = await repository.searchPublished(filters);
+      const result = await repository.searchPublished(filters ?? {});
       return Object.freeze({
         data: Object.freeze(result.records.map((row) => createPublicListing({
           id: row.id,
@@ -212,6 +212,14 @@ export function createListingService({ authService, repository, auditLogService,
         }))),
         meta: Object.freeze({ nextCursor: result.nextCursor })
       });
+    },
+
+    // Layered-navigation facets for the public storefront: filterable attribute
+    // keys + their distinct values across published listings.
+    async searchFacets(filters) {
+      if (typeof repository.listFilterFacets !== "function") throw new TypeError("repository.listFilterFacets is required");
+      const facets = await repository.listFilterFacets({ categoryId: filters?.categoryId ?? null });
+      return Object.freeze({ data: Object.freeze(facets.map((f) => Object.freeze({ ...f, values: Object.freeze([...f.values]) }))) });
     },
 
     // Related listings for a published passport: same category, same brand

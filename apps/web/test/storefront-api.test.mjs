@@ -45,6 +45,30 @@ test("storefront query builder omits empty filters and never sends client-owned 
   }
 });
 
+test("storefront listings encode layered-navigation spec filters", async () => {
+  const priorFetch = global.fetch;
+  let url;
+  global.fetch = async (u) => { url = u; return { ok: true, status: 200, async text() { return JSON.stringify({ data: [], meta: { nextCursor: null } }); } }; };
+  try {
+    await storefrontApi.listings({ specs: [{ key: "vram_gb", value: "12" }, { key: "chipset", value: "B550" }] });
+    assert.equal(url, "/api/v1/listings?spec%5Bvram_gb%5D=12&spec%5Bchipset%5D=B550");
+  } finally {
+    global.fetch = priorFetch;
+  }
+});
+
+test("storefront listingFacets hits the facets endpoint", async () => {
+  const priorFetch = global.fetch;
+  let url;
+  global.fetch = async (u) => { url = u; return { ok: true, status: 200, async text() { return JSON.stringify({ data: [] }); } }; };
+  try {
+    await storefrontApi.listingFacets({ categoryId: "c1" });
+    assert.equal(url, "/api/v1/listings/facets?categoryId=c1");
+  } finally {
+    global.fetch = priorFetch;
+  }
+});
+
 test("storefront profile endpoints hit the self-service write paths", async () => {
   const priorFetch = global.fetch;
   const calls = [];

@@ -17,6 +17,7 @@ function service(overrides = {}) {
     async publicPassport() { return { pcxItemId: "PCX-1", status: "PUBLISHED" }; },
     async related() { return [{ pcxItemId: "PCX-2" }]; },
     async searchPublic() { return { data: [{ id: "l1", pcxItemId: "PCX-1" }], meta: { nextCursor: null } }; },
+    async searchFacets() { return { data: [{ key: "vram_gb", label: "VRAM", values: ["8", "12"] }] }; },
     ...overrides
   };
 }
@@ -48,6 +49,23 @@ test("public listing search requires GET and validates filters", async () => {
   assert.equal((await invoke("/api/v1/listings?unknown=1")).status, 400);
   assert.equal((await invoke("/api/v1/listings?limit=51")).status, 400);
   assert.equal((await invoke("/api/v1/listings?sort=cost_desc")).status, 400);
+});
+
+test("public listing search parses layered-navigation spec filters", async () => {
+  let captured;
+  const svc = service({ async searchPublic(filters) { captured = filters; return { data: [], meta: { nextCursor: null } }; } });
+  assert.equal((await invoke("/api/v1/listings?spec%5Bvram_gb%5D=12", { listingService: svc })).status, 200);
+  assert.deepEqual(captured.specs, [{ key: "vram_gb", value: "12" }]);
+  // Malformed spec key is rejected.
+  assert.equal((await invoke("/api/v1/listings?spec%5BBAD KEY%5D=1")).status, 400);
+});
+
+test("public listing facets returns filterable attributes", async () => {
+  const r = await invoke("/api/v1/listings/facets?categoryId=c1");
+  assert.equal(r.status, 200);
+  assert.equal(r.body.data[0].key, "vram_gb");
+  assert.equal((await invoke("/api/v1/listings/facets", { method: "POST" })).status, 405);
+  assert.equal((await invoke("/api/v1/listings/facets?unknown=1")).status, 400);
 });
 
 test("public passport is a read-only GET without write security", async () => {

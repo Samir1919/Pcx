@@ -101,7 +101,12 @@ function csrfHeaders() {
 function query(params) {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params ?? {})) {
-    if (value != null && value !== "") search.set(key, String(value));
+    if (value == null || value === "") continue;
+    if (key === "specs" && Array.isArray(value)) {
+      for (const spec of value) search.set(`spec[${spec.key}]`, String(spec.value));
+      continue;
+    }
+    search.set(key, String(value));
   }
   const text = search.toString();
   return text ? `?${text}` : "";
@@ -138,6 +143,7 @@ export const storefrontApi = Object.freeze({
   sellTaxonomy: () => request("/api/v1/sell-taxonomy"),
   footer: () => request("/api/v1/footer"),
   listings: (params) => request(`/api/v1/listings${query(params)}`),
+  listingFacets: (params) => request(`/api/v1/listings/facets${query(params)}`),
   productModels: (params) => request(`/api/v1/product-models${query(params)}`),
   productModel: (id) => request(`/api/v1/product-models/${encodeURIComponent(id)}`),
   passport: (pcxId) => request(`/api/v1/passport/${encodeURIComponent(pcxId)}`),

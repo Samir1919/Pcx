@@ -70,12 +70,38 @@ function map(error) {
 export async function handleListingRequest(request, response, { listingService, allowedOrigins, requestId }) {
   const url = new URL(request.url, "http://pcx.local");
 
+  // Public listing facets: GET /api/v1/listings/facets (filterable attributes).
+  if (url.pathname === "/api/v1/listings/facets") {
+    if (request.method !== "GET") { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
+    if (!listingService) { send(response, 503, failure("LISTING_UNAVAILABLE", "Listings are temporarily unavailable", requestId)); return true; }
+    const allowedKeys = new Set(["categoryId"]);
+    for (const key of url.searchParams.keys()) {
+      if (!allowedKeys.has(key)) { send(response, 400, failure("INVALID_REQUEST", `Unsupported query parameter: ${key}`, requestId)); return true; }
+      if (url.searchParams.getAll(key).length > 1) { send(response, 400, failure("INVALID_REQUEST", `Duplicate query parameter: ${key}`, requestId)); return true; }
+    }
+    try {
+      send(response, 200, await listingService.searchFacets({ categoryId: url.searchParams.get("categoryId") }));
+    } catch (error) {
+      send(response, 400, failure("INVALID_REQUEST", "Invalid facet filters", requestId));
+    }
+    return true;
+  }
+
   // Public listing search: GET /api/v1/listings
   if (url.pathname === "/api/v1/listings") {
     if (request.method !== "GET") { send(response, 405, failure("METHOD_NOT_ALLOWED", "Method not allowed", requestId)); return true; }
     if (!listingService) { send(response, 503, failure("LISTING_UNAVAILABLE", "Listings are temporarily unavailable", requestId)); return true; }
+    // Layered-navigation attribute filters arrive as spec[key]=value pairs.
     const allowedKeys = new Set(["categoryId", "brandId", "q", "cursor", "limit", "sort"]);
+    const specs = [];
     for (const key of url.searchParams.keys()) {
+      if (key.startsWith("spec[") && key.endsWith("]")) {
+        const specKey = key.slice(5, -1);
+        if (!specKey || !/^[a-z][a-z0-9_]*$/.test(specKey)) { send(response, 400, failure("INVALID_REQUEST", `Unsupported query parameter: ${key}`, requestId)); return true; }
+        if (url.searchParams.getAll(key).length > 1) { send(response, 400, failure("INVALID_REQUEST", `Duplicate query parameter: ${key}`, requestId)); return true; }
+        specs.push({ key: specKey, value: url.searchParams.get(key) });
+        continue;
+      }
       if (!allowedKeys.has(key)) { send(response, 400, failure("INVALID_REQUEST", `Unsupported query parameter: ${key}`, requestId)); return true; }
       if (url.searchParams.getAll(key).length > 1) { send(response, 400, failure("INVALID_REQUEST", `Duplicate query parameter: ${key}`, requestId)); return true; }
     }
@@ -91,7 +117,8 @@ export async function handleListingRequest(request, response, { listingService, 
         q: url.searchParams.get("q"),
         cursor: url.searchParams.get("cursor"),
         limit,
-        sort
+        sort,
+        specs
       });
       send(response, 200, result);
     } catch (error) {

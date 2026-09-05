@@ -38,6 +38,8 @@ export default function StorefrontWorkspace() {
   const [sort, setSort] = useState("newest");
   const [cursor, setCursor] = useState(null);
   const [hydrated, setHydrated] = useState(false);
+  const [facets, setFacets] = useState([]);
+  const [specFilters, setSpecFilters] = useState({});
 
   // Apply the deep-linked category once, on the client, before the first load.
   useEffect(() => {
@@ -49,7 +51,8 @@ export default function StorefrontWorkspace() {
   const load = useCallback(async (next) => {
     setLoading(true);
     try {
-      const result = await storefrontApi.listings({ categoryId, brandId, q, sort, cursor: next ?? null, limit: 12 });
+      const specs = Object.entries(specFilters).filter(([, value]) => value).map(([key, value]) => ({ key, value }));
+      const result = await storefrontApi.listings({ categoryId, brandId, q, sort, cursor: next ?? null, limit: 12, specs });
       setListings(result.data);
       setNextCursor(result.meta?.nextCursor ?? null);
       setCursor(next ?? null);
@@ -59,7 +62,7 @@ export default function StorefrontWorkspace() {
     } finally {
       setLoading(false);
     }
-  }, [categoryId, brandId, q, sort]);
+  }, [categoryId, brandId, q, sort, specFilters]);
 
   useEffect(() => {
     let active = true;
@@ -75,6 +78,20 @@ export default function StorefrontWorkspace() {
     })();
     return () => { active = false; };
   }, []);
+
+  // Load filterable-attribute facets for the chosen category (layered navigation).
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const result = await storefrontApi.listingFacets({ categoryId: categoryId || undefined });
+        if (active) setFacets(result.data ?? []);
+      } catch {
+        if (active) setFacets([]);
+      }
+    })();
+    return () => { active = false; };
+  }, [categoryId]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -112,6 +129,18 @@ export default function StorefrontWorkspace() {
               <label><span>Brand</span><select value={brandId} onChange={(e) => setBrandId(e.target.value)}><option value="">All brands</option>{brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
               <label><span>Sort</span><select value={sort} onChange={(e) => setSort(e.target.value)}>{sorts.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</select></label>
             </div>
+            {facets.length > 0 && (
+              <div className="filterRow facetRow">
+                {facets.map((facet) => (
+                  <label key={facet.key}><span>{facet.label}</span>
+                    <select value={specFilters[facet.key] ?? ""} onChange={(e) => setSpecFilters((prev) => ({ ...prev, [facet.key]: e.target.value }))}>
+                      <option value="">Any {facet.label.toLowerCase()}</option>
+                      {facet.values.map((value) => <option key={value} value={value}>{value}{facet.unit ? ` ${facet.unit}` : ""}</option>)}
+                    </select>
+                  </label>
+                ))}
+              </div>
+            )}
             <button className="primary" type="submit" disabled={loading}>Apply filters</button>
           </form>
           {loading ? <p className="state" role="status">Loading listings…</p> : listings.length === 0 ? <p className="state">No published listings match your filters.</p> : (

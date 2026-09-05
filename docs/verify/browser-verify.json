@@ -1,25 +1,24 @@
 {
-  "scope": "Catalog Attributes: server-enforced required completeness + atomic bulk model-spec save + public passport archived-definition fix",
+  "scope": "Storefront layered-navigation attribute filters: filterable spec definitions now drive a facet filter panel on the marketplace search",
   "headed": true,
   "tool": "Playwright MCP browser (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "Admin edits a product model's specifications via a single bulk form; the server enforces required-attribute completeness atomically (reject incomplete, persist complete) and shows a completeness indicator",
+    "subject": "Storefront marketplace renders a facet filter panel from filterable attributes and narrows listings when a value is selected",
     "steps": [
-      "admin-sign-in-mfa",
-      "open-model-specifications-page",
-      "bulk-form-renders-all-attributes-with-save-all-button",
-      "completeness-indicator-shows-required-count",
-      "clear-required-value-and-save-is-rejected-422",
-      "db-value-unchanged-after-rejection-atomic",
-      "set-value-and-save-persists",
-      "restore-demo-value",
+      "open-storefront-marketplace",
+      "facet-panel-renders-filterable-attributes-with-values-and-units",
+      "select-vram-12-and-apply",
+      "search-request-includes-spec-filter-param",
+      "listings-narrow-to-matching-models",
+      "reset-filter",
       "no-unexpected-console-errors"
     ]
   },
-  "notes": "Model specifications now save atomically through a single bulk form (PUT /api/v1/admin/product-models/:id/specifications). The domain assertRequiredSpecificationValues enforces that every required definition has a value before any row is written (all-or-nothing in one transaction), so a model can never be left half-complete. The admin page shows a 'N of M required attributes set' completeness banner. The public passport listing repository now filters archived spec definitions (d.status='ACTIVE') for consistency with the catalog read. Verified headed: clearing the required value and saving returned 422 'Specification values are invalid' with the DB value unchanged (atomic); setting 15.6 persisted; restored to 14. The single 422 console entry is the deliberate rejection, not a defect.",
-  "ranAt": "2026-09-04T03:46:00.000Z"
+  "notes": "The 'filterable' flag on attribute definitions is now functional. The public storefront search (GET /api/v1/listings) accepts spec[key]=value layered-navigation filters (validated allow-list), and a new GET /api/v1/listings/facets returns filterable attribute keys + distinct values across published listings (optionally category-scoped). The storefront marketplace renders a facet panel (CPU/GPU/Motherboard/PSU/RAM/Storage/VRAM with units) and appends spec[] params on search. Verified headed: selecting VRAM=12 sent spec[vram_gb]=12 (200) and narrowed results to the RTX 3060 12GB models; reset cleared the filter. The only console errors are the pre-existing unauthenticated /api/v1/me 401s on the public storefront.",
+  "ranAt": "2026-09-04T03:55:00.000Z"
 }
+
 
 
 

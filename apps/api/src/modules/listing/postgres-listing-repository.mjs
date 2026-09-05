@@ -218,13 +218,26 @@ export function createPostgresListingRepository({ pool }) {
       return { records: rows, nextCursor };
     },
 
-    async searchPublished({ categoryId = null, brandId = null, q = null, limit = 20, cursor = null, sort = "newest" } = {}) {
+    async searchPublished({ categoryId = null, brandId = null, q = null, specs = [], limit = 20, cursor = null, sort = "newest" } = {}) {
       if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50 || !new Set(["newest", "price_asc", "price_desc"]).has(sort)) throw new TypeError("listing search filters are invalid");
+      if (!Array.isArray(specs) || specs.some((s) => !s || typeof s.key !== "string" || typeof s.value !== "string")) throw new TypeError("listing spec filters are invalid");
       const values = [];
       const where = ["l.status = 'PUBLISHED'"];
       const add = (value) => { values.push(value); return `$${values.length}`; };
       if (categoryId) where.push(`pm.category_id::text = ${add(categoryId)}`);
       if (brandId) where.push(`pm.brand_id::text = ${add(brandId)}`);
+      // Layered-navigation attribute filters: a published listing matches when its
+      // model has a spec value equal to the requested value for each filterable
+      // definition key. Each filter is an independent EXISTS constraint.
+      for (const spec of specs) {
+        const key = add(spec.key);
+        const value = add(spec.value);
+        where.push(
+          `EXISTS (SELECT 1 FROM model_spec_values sv JOIN spec_definitions sd ON sd.id = sv.spec_definition_id AND sd.status = 'ACTIVE'
+             WHERE sv.product_model_id = pm.id AND sd.key = ${key}
+               AND (sv.value_text = ${value} OR sv.value_number::text = ${value} OR sv.value_boolean::text = ${value}))`
+        );
+      }
 
       // Dedicated full-text search: GIN-indexed tsvector match with relevance
       // ranking (websearch_to_tsquery is safe against malformed input).
@@ -286,6 +299,37 @@ export function createPostgresListingRepository({ pool }) {
           )).toString("base64url")
         : null;
       return { records: rows, nextCursor };
+    },
+
+    // Faceted search options: distinct values for every `filterable` attribute
+    // present on published listings (optionally narrowed to a category), so the
+    // storefront can render layered-navigation filters.
+    async listFilterFacets({ categoryId = null } = {}) {
+      const values = [];
+      const where = ["l.status = 'PUBLISHED'", "sd.filterable = true", "sd.status = 'ACTIVE'"];
+      const add = (value) => { values.push(value); return `$${values.length}`; };
+      if (categoryId) where.push(`pm.category_id::text = ${add(categoryId)}`);
+      const result = await pool.query(
+        `SELECT sd.key, sd.label, sd.data_type, sd.unit,
+                COALESCE(v.value_text, v.value_number::text, v.value_boolean::text) AS value
+         FROM model_spec_values v
+         JOIN spec_definitions sd ON sd.id = v.spec_definition_id
+         JOIN product_models pm ON pm.id = v.product_model_id
+         JOIN inventory_items ii ON ii.product_model_id = pm.id
+         JOIN listings l ON l.inventory_item_id = ii.id
+         WHERE ${where.join(" AND ")}
+           AND COALESCE(v.value_text, v.value_number::text, v.value_boolean::text) IS NOT NULL
+         GROUP BY sd.key, sd.label, sd.data_type, sd.unit, COALESCE(v.value_text, v.value_number::text, v.value_boolean::text)
+         ORDER BY sd.label, sd.key`,
+        values
+      );
+      const facets = new Map();
+      for (const row of result.rows) {
+        const facet = facets.get(row.key) ?? { key: row.key, label: row.label, dataType: row.data_type, unit: row.unit ?? null, values: [] };
+        facet.values.push(row.value);
+        facets.set(row.key, facet);
+      }
+      return [...facets.values()];
     },
 
     async findRelated({ categoryId, brandId, excludeListingId, limit = 4 } = {}) {
