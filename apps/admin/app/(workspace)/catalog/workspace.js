@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { catalogApi } from "../../../lib/catalog-api";
 import SellFlowPanel from "./sell-flow-panel";
@@ -13,19 +13,110 @@ function slug(value) { return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, 
 function Banner({ notice, onClose }) { if (!notice) return null; return <div className={`banner ${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}><span>{notice.message}</span><button type="button" onClick={onClose} aria-label="Dismiss message">×</button></div>; }
 function Field({ label, name, ...props }) { return <label><span>{label}</span><input name={name} {...props} /></label>; }
 
+// Typed attribute-value helpers (mirror the model-specifications page so the
+// create/edit forms parse and render every data type identically).
+function parseSpecValue(raw, type) {
+  if (raw == null || raw === "") return undefined;
+  if (type === "NUMBER") { const number = Number(raw); return Number.isFinite(number) ? number : undefined; }
+  if (type === "BOOLEAN") { if (raw === "true") return true; if (raw === "false") return false; return undefined; }
+  if (type === "JSON") { try { return JSON.parse(raw); } catch { return undefined; } }
+  return raw;
+}
+function specDisplay(value, type) {
+  if (value == null) return "";
+  return type === "JSON" ? JSON.stringify(value) : String(value);
+}
+// Build the { definitionId, value } payload from a values map, dropping empty/
+// undefined entries. The server still enforces required completeness atomically.
+function buildSpecPayload(definitions, values) {
+  return definitions
+    .map((definition) => (values[definition.id] == null || values[definition.id] === "" ? null : { definitionId: definition.id, value: values[definition.id] }))
+    .filter(Boolean);
+}
+
+function SpecValueFields({ definitions, values, onChange, disabled }) {
+  if (!definitions || definitions.length === 0) return null;
+  return (
+    <fieldset className="specFields" disabled={disabled}>
+      <legend>Attributes</legend>
+      {definitions.map((definition) => {
+        const value = values?.[definition.id];
+        return (
+          <label key={definition.id}>
+            <span>{definition.label}{definition.unit ? ` (${definition.unit})` : ""}{definition.required ? " · required" : ""}</span>
+            {definition.dataType === "BOOLEAN" ? (
+              <select value={value == null ? "" : String(value)} onChange={(e) => onChange(definition.id, e.target.value === "" ? undefined : e.target.value === "true")}>
+                <option value="">Select value</option>
+                <option value="true">True</option>
+                <option value="false">False</option>
+              </select>
+            ) : definition.dataType === "JSON" ? (
+              <textarea name={`spec:${definition.id}`} value={specDisplay(value, "JSON")} onChange={(e) => onChange(definition.id, parseSpecValue(e.target.value, "JSON"))} placeholder='{"key":"value"}' />
+            ) : (
+              <input name={`spec:${definition.id}`} type={definition.dataType === "NUMBER" ? "number" : "text"} step={definition.dataType === "NUMBER" ? "any" : undefined} value={specDisplay(value, definition.dataType)} onChange={(e) => onChange(definition.id, parseSpecValue(e.target.value, definition.dataType))} />
+            )}
+          </label>
+        );
+      })}
+    </fieldset>
+  );
+}
+
 function CatalogEditModal({ active, record, categories, brands, busy, onClose, onSave }) {
   const [form, setForm] = useState(() => initialForm(active, record));
   const [error, setError] = useState(null);
+  const [specDefs, setSpecDefs] = useState([]);
+  const [specValues, setSpecValues] = useState({});
+  const [specWarning, setSpecWarning] = useState(null);
+  const specDirty = useRef(false);
 
   function set(key, value) { setForm((prev) => ({ ...prev, [key]: value })); }
+
+  // Load the selected category's attribute definitions (and, for an unchanged
+  // category, the model's existing values). Changing category clears values and
+  // warns, because attribute definitions are category-scoped.
+  useEffect(() => {
+    if (active !== "models" || !form.categoryId) { setSpecDefs([]); setSpecValues({}); return; }
+    let cancelled = false;
+    setSpecDefs([]);
+    (async () => {
+      try {
+        const definitionResult = await catalogApi.definitions(form.categoryId);
+        if (cancelled) return;
+        setSpecDefs(definitionResult.data);
+        if (form.categoryId === record.categoryId) {
+          const valueResult = await catalogApi.modelValues(record.id);
+          if (cancelled) return;
+          setSpecValues(Object.fromEntries(valueResult.data.map((item) => [item.specificationDefinitionId, item.value])));
+          specDirty.current = false;
+          setSpecWarning(null);
+        } else {
+          setSpecValues({});
+          specDirty.current = true;
+          setSpecWarning("Category changed — existing attribute values were cleared.");
+        }
+      } catch { /* definitions fetch can fail; form still works without attributes */ }
+    })();
+    return () => { cancelled = true; };
+  }, [active, form.categoryId, record.categoryId, record.id]);
+
+  function setSpecValue(definitionId, value) {
+    specDirty.current = true;
+    setSpecValues((prev) => ({ ...prev, [definitionId]: value }));
+  }
 
   function submit(event) {
     event.preventDefault();
     const changes = buildChanges(active, form);
     const statusChanged = (active === "categories" || active === "models") && (form.status ?? "ACTIVE") !== (record.status ?? "ACTIVE") ? form.status : null;
-    if (Object.keys(changes).length === 0 && !statusChanged) { setError("No changes to save."); return; }
+    const specPayload = active === "models" && specDirty.current ? buildSpecPayload(specDefs, specValues) : null;
+    if (active === "models" && specDirty.current) {
+      const missing = specDefs.filter((d) => d.required && (specValues[d.id] == null || specValues[d.id] === ""));
+      if (missing.length > 0) { setError(`Missing required attributes: ${missing.map((d) => d.label).join(", ")}.`); return; }
+    }
+    if (Object.keys(changes).length === 0 && !statusChanged && !specPayload) { setError("No changes to save."); return; }
     setError(null);
-    onSave(changes, statusChanged);
+    onSave(changes, statusChanged, specPayload);
   }
 
   return createPortal(
@@ -76,6 +167,9 @@ function CatalogEditModal({ active, record, categories, brands, busy, onClose, o
                 <option value="INACTIVE">Inactive — hidden from the storefront</option>
               </select>
             </label>
+            {specWarning && <p className="specWarning" role="status">{specWarning}</p>}
+            {specDefs.length === 0 && form.categoryId && <p className="specHint">No active attributes are defined for this category.</p>}
+            <SpecValueFields definitions={specDefs} values={specValues} onChange={setSpecValue} disabled={busy} />
           </>
         )}
 
@@ -163,6 +257,9 @@ export default function CatalogWorkspace() {
   const [modelsNextCursor, setModelsNextCursor] = useState(null);
   const [editRecord, setEditRecord] = useState(null);
   const [adminCategories, setAdminCategories] = useState([]);
+  const [createCategoryId, setCreateCategoryId] = useState("");
+  const [createDefs, setCreateDefs] = useState([]);
+  const [createSpecValues, setCreateSpecValues] = useState({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -207,15 +304,51 @@ export default function CatalogWorkspace() {
     brand: Object.fromEntries(data.brands.map((r) => [r.id, r.name]))
   }), [data]);
 
+  async function handleCreateCategoryChange(categoryId) {
+    setCreateCategoryId(categoryId);
+    setCreateSpecValues({});
+    if (!categoryId) { setCreateDefs([]); return; }
+    try {
+      const result = await catalogApi.definitions(categoryId);
+      setCreateDefs(result.data);
+    } catch {
+      setCreateDefs([]);
+    }
+  }
+
   async function create(event) {
     event.preventDefault();
     setBusy(true);
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
     try {
+      if (active === "models") {
+        const missing = createDefs.filter((d) => d.required && (createSpecValues[d.id] == null || createSpecValues[d.id] === ""));
+        if (missing.length > 0) {
+          setNotice({ kind: "error", message: `Missing required attributes: ${missing.map((d) => d.label).join(", ")}.` });
+          return;
+        }
+        const model = await catalogApi.createModel({ name: form.get("name"), slug: form.get("slug")?.trim() || slug(form.get("name")), categoryId: form.get("categoryId"), brandId: form.get("brandId"), modelCode: form.get("modelCode") || null, searchAliases: form.get("aliases").split(",").map((v) => v.trim()).filter(Boolean) });
+        const specPayload = buildSpecPayload(createDefs, createSpecValues);
+        if (specPayload.length > 0) {
+          try {
+            await catalogApi.setModelValues(model.data.id, specPayload);
+          } catch (error) {
+            setNotice({ kind: "error", message: "Model created, but its attributes could not be saved: " + error.message });
+            await load();
+            return;
+          }
+        }
+        formElement.reset();
+        setCreateSpecValues({});
+        setCreateDefs([]);
+        setCreateCategoryId("");
+        setNotice({ kind: "success", message: "Product model saved with its attributes." });
+        await load();
+        return;
+      }
       if (active === "categories") await catalogApi.createCategory({ name: form.get("name"), slug: form.get("slug")?.trim() || slug(form.get("name")), sortOrder: Number(form.get("sortOrder") || 0) });
       if (active === "brands") await catalogApi.createBrand({ name: form.get("name"), slug: form.get("slug")?.trim() || slug(form.get("name")) });
-      if (active === "models") await catalogApi.createModel({ name: form.get("name"), slug: form.get("slug")?.trim() || slug(form.get("name")), categoryId: form.get("categoryId"), brandId: form.get("brandId"), modelCode: form.get("modelCode") || null, searchAliases: form.get("aliases").split(",").map((v) => v.trim()).filter(Boolean) });
       if (active === "definitions") await catalogApi.createDefinition({ categoryId: form.get("categoryId"), key: form.get("key"), label: form.get("label"), dataType: form.get("dataType"), unit: form.get("unit") || null, filterable: form.get("filterable") === "on", required: form.get("required") === "on", sortOrder: Number(form.get("sortOrder") || 0) });
       formElement.reset();
       setNotice({ kind: "success", message: "Catalog record saved." });
@@ -255,7 +388,7 @@ export default function CatalogWorkspace() {
     }
   }
 
-  async function saveEdit(changes, status) {
+  async function saveEdit(changes, status, specPayload) {
     if (!editRecord) return;
     setBusy(true);
     setNotice(null);
@@ -265,6 +398,9 @@ export default function CatalogWorkspace() {
       }
       if (status) {
         await catalogApi.setStatus(plural[active], editRecord.id, status);
+      }
+      if (specPayload && specPayload.length > 0) {
+        await catalogApi.setModelValues(editRecord.id, specPayload);
       }
       setEditRecord(null);
       setNotice({ kind: "success", message: "Record updated." });
@@ -395,10 +531,12 @@ export default function CatalogWorkspace() {
                 <>
                   <Field label="Model name" name="name" required maxLength="160" />
                   <Field label="Slug" name="slug" placeholder="Auto-generated from name" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" maxLength="160" />
-                  <label><span>Category</span><select name="categoryId" required><option value="">Select category</option>{data.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+                  <label><span>Category</span><select name="categoryId" required onChange={(e) => handleCreateCategoryChange(e.target.value)}><option value="">Select category</option>{data.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
                   <label><span>Brand</span><select name="brandId" required><option value="">Select brand</option>{data.brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
                   <Field label="Model code (optional)" name="modelCode" />
                   <Field label="Search aliases (comma separated)" name="aliases" />
+                  {createCategoryId && createDefs.length === 0 && <p className="specHint">No active attributes are defined for this category.</p>}
+                  <SpecValueFields definitions={createDefs} values={createSpecValues} onChange={(definitionId, value) => setCreateSpecValues((prev) => ({ ...prev, [definitionId]: value }))} disabled={busy} />
                 </>
               )}
               {active === "definitions" && (

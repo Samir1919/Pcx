@@ -1,24 +1,24 @@
 {
-  "scope": "Catalog admin create forms (slug fields) + product-model ACTIVE/INACTIVE visibility toggle: create forms for category/brand/model expose a Slug field, and the product-model edit form gains a Status select backed by a new admin model list and status route",
+  "scope": "Product-model create/edit forms integrate category attribute values inline (Magento-style): selecting a category renders that category's attribute definitions as typed inputs in the same form and saves them atomically with the model",
   "headed": true,
   "tool": "Playwright MCP browser (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "Admin catalog workspace exposes Slug on category/brand/product-model create forms and toggles a product model ACTIVE<->INACTIVE with server-enforced status and an INACTIVE-visible admin list",
+    "subject": "Admin catalog product-model create/edit flow renders the selected category's attribute fields inline and saves them with the model; category change clears values and warns",
     "steps": [
-      "open-admin-catalog",
-      "category-create-form-renders-slug-field",
-      "product-model-create-form-renders-slug-field",
-      "product-model-edit-modal-renders-status-select",
-      "toggle-model-to-inactive-and-save",
-      "model-shows-muted-inactive-pill-without-error",
-      "toggle-model-back-to-active-and-save",
-      "attribute-create-form-renders-all-declared-controls",
-      "fresh-reload-makes-no-failed-api-requests"
+      "open-admin-catalog-product-models",
+      "select-category-in-create-form-renders-attribute-fields",
+      "submit-with-missing-required-attribute-blocks-with-error",
+      "fill-required-attribute-and-create-model",
+      "model-created-and-attribute-value-persisted",
+      "edit-modal-pre-fills-existing-attribute-values",
+      "change-category-clears-values-and-warns",
+      "attribute-fields-swap-to-new-category",
+      "fresh-load-no-new-console-errors"
     ]
   },
-  "notes": "This slice completes the 'all declared options are exposed' verification: the attribute create form already rendered every declared control (category, key, label, dataType TEXT/NUMBER/BOOLEAN/JSON, unit, sortOrder, filterable, required). The product-model (and, for consistency, category/brand) create forms now expose an optional Slug field (auto-derived from the name when blank, matching the edit modal). The product-model edit modal now exposes a Status select (Active/Inactive) that drives a new PATCH /api/v1/admin/product-models/:id/status route (server-enforced via setCatalogStatus, audited CATALOG_PRODUCT_MODEL_DEACTIVATED/ACTIVATED) and a new GET /api/v1/admin/product-models admin list that includes INACTIVE models so they can be reactivated; migration 0051 relaxes the two product_models CHECK constraints. Verified headed end-to-end: PCX Gaming Tower toggled to Inactive (muted pill) then back to Active with no error banner; a fresh page load records zero failed API requests.",
-  "ranAt": "2026-09-05T12:05:00.000Z"
+  "notes": "The product-model create and edit forms now expose the selected category's attribute definitions as inline typed inputs (NUMBER/BOOLEAN/JSON/TEXT), matching Magento's product-form attribute pattern instead of a separate specifications page. Create: POST product model then PUT specifications (bulk setModelValues); a required attribute left empty is rejected client-side (\"Missing required attributes: …\") before creation, and server-side atomically via assertRequiredSpecificationValues. Edit: existing values are pre-filled; changing the category clears the values, shows a warning, and swaps to the new category's definitions. Verified headed end-to-end: selecting GPU rendered VRAM (GB)·required; an empty submit was blocked; filling 12 created the model with vram_gb=12 persisted (confirmed in DB); the edit modal pre-filled VRAM=12; changing to Laptop cleared it and swapped to Screen Size (in)·required. No new console errors (only the pre-existing unauthenticated /api/v1/me 401s).",
+  "ranAt": "2026-09-05T12:40:00.000Z"
 }
 
 
