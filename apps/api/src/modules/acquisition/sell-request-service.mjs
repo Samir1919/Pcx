@@ -51,11 +51,44 @@ export function createSellRequestService({ authService, repository, indicativePr
     return Object.freeze({ ...record, productModelName, buildComponents: Object.freeze(buildComponents) });
   }
 
+  // Server-derived selected specs: the seller picks a variant (a product model
+  // for a part, or component models for a build), and the server snapshots that
+  // model's published typed specifications as the seller-declared selected_specs.
+  // This is the declaration only — never authoritative for price/grade/health —
+  // and is resolved server-side (never trusted from the client) so a raw UUID
+  // selection becomes human-readable, auditable variant facts.
+  async function resolveSelectedSpecs(fields) {
+    if (!catalogService || typeof catalogService.getProductModel !== "function") return fields.selectedSpecs ?? [];
+    const modelIds = [];
+    if (fields.productModelId) modelIds.push(fields.productModelId);
+    for (const component of (fields.buildComponents ?? [])) {
+      if (component?.productModelId) modelIds.push(component.productModelId);
+    }
+    if (modelIds.length === 0) return fields.selectedSpecs ?? [];
+    const specs = [];
+    for (const modelId of modelIds) {
+      try {
+        const model = await catalogService.getProductModel(modelId);
+        for (const spec of (model?.specifications ?? [])) {
+          if (spec.value == null) continue;
+          // JSON specifications are not scalar; the seller-declared selected
+          // specs contract only accepts scalar values.
+          if (spec.dataType === "JSON") continue;
+          specs.push({ key: spec.key, value: spec.value });
+        }
+      } catch {
+        // best-effort: a missing model degrades to no resolved specs.
+      }
+    }
+    return specs.length > 0 ? specs : (fields.selectedSpecs ?? []);
+  }
+
   return Object.freeze({
     async create(accessCredential, input) {
       const identity = await actor(accessCredential);
       const fields = allowed(input);
       const now = clock().toISOString();
+      const selectedSpecs = await resolveSelectedSpecs(fields);
       // Contact details are reused from the authenticated identity whenever
       // present, so the sell form never re-asks for them after sign-in. The
       // form-provided values only act as a fallback for incomplete identities.
@@ -73,7 +106,7 @@ export function createSellRequestService({ authService, repository, indicativePr
           contactPhone,
           contactEmail,
           fulfilmentPreference: fields.fulfilmentPreference,
-          selectedSpecs: fields.selectedSpecs,
+          selectedSpecs,
           sellEntry: fields.sellEntry,
           buildComponents: fields.buildComponents,
           createdAt: now

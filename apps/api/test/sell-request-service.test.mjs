@@ -156,6 +156,37 @@ test("create captures seller-declared selected specs", async () => {
   assert.deepEqual(calls.created[0].request.selectedSpecs, [{ key: "vram_gb", value: 12 }, { key: "condition", value: "good" }]);
 });
 
+test("create resolves selected specs from the picked product model server-side", async () => {
+  const { service } = fixture({
+    catalogService: {
+      async getProductModel(id) {
+        return {
+          id,
+          name: "RTX 3060",
+          specifications: [
+            { key: "vram_gb", label: "VRAM", dataType: "NUMBER", unit: "GB", value: 12 },
+            { key: "chipset", label: "Chipset", dataType: "TEXT", unit: null, value: "GA106" },
+            { key: "layout", label: "Layout", dataType: "JSON", unit: null, value: { lanes: 16 } }
+          ]
+        };
+      }
+    }
+  });
+  const result = await service.create("access", {
+    categoryId: "gpu",
+    productModelId: "model-1",
+    contactName: "Seller",
+    contactPhone: "01700000000",
+    fulfilmentPreference: FulfilmentPreference.COURIER,
+    ownershipDeclared: true
+  });
+  // JSON specs are skipped (non-scalar); only scalar specs are captured.
+  assert.deepEqual(result.selectedSpecs, [
+    { key: "vram_gb", value: 12 },
+    { key: "chipset", value: "GA106" }
+  ]);
+});
+
 test("create resolves the estimated range from the server-owned quote service", async () => {
   let called = null;
   const { service } = fixture({
