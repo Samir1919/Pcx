@@ -5,6 +5,22 @@
 -- Idempotent: fixed UUIDs + ON CONFLICT DO NOTHING. Reuses the 8x000000- prefix
 -- family so it is consistent with the original launch seed.
 
+-- Reset legacy catalog data seeded by the original migrations (0006, 0022) and
+-- the interim attribute-set/build seeds (0053, 0054) so this genuine seed is
+-- the sole source of truth. FK-safe delete order; on a database already past
+-- this migration the deletes are no-ops because the rows are re-seeded below.
+DELETE FROM sell_build_components;
+DELETE FROM sell_entry_config;
+DELETE FROM category_attribute_sets;
+DELETE FROM attribute_set_items;
+DELETE FROM attribute_sets;
+DELETE FROM indicative_prices;
+DELETE FROM model_spec_values;
+DELETE FROM product_models;
+DELETE FROM spec_definitions;
+DELETE FROM categories;
+DELETE FROM brands;
+
 -- 18 categories: 6 roots + 6 PC-parts children + 6 Laptop-parts children.
 INSERT INTO categories(id, name, slug, status, sort_order, parent_id) VALUES
   ('80000000-0000-0000-0000-000000000001', 'Desktop PC', 'desktop-pc', 'ACTIVE', 10, NULL),
