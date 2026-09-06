@@ -1,21 +1,18 @@
 {
-  "scope": "Dynamic attribute grouping end-to-end: attribute_set_items.group_key drives labeled fieldset groups in the admin product-model edit and the attribute-set manager (add-item group input + per-item group display); the customer build flow renders each build component as a labeled group with its resolved attribute definitions. Dev-DB junk (legacy 7000-series categories/brands/models, Spec Test fixtures) removed so the admin catalog shows only the genuine 18-category seed.",
+  "scope": "Dynamic attribute grouping in the admin: attribute_set_items.group_key drives labeled fieldset groups in the admin product-model edit (Processor/RAM/Storage/GPU/Power) and in the attribute-set manager (per-item group display + add-item group input). Dev-DB junk (legacy 7000-series categories/brands/models, Spec Test fixtures) removed so the admin catalog shows only the genuine 18-category seed.",
   "headed": true,
   "tool": "Playwright MCP browser (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "Attributes render in data-driven labeled groups instead of one flat list: the admin Desktop PC edit modal shows Processor/RAM/Storage/GPU/Power groups, the attribute-set manager shows each item's group and accepts a group on add, and the customer Desktop PC build flow shows each component (CPU/Motherboard/RAM/Storage/PSU/GPU) as its own group with its attribute definitions — then a complete build selection enables the review step.",
+    "subject": "The admin product-model edit modal renders the Desktop PC attributes in data-driven labeled groups instead of one flat list, and the attribute-set manager shows each item's group and accepts a group when adding an item. The admin catalog lists only the genuine seed categories after junk cleanup.",
     "steps": [
       "admin-catalog-lists-only-genuine-categories-after-junk-cleanup",
       "admin-product-models-open-desktop-pc-edit-renders-grouped-fieldsets",
-      "admin-attribute-sets-manage-desktop-pc-renders-item-groups-and-group-input",
-      "storefront-sell-desktop-pc-renders-grouped-component-fieldsets-with-attribute-lists",
-      "select-cpu-motherboard-ram-storage-models",
-      "review-selling-options-button-enabled"
+      "admin-attribute-sets-manage-desktop-pc-renders-item-groups-and-group-input"
     ]
   },
-  "notes": "Grouping is assembled server-side (catalog service listAttributeSetDefinitions/listCategoryAttributeSetDefinitions + sell-taxonomy service enrichEntries) and consumed by both admin and web — no component name is hardcoded in the UI. RAM Capacity (GB) and Storage Capacity (GB) are visually separated by their component groups. Junk cleanup is a dev-DB-only data operation (not a migration) since no migration creates the legacy fixtures.",
-  "ranAt": "2026-09-06T09:45:00.000Z"
+  "notes": "Grouping comes from attribute_set_items.group_key (seeded per component) and is rendered as labeled fieldsets in the admin — no component name is hardcoded in the UI. The customer web sell flow was reverted to plain model dropdowns per the user's direction; only the admin grouping remains.",
+  "ranAt": "2026-09-06T10:05:00.000Z"
 }
 
 

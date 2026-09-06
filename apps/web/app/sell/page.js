@@ -132,7 +132,7 @@ function SellFlow() {
     ? {
         title: entryConfig.category?.name ?? entryConfig.entryKey,
         systemCategoryId: entryConfig.category?.id,
-        roles: (entryConfig.components ?? []).map((component) => ({ role: component.role, categoryId: component.category?.id, label: component.category?.name ?? component.role, required: component.required, attributes: component.attributes ?? [] }))
+        roles: (entryConfig.components ?? []).map((component) => ({ role: component.role, categoryId: component.category?.id, label: component.category?.name ?? component.role, required: component.required }))
       }
     : null, [entryConfig]);
   const partEntry = useMemo(() => entryConfig && entryConfig.kind === "PARTS"
@@ -408,22 +408,12 @@ function SellFlow() {
             <div className="entryHeading"><h2>{title}</h2><p className="meta">{disclaimer()}</p></div>
 
             {build && build.roles.map((role) => (
-              <fieldset key={role.role} className="buildComponent">
-                <legend>{role.label}{role.required ? " *" : ""}</legend>
-                <label><span>Select {role.label}</span>
-                  <select value={selections[role.role] ?? ""} onChange={(e) => setBuildSelection(role.role, e.target.value)} required={role.required}>
-                    <option value="">Select {role.label}</option>
-                    {(buildModels[role.role] ?? []).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-                  </select>
-                </label>
-                {role.attributes.length > 0 && (
-                  <ul className="buildSpecs">
-                    {role.attributes.map((attr) => (
-                      <li key={attr.key}><span>{attr.label}{attr.unit ? ` (${attr.unit})` : ""}</span></li>
-                    ))}
-                  </ul>
-                )}
-              </fieldset>
+              <label key={role.role}><span>{role.label}{role.required ? " *" : ""}</span>
+                <select value={selections[role.role] ?? ""} onChange={(e) => setBuildSelection(role.role, e.target.value)} required={role.required}>
+                  <option value="">Select {role.label}</option>
+                  {(buildModels[role.role] ?? []).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+              </label>
             ))}
 
             {partEntry && (
