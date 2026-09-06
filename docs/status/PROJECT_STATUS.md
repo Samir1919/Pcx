@@ -1,7 +1,7 @@
 # PCX Project Status
 
-- Updated: 2026-09-03
-- Current main evidence commit: `57510f0` (sell flow delete + runtime build-role management, E3, merged into `origin/main`)
+- Updated: 2026-09-06
+- Current main evidence commit: `63ec1d1` (catalog genuine seed data on global attributes + sets; full catalog reset re-seeded)
 - Delivery target: tested, documented, GitHub-synced, staging-ready MVP
 - Current engineering focus: Stage 3 control-plane completion and next dependency-ready work
 - Current autonomy maturity: Stage 2 in progress; Stage 3 control plane complete for bounded local/CI parallel orchestration (ADR 0008)
