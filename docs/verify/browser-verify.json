@@ -1,21 +1,19 @@
 {
-  "scope": "Relocate the Sell flow and Quotes administration surfaces from the Catalog workspace to the Acquisition workspace. The admin Acquisition page is now tabbed (Sell requests / Sell flow / Quotes); the Catalog workspace keeps only catalog resources (Categories, Brands, Product models, Attributes, Attribute sets, Import CSV).",
+  "scope": "Full-PC build create flow in the admin Catalog workspace (new PC builds tab with a slot-based configurator) and the storefront model page component summary. The admin catalog also returns to per-category Attributes after the attribute-set removal.",
   "headed": true,
   "tool": "Playwright MCP browser (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "The Acquisition workspace renders three tabs: the sell-request admin queue (default), the sell-flow config (sell entries + build roles with component category and attribute-set override), and the indicative quote config (category/model ranges + history). The Catalog workspace no longer shows the removed Sell flow / Quotes tabs.",
+    "subject": "Signed in as the demo admin, opened the Catalog workspace PC builds tab, created a full PC build whose component slots mix 'select existing' parts (CPU/Motherboard/RAM/Storage) and an 'add new part' inline entry (a custom GPU with a typed VRAM spec), saved it atomically, and verified the storefront model page renders the build's server-derived Included components summary.",
     "steps": [
-      "admin-acquisition-shows-sell-requests-sell-flow-quotes-tabs",
-      "admin-acquisition-sell-flow-tab-renders-sell-entries-and-build-roles",
-      "admin-acquisition-quotes-tab-renders-range-config-and-history",
-      "admin-catalog-tabs-no-longer-include-sell-flow-or-quotes"
+      "admin-login-mfa",
+      "admin-catalog-renders-per-category-attributes-and-pc-builds-tab",
+      "admin-build-form-renders-component-slots-with-select-existing-or-add-new",
+      "admin-build-save-mixes-existing-parts-and-inline-new-part",
+      "storefront-model-page-renders-included-components"
     ]
   },
-  "notes": "The panels were git-mv'd from catalog/ to acquisition/ (relative imports unchanged) and the Catalog workspace dropped the two tabs plus their render branches. SellFlowPanel receives categories + attribute sets fetched by the Acquisition page via catalogApi.categories()/attributeSets().",
-  "ranAt": "2026-09-06T10:25:00.000Z"
+  "notes": "Verified headed against the local dev stack (admin :3001, web :3000, api :4000). The backend POST /api/v1/admin/product-model-builds atomically created the BUILD model, the inline part (with typed spec value), and the product_model_components links; GET /api/v1/product-models/:id returned the components array rendered read-only on the storefront. Test rows created during the click-through were deleted afterward.",
+  "ranAt": "2026-09-06T12:05:00.000Z"
 }
-
-
-
 

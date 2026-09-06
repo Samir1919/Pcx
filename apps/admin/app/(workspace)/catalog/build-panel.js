@@ -101,8 +101,10 @@ export default function BuildPanel({ brands, onChanged }) {
           .filter(Boolean);
         return { ...base, mode: "new", name: form.get(`name:${role}`), brandId: form.get(`brand:${role}`), specs };
       }
-      return { ...base, mode: "existing", productModelId: form.get(`model:${role}`) };
-    });
+      const productModelId = form.get(`model:${role}`);
+      if (!productModelId) return null; // optional slot left empty -> skip
+      return { ...base, mode: "existing", productModelId };
+    }).filter(Boolean);
 
     setBusy(true);
     setNotice(null);
@@ -159,7 +161,7 @@ export default function BuildPanel({ brands, onChanged }) {
                         <label><input type="radio" name={`mode:${role}`} checked={mode === "new"} onChange={() => setMode(role, "new")} />Add new part</label>
                       </div>
                       {mode === "existing" ? (
-                        <label><span>Part model</span><select name={`model:${role}`} required><option value="">Select part</option>{(models[component.category?.id] ?? []).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
+                        <label><span>Part model</span><select name={`model:${role}`} required={component.required}><option value="">Select part</option>{(models[component.category?.id] ?? []).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
                       ) : (
                         <>
                           <Field label="Part name" name={`name:${role}`} required maxLength="160" />
