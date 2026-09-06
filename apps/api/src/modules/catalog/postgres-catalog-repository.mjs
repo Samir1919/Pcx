@@ -80,6 +80,30 @@ export function createPostgresCatalogRepository({ pool }) {
             : row.data_type === "BOOLEAN" ? row.value_boolean
               : row.value_json
       }));
+    },
+    // Active definition keys in a reusable attribute set (part template).
+    async listAttributeSetDefinitionKeys(setId) {
+      const result = await pool.query(
+        `SELECT d.key FROM attribute_set_items i
+         JOIN spec_definitions d ON d.id = i.definition_id AND d.status = 'ACTIVE'
+         WHERE i.set_id::text = $1
+         ORDER BY i.sort_order, d.label`,
+        [setId]
+      );
+      return result.rows.map((row) => row.key);
+    },
+    // Union of active definition keys across a category's assigned sets (the
+    // category default when no explicit build-role override is set).
+    async listCategoryAttributeSetDefinitionKeys(categoryId) {
+      const result = await pool.query(
+        `SELECT DISTINCT d.key FROM category_attribute_sets cas
+         JOIN attribute_sets s ON s.id = cas.set_id AND s.status = 'ACTIVE'
+         JOIN attribute_set_items i ON i.set_id = s.id
+         JOIN spec_definitions d ON d.id = i.definition_id AND d.status = 'ACTIVE'
+         WHERE cas.category_id::text = $1`,
+        [categoryId]
+      );
+      return result.rows.map((row) => row.key);
     }
   });
 }

@@ -1,20 +1,20 @@
 {
-  "scope": "Attribute-set lifecycle: archive an attribute set, and assign a reusable attribute set to a sell-flow build role (Option 3 — build component references a part template directly, overriding the category default)",
+  "scope": "Full-stack logic continuation of global/reusable attribute sets: server (definition-key resolution + selected-specs scoping), admin (Attributes, Attribute sets, Sell flow attribute-set override), and customer web (passport specifications) verified together in a headed browser",
   "headed": true,
   "tool": "Playwright MCP browser (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "Admin catalog Attribute sets tab exposes an Archive action, and the Sell flow panel adds an Attribute-set column (and create-form field) so a build role can be pinned to a specific reusable set instead of its category default",
+    "subject": "A build role's attribute-set override is now consumed server-side: the seller-declared selected specs for each build component are scoped to the role's reusable set (explicit override, else the component category's set). Admin surfaces render the global attribute sets and the Sell flow Attribute-set column; the storefront passport still renders typed specifications.",
     "steps": [
-      "open-admin-catalog-sell-flow-tab",
-      "build-components-table-renders-attribute-set-column-with-category-default",
-      "assign-cpu-set-to-desktop-pc-cpu-role",
-      "assignment-persists-server-side",
-      "attribute-sets-tab-renders-archive-action"
+      "admin-catalog-attributes-tab-lists-global-definitions",
+      "admin-attribute-sets-tab-lists-nine-seed-sets",
+      "admin-sell-flow-tab-renders-attribute-set-column-with-category-default",
+      "assign-attribute-set-to-a-build-role-persists",
+      "storefront-passport-renders-typed-specifications"
     ]
   },
-  "notes": "Migration 0054 adds sell_build_components.attribute_set_id (nullable FK to attribute_sets). The sell-flow BUILD table now shows an Attribute-set column (defaulting to \"Category default\" = inherit the component category's set) and the Add-build-role form exposes an optional Attribute-set select. Selecting the CPU set for the Desktop PC cpu role persisted server-side (verified in sell_build_components), then reverted to keep the seed clean. Attribute sets also gained a DELETE /admin/attribute-sets/:id archive action surfaced as an Archive button. No console errors.",
-  "ranAt": "2026-09-06T04:45:00.000Z"
+  "notes": "Closed the logic-continuation gap: sell_build_components.attribute_set_id (Option 3 override) was previously stored + editable but never consumed. It is now consumed in sellRequestService.resolveSelectedSpecs — each build component's picked-model specs are filtered to its role's reusable set (attribute_set_id override, else the component category's assigned set) via new public catalog reads listAttributeSetDefinitionKeys/listCategoryAttributeSetDefinitionKeys and sellTaxonomyService.getComponentAttributeSet. A new unit test proves the scoping (a ram role overridden to a partial set drops the out-of-set type attribute; a cpu role keeps its category-default attributes). Admin UI (Attributes, Attribute sets, Sell flow column) and the storefront passport (VRAM 12 GB) render correctly headed. 729 tests pass (3 pre-existing shared-DB integration failures unrelated to this change).",
+  "ranAt": "2026-09-06T05:00:00.000Z"
 }
 
 

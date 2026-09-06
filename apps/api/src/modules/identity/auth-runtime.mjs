@@ -191,7 +191,6 @@ export function createAuthRuntime({ pool, allowedOrigins, adminOrigins, abuseCon
   const notificationRepository = createPostgresNotificationRepository({ pool });
   const emitterRepository = createPostgresNotificationRepository({ pool });
   const notificationEmitter = createNotificationEmitter({ repository: emitterRepository });
-  const sellRequestService = createSellRequestService({ authService, repository: createPostgresSellRequestRepository({ pool }), indicativePriceService, catalogService, notificationEmitter });
   const acquisitionService = createAcquisitionService({ authService, repository: createPostgresAcquisitionRepository({ pool }), notificationEmitter });
   const inventoryRepository = createPostgresInventoryRepository({ pool });
   const inventoryService = createInventoryService({ authService, repository: inventoryRepository, acquisitionCostResolver: (acquisitionId) => acquisitionService.getAcquisitionAgreedPrice(acquisitionId) });
@@ -217,6 +216,7 @@ export function createAuthRuntime({ pool, allowedOrigins, adminOrigins, abuseCon
   const paymentProviderConfigRepository = createPostgresPaymentProviderConfigRepository({ pool });
   const paymentProviderConfigService = createPaymentProviderConfigService({ authService, repository: paymentProviderConfigRepository });
   const sellTaxonomyService = createSellTaxonomyService({ authService, catalogService, mediaService, readRepository: createPostgresSellTaxonomyRepository({ pool }), commandRepository: createPostgresSellTaxonomyCommandRepository({ pool }) });
+  const sellRequestService = createSellRequestService({ authService, repository: createPostgresSellRequestRepository({ pool }), indicativePriceService, catalogService, sellTaxonomyService, notificationEmitter });
   const siteFooterService = createSiteFooterService({ authService, repository: createPostgresSiteFooterRepository({ pool }) });
   const orderPaymentRepository = createPostgresOrderPaymentRepository({ pool });
   const orderPaymentService = createOrderPaymentService({ authService, repository: orderPaymentRepository, paymentProviderConfigService, notificationEmitter });

@@ -149,6 +149,13 @@ export function createSellTaxonomyService({ authService, readRepository, command
       return Object.freeze({ data: Object.freeze(await readRepository.listEntries({ activeOnly: true })) });
     },
 
+    // Resolve a build role's attribute-set override (or its component category)
+    // for the seller-declared selected-specs scoping. Public, read-only config.
+    async getComponentAttributeSet(entryKey, role) {
+      if (!readRepository || typeof readRepository.findComponentAttributeSet !== "function") return null;
+      return await readRepository.findComponentAttributeSet(entryKey, role);
+    },
+
     // Admin read: full config including inactive entries.
     async listAdmin(accessCredential) {
       await actor(accessCredential);

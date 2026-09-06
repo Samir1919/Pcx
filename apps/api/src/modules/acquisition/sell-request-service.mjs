@@ -9,7 +9,7 @@ export class SellRequestError extends Error {
 
 const createFields = new Set(["categoryId", "productModelId", "contactName", "contactPhone", "contactEmail", "fulfilmentPreference", "selectedSpecs", "sellEntry", "buildComponents", "ageEstimate", "warrantyRemaining", "repairDeclared", "repairNotes", "boxAvailable", "invoiceAvailable", "ownershipDeclared"]);
 
-export function createSellRequestService({ authService, repository, indicativePriceService, catalogService = null, id = randomUUID, clock = () => new Date(), notificationEmitter = null }) {
+export function createSellRequestService({ authService, repository, indicativePriceService, catalogService = null, sellTaxonomyService = null, id = randomUUID, clock = () => new Date(), notificationEmitter = null }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
   for (const method of ["create", "submit", "findByOwner", "findById", "transition", "listByOwner", "listAll"]) if (!repository || typeof repository[method] !== "function") throw new TypeError(`repository.${method} is required`);
 
@@ -54,30 +54,55 @@ export function createSellRequestService({ authService, repository, indicativePr
   // Server-derived selected specs: the seller picks a variant (a product model
   // for a part, or component models for a build), and the server snapshots that
   // model's published typed specifications as the seller-declared selected_specs.
-  // This is the declaration only — never authoritative for price/grade/health —
-  // and is resolved server-side (never trusted from the client) so a raw UUID
-  // selection becomes human-readable, auditable variant facts.
+  // For a build, each component's specs are scoped to its role's reusable
+  // attribute set (an explicit build-role override, or the component category's
+  // assigned set) so a role only carries its own relevant attributes. This is
+  // the declaration only — never authoritative for price/grade/health — and is
+  // resolved server-side (never trusted from the client).
   async function resolveSelectedSpecs(fields) {
     if (!catalogService || typeof catalogService.getProductModel !== "function") return fields.selectedSpecs ?? [];
-    const modelIds = [];
-    if (fields.productModelId) modelIds.push(fields.productModelId);
-    for (const component of (fields.buildComponents ?? [])) {
-      if (component?.productModelId) modelIds.push(component.productModelId);
-    }
-    if (modelIds.length === 0) return fields.selectedSpecs ?? [];
-    const specs = [];
-    for (const modelId of modelIds) {
+    async function specsOf(modelId) {
       try {
         const model = await catalogService.getProductModel(modelId);
+        const out = [];
         for (const spec of (model?.specifications ?? [])) {
           if (spec.value == null) continue;
           // JSON specifications are not scalar; the seller-declared selected
           // specs contract only accepts scalar values.
           if (spec.dataType === "JSON") continue;
-          specs.push({ key: spec.key, value: spec.value });
+          out.push({ key: spec.key, value: spec.value });
         }
+        return out;
       } catch {
-        // best-effort: a missing model degrades to no resolved specs.
+        return [];
+      }
+    }
+    // Resolve the role's definition keys, or null when no scoping is available.
+    async function roleKeys(entryKey, role) {
+      if (!sellTaxonomyService || typeof sellTaxonomyService.getComponentAttributeSet !== "function") return null;
+      try {
+        const config = await sellTaxonomyService.getComponentAttributeSet(entryKey, role);
+        if (!config) return null;
+        if (config.attributeSetId) {
+          if (typeof catalogService.listAttributeSetDefinitionKeys !== "function") return null;
+          return new Set(await catalogService.listAttributeSetDefinitionKeys(config.attributeSetId));
+        }
+        if (typeof catalogService.listCategoryAttributeSetDefinitionKeys !== "function") return null;
+        return new Set(await catalogService.listCategoryAttributeSetDefinitionKeys(config.categoryId));
+      } catch {
+        return null;
+      }
+    }
+    const specs = [];
+    if (fields.productModelId) {
+      for (const spec of await specsOf(fields.productModelId)) specs.push(spec);
+    }
+    for (const component of (fields.buildComponents ?? [])) {
+      if (!component?.productModelId) continue;
+      const keys = await roleKeys(fields.sellEntry, component.role);
+      for (const spec of await specsOf(component.productModelId)) {
+        if (keys && !keys.has(spec.key)) continue;
+        specs.push(spec);
       }
     }
     return specs.length > 0 ? specs : (fields.selectedSpecs ?? []);

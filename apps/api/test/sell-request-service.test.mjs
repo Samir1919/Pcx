@@ -38,6 +38,7 @@ function fixture(overrides = {}) {
     repository,
     indicativePriceService: overrides.indicativePriceService ?? { async quote() { return { data: { range: null } }; } },
     catalogService: overrides.catalogService ?? null,
+    sellTaxonomyService: overrides.sellTaxonomyService ?? null,
     id: (() => { let n = 0; return () => `id-${++n}`; })(),
     clock: () => new Date("2026-08-16T00:00:00.000Z")
   });
@@ -184,6 +185,52 @@ test("create resolves selected specs from the picked product model server-side",
   assert.deepEqual(result.selectedSpecs, [
     { key: "vram_gb", value: 12 },
     { key: "chipset", value: "GA106" }
+  ]);
+});
+
+test("create scopes build-component selected specs to each role's attribute set", async () => {
+  const { service } = fixture({
+    sellTaxonomyService: {
+      async getComponentAttributeSet(entryKey, role) {
+        if (role === "ram") return { attributeSetId: "ram-set", categoryId: "ram-cat" };
+        if (role === "cpu") return { attributeSetId: null, categoryId: "cpu-cat" };
+        return null;
+      }
+    },
+    catalogService: {
+      async getProductModel(id) {
+        const specifications = id === "ram-model"
+          ? [{ key: "capacity_gb", value: 16 }, { key: "speed_mhz", value: 3200 }, { key: "type", value: "DDR4" }]
+          : [{ key: "socket", value: "LGA1700" }, { key: "cores", value: 6 }];
+        return { id, name: id, specifications };
+      },
+      async listAttributeSetDefinitionKeys(setId) {
+        return setId === "ram-set" ? ["capacity_gb", "speed_mhz"] : [];
+      },
+      async listCategoryAttributeSetDefinitionKeys(categoryId) {
+        return categoryId === "cpu-cat" ? ["socket", "cores"] : [];
+      }
+    }
+  });
+  const result = await service.create("access", {
+    categoryId: "gpu",
+    contactName: "Seller",
+    contactPhone: "01700000000",
+    fulfilmentPreference: FulfilmentPreference.COURIER,
+    ownershipDeclared: true,
+    sellEntry: "DESKTOP_PC",
+    buildComponents: [
+      { role: "ram", productModelId: "ram-model" },
+      { role: "cpu", productModelId: "cpu-model" }
+    ]
+  });
+  // ram role is overridden to the ram-set (capacity_gb + speed_mhz only) so the
+  // DDR4 "type" attribute is dropped; cpu role uses its category default set.
+  assert.deepEqual(result.selectedSpecs, [
+    { key: "capacity_gb", value: 16 },
+    { key: "speed_mhz", value: 3200 },
+    { key: "socket", value: "LGA1700" },
+    { key: "cores", value: 6 }
   ]);
 });
 

@@ -69,6 +69,17 @@ export function createPostgresSellTaxonomyRepository({ pool }) {
       }
 
       return entries.map((e) => Object.freeze(e));
+    },
+    // Resolve a build role's attribute-set override (or its component category
+    // for the default) so the seller-declared selected specs can be scoped to
+    // the role's reusable set. Returns null for an unknown role.
+    async findComponentAttributeSet(entryKey, role) {
+      const result = await pool.query(
+        "SELECT attribute_set_id, category_id FROM sell_build_components WHERE entry_key = $1 AND role = $2",
+        [entryKey, role]
+      );
+      const row = result.rows[0];
+      return row ? Object.freeze({ attributeSetId: row.attribute_set_id ?? null, categoryId: row.category_id }) : null;
     }
   });
 }
