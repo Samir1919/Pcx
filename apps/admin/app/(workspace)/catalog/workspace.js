@@ -2,8 +2,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { catalogApi } from "../../../lib/catalog-api";
-import SellFlowPanel from "./sell-flow-panel";
-import QuoteConfigPanel from "./quote-config-panel";
 import ImportCsvPanel from "./import-csv-panel";
 import AttributeSetsPanel from "./attribute-sets-panel";
 
@@ -444,22 +442,12 @@ export default function CatalogWorkspace() {
         <button role="tab" aria-selected={active === "sets"} onClick={() => setActive("sets")}>
           Attribute sets<span>{data.sets.length}</span>
         </button>
-        <button role="tab" aria-selected={active === "sellflow"} onClick={() => setActive("sellflow")}>
-          Sell flow
-        </button>
-        <button role="tab" aria-selected={active === "quotes"} onClick={() => setActive("quotes")}>
-          Quotes
-        </button>
         <button role="tab" aria-selected={active === "import"} onClick={() => setActive("import")}>
           Import CSV
         </button>
       </div>
       {active === "import" ? (
         <ImportCsvPanel onImported={load} />
-      ) : active === "quotes" ? (
-        <QuoteConfigPanel />
-      ) : active === "sellflow" ? (
-        <SellFlowPanel categories={data.categories} attributeSets={data.sets} />
       ) : active === "sets" ? (
         <AttributeSetsPanel categories={data.categories} definitions={data.definitions} onChanged={load} />
       ) : (

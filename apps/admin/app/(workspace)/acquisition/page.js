@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { acquisitionApi } from "../../../lib/acquisition-api.js";
+import { catalogApi } from "../../../lib/catalog-api.js";
 import SellRequestModal from "./sell-request-modal.js";
+import SellFlowPanel from "./sell-flow-panel.js";
+import QuoteConfigPanel from "./quote-config-panel.js";
 import { sellRequestStatusLabel } from "../../../lib/sell-request-status.js";
 
 function Banner({ notice, onClose }) {
@@ -16,10 +19,13 @@ function Banner({ notice, onClose }) {
 }
 
 export default function AcquisitionPage() {
+  const [tab, setTab] = useState("requests");
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState(null);
   const [sellRequests, setSellRequests] = useState([]);
   const [selected, setSelected] = useState(null);
+  const [categories, setCategories] = useState([]);
+  const [attributeSets, setAttributeSets] = useState([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -34,7 +40,17 @@ export default function AcquisitionPage() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  const loadCatalog = useCallback(async () => {
+    try {
+      const [cats, sets] = await Promise.all([catalogApi.categories(), catalogApi.attributeSets()]);
+      setCategories(cats.data ?? []);
+      setAttributeSets(sets.data ?? []);
+    } catch {
+      // Sell flow / Quotes degrade gracefully without the shared catalog lists.
+    }
+  }, []);
+
+  useEffect(() => { load(); loadCatalog(); }, [load, loadCatalog]);
 
   return (
     <>
@@ -42,13 +58,25 @@ export default function AcquisitionPage() {
         <div>
           <p className="eyebrow">OPERATIONS / ACQUISITION</p>
           <h1>Acquisition</h1>
-          <p>Offer, acceptance, acquisition, and payment are all available from each sell request's detail view. Agreed price and status are always server-owned. Indicative quote ranges are configured in Catalog → Quotes.</p>
+          <p>Offer, acceptance, acquisition, and payment are all available from each sell request's detail view. Agreed price and status are always server-owned. Sell flow and indicative quote ranges are configured here.</p>
         </div>
         <button className="refresh" type="button" onClick={load} disabled={loading}>↻ Refresh</button>
       </header>
 
       <Banner notice={notice} onClose={() => setNotice(null)} />
 
+      <div className="tabs" role="tablist" aria-label="Acquisition sections">
+        <button role="tab" aria-selected={tab === "requests"} onClick={() => setTab("requests")}>Sell requests</button>
+        <button role="tab" aria-selected={tab === "sellflow"} onClick={() => setTab("sellflow")}>Sell flow</button>
+        <button role="tab" aria-selected={tab === "quotes"} onClick={() => setTab("quotes")}>Quotes</button>
+      </div>
+
+      {tab === "sellflow" ? (
+        <SellFlowPanel categories={categories} attributeSets={attributeSets} />
+      ) : tab === "quotes" ? (
+        <QuoteConfigPanel />
+      ) : (
+      <>
       <section className="panel">
         <div className="panelTitle">
           <div>
@@ -93,6 +121,8 @@ export default function AcquisitionPage() {
           onChanged={() => load()}
         />
       ) : null}
+      </>
+      )}
     </>
   );
 }

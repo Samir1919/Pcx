@@ -1,18 +1,19 @@
 {
-  "scope": "Dynamic attribute grouping in the admin: attribute_set_items.group_key drives labeled fieldset groups in the admin product-model edit (Processor/RAM/Storage/GPU/Power) and in the attribute-set manager (per-item group display + add-item group input). Dev-DB junk (legacy 7000-series categories/brands/models, Spec Test fixtures) removed so the admin catalog shows only the genuine 18-category seed.",
+  "scope": "Relocate the Sell flow and Quotes administration surfaces from the Catalog workspace to the Acquisition workspace. The admin Acquisition page is now tabbed (Sell requests / Sell flow / Quotes); the Catalog workspace keeps only catalog resources (Categories, Brands, Product models, Attributes, Attribute sets, Import CSV).",
   "headed": true,
   "tool": "Playwright MCP browser (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "The admin product-model edit modal renders the Desktop PC attributes in data-driven labeled groups instead of one flat list, and the attribute-set manager shows each item's group and accepts a group when adding an item. The admin catalog lists only the genuine seed categories after junk cleanup.",
+    "subject": "The Acquisition workspace renders three tabs: the sell-request admin queue (default), the sell-flow config (sell entries + build roles with component category and attribute-set override), and the indicative quote config (category/model ranges + history). The Catalog workspace no longer shows the removed Sell flow / Quotes tabs.",
     "steps": [
-      "admin-catalog-lists-only-genuine-categories-after-junk-cleanup",
-      "admin-product-models-open-desktop-pc-edit-renders-grouped-fieldsets",
-      "admin-attribute-sets-manage-desktop-pc-renders-item-groups-and-group-input"
+      "admin-acquisition-shows-sell-requests-sell-flow-quotes-tabs",
+      "admin-acquisition-sell-flow-tab-renders-sell-entries-and-build-roles",
+      "admin-acquisition-quotes-tab-renders-range-config-and-history",
+      "admin-catalog-tabs-no-longer-include-sell-flow-or-quotes"
     ]
   },
-  "notes": "Grouping comes from attribute_set_items.group_key (seeded per component) and is rendered as labeled fieldsets in the admin — no component name is hardcoded in the UI. The customer web sell flow was reverted to plain model dropdowns per the user's direction; only the admin grouping remains.",
-  "ranAt": "2026-09-06T10:05:00.000Z"
+  "notes": "The panels were git-mv'd from catalog/ to acquisition/ (relative imports unchanged) and the Catalog workspace dropped the two tabs plus their render branches. SellFlowPanel receives categories + attribute sets fetched by the Acquisition page via catalogApi.categories()/attributeSets().",
+  "ranAt": "2026-09-06T10:25:00.000Z"
 }
 
 
