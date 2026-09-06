@@ -141,12 +141,41 @@ export function createSellTaxonomyService({ authService, readRepository, command
     return category.slug;
   }
 
+  // Resolve each build component's attribute definitions (its override set, or
+  // the component category's default set) so build inputs render them in labeled
+  // groups. Grouping is data-driven; the UI never hardcodes component names.
+  async function componentDefinitions(component) {
+    try {
+      if (component.attributeSetId && catalogService && typeof catalogService.listAttributeSetDefinitions === "function") {
+        return await catalogService.listAttributeSetDefinitions(component.attributeSetId);
+      }
+      if (catalogService && typeof catalogService.listCategoryAttributeSetDefinitions === "function" && component.category?.id) {
+        return await catalogService.listCategoryAttributeSetDefinitions(component.category.id);
+      }
+    } catch {
+      // A component whose set is unavailable simply renders no attributes.
+    }
+    return Object.freeze([]);
+  }
+
+  async function enrichEntries(entries) {
+    const enriched = [];
+    for (const entry of entries) {
+      const components = [];
+      for (const component of (entry.components ?? [])) {
+        components.push(Object.freeze({ ...component, attributes: await componentDefinitions(component) }));
+      }
+      enriched.push(Object.freeze({ ...entry, components: Object.freeze(components) }));
+    }
+    return Object.freeze(enriched);
+  }
+
   return Object.freeze({
     // Public read-only: active sell entries + their build components + part
     // children. Never exposes internal ids beyond what is needed to render
     // and submit a sell request (category ids are public catalog references).
     async publicTaxonomy() {
-      return Object.freeze({ data: Object.freeze(await readRepository.listEntries({ activeOnly: true })) });
+      return Object.freeze({ data: await enrichEntries(await readRepository.listEntries({ activeOnly: true })) });
     },
 
     // Resolve a build role's attribute-set override (or its component category)
@@ -159,7 +188,7 @@ export function createSellTaxonomyService({ authService, readRepository, command
     // Admin read: full config including inactive entries.
     async listAdmin(accessCredential) {
       await actor(accessCredential);
-      return Object.freeze({ data: Object.freeze(await readRepository.listEntries({ activeOnly: false })) });
+      return Object.freeze({ data: await enrichEntries(await readRepository.listEntries({ activeOnly: false })) });
     },
 
     async createEntry(accessCredential, input, context = {}) {

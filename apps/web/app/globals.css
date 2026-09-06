@@ -1154,6 +1154,45 @@ a {
   cursor: pointer;
 }
 
+/* A build component is a labeled group so shared attribute names (e.g. RAM vs
+   Storage "Capacity") stay visually distinct while remaining data-driven. */
+.sellForm fieldset.buildComponent {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: .6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin: 0;
+  min-width: 0;
+}
+
+.sellForm .buildComponent legend {
+  font-weight: 750;
+  color: var(--ink);
+  padding: 0 .4rem;
+}
+
+.sellForm .buildSpecs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sellForm .buildSpecs li {
+  display: inline-flex;
+  align-items: center;
+  background: var(--mint);
+  color: var(--green-strong);
+  border-radius: var(--radius-sm);
+  padding: .3rem .6rem;
+  font-size: .75rem;
+  font-weight: 600;
+}
+
 .sellForm input:not([type="checkbox"]),
 .sellForm select {
   border: 1px solid #cdd8d1;

@@ -35,12 +35,27 @@ function buildSpecPayload(definitions, values) {
     .filter(Boolean);
 }
 
+function groupDefinitions(definitions) {
+  const groups = [];
+  const byKey = new Map();
+  for (const definition of definitions) {
+    const key = definition.group?.key ?? null;
+    if (!byKey.has(key)) {
+      const group = { key, label: definition.group?.label ?? "Attributes", definitions: [] };
+      byKey.set(key, group);
+      groups.push(group);
+    }
+    byKey.get(key).definitions.push(definition);
+  }
+  return groups;
+}
+
 function SpecValueFields({ definitions, values, onChange, disabled }) {
   if (!definitions || definitions.length === 0) return null;
-  return (
-    <fieldset className="specFields" disabled={disabled}>
-      <legend>Attributes</legend>
-      {definitions.map((definition) => {
+  return groupDefinitions(definitions).map((group) => (
+    <fieldset key={group.key ?? "attributes"} className="specFields" disabled={disabled}>
+      <legend>{group.label}</legend>
+      {group.definitions.map((definition) => {
         const value = values?.[definition.id];
         return (
           <label key={definition.id}>
@@ -60,7 +75,7 @@ function SpecValueFields({ definitions, values, onChange, disabled }) {
         );
       })}
     </fieldset>
-  );
+  ));
 }
 
 function CatalogEditModal({ active, record, categories, brands, busy, onClose, onSave }) {

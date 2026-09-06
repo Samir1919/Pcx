@@ -53,6 +53,16 @@ export function createCatalogService({ repository }) {
       if (typeof repository.listCategoryAttributeSetDefinitionKeys !== "function") return Object.freeze([]);
       const keys = await repository.listCategoryAttributeSetDefinitionKeys(categoryId);
       return Object.freeze(Array.isArray(keys) ? keys : []);
+    },
+    async listAttributeSetDefinitions(setId) {
+      if (typeof repository.listAttributeSetDefinitions !== "function") return Object.freeze([]);
+      const definitions = await repository.listAttributeSetDefinitions(setId);
+      return Object.freeze(Array.isArray(definitions) ? definitions : []);
+    },
+    async listCategoryAttributeSetDefinitions(categoryId) {
+      if (typeof repository.listCategoryAttributeSetDefinitions !== "function") return Object.freeze([]);
+      const definitions = await repository.listCategoryAttributeSetDefinitions(categoryId);
+      return Object.freeze(Array.isArray(definitions) ? definitions : []);
     }
   });
 }

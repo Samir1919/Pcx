@@ -117,15 +117,27 @@ export function createAttributeSet({ id, key, label, createdAt = new Date() }) {
   });
 }
 
-export function createAttributeSetItem({ setId, definitionId, required = false, sortOrder = 0 }) {
+export function createAttributeSetItem({ setId, definitionId, required = false, sortOrder = 0, groupKey = null }) {
   if (typeof required !== "boolean") throw new TypeError("required must be a boolean");
   if (!Number.isSafeInteger(sortOrder) || sortOrder < 0) throw new TypeError("sortOrder must be a non-negative integer");
+  if (groupKey != null && !/^[a-z][a-z0-9_-]*$/.test(groupKey)) throw new TypeError("groupKey must be a canonical lowercase slug");
   return Object.freeze({
     setId: requiredString(setId, "setId"),
     definitionId: requiredString(definitionId, "definitionId"),
     required,
-    sortOrder
+    sortOrder,
+    groupKey: groupKey ?? null
   });
+}
+
+// Display label for a set-item group key. Generic formatter (never a per-group
+// map): short keys are treated as acronyms, longer keys are title-cased.
+export function attributeGroupLabel(groupKey) {
+  if (!groupKey || typeof groupKey !== "string") return null;
+  if (groupKey.length <= 3) return groupKey.toUpperCase();
+  return groupKey.split(/[_-]+/).filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 function typedValue(dataType, value) {

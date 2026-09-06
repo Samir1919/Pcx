@@ -1,3 +1,4 @@
+import { attributeGroupLabel } from "@pcx/domain";
 function timestamp(value) { return new Date(value).toISOString(); }
 
 function category(row) {
@@ -8,6 +9,18 @@ function brand(row) {
 }
 function model(row) {
   return Object.freeze({ id: row.id, categoryId: row.category_id, brandId: row.brand_id, name: row.name, slug: row.slug, modelCode: row.model_code, searchAliases: Object.freeze([...(row.search_aliases ?? [])]), status: row.status, createdAt: timestamp(row.created_at), updatedAt: timestamp(row.updated_at), archivedAt: row.archived_at ? timestamp(row.archived_at) : null });
+}
+
+function publicSetDefinition(row) {
+  return Object.freeze({
+    key: row.key,
+    label: row.label,
+    dataType: row.data_type,
+    unit: row.unit,
+    required: row.required,
+    sortOrder: row.sort_order,
+    group: row.group_key ? Object.freeze({ key: row.group_key, label: attributeGroupLabel(row.group_key) }) : null
+  });
 }
 
 function decodeCursor(value, sort) {
@@ -104,6 +117,32 @@ export function createPostgresCatalogRepository({ pool }) {
         [categoryId]
       );
       return result.rows.map((row) => row.key);
+    },
+    // Full definitions in a reusable attribute set (for grouped build input).
+    async listAttributeSetDefinitions(setId) {
+      const result = await pool.query(
+        `SELECT d.key, d.label, d.data_type, d.unit, i.required, i.sort_order, i.group_key
+         FROM attribute_set_items i
+         JOIN spec_definitions d ON d.id = i.definition_id AND d.status = 'ACTIVE'
+         WHERE i.set_id::text = $1
+         ORDER BY i.sort_order, d.label`,
+        [setId]
+      );
+      return result.rows.map(publicSetDefinition);
+    },
+    // Full definitions across a category's assigned sets (category default).
+    async listCategoryAttributeSetDefinitions(categoryId) {
+      const result = await pool.query(
+        `SELECT DISTINCT ON (d.id) d.key, d.label, d.data_type, d.unit, i.required, i.sort_order, i.group_key
+         FROM category_attribute_sets cas
+         JOIN attribute_sets s ON s.id = cas.set_id AND s.status = 'ACTIVE'
+         JOIN attribute_set_items i ON i.set_id = s.id
+         JOIN spec_definitions d ON d.id = i.definition_id AND d.status = 'ACTIVE'
+         WHERE cas.category_id::text = $1
+         ORDER BY d.id, i.sort_order`,
+        [categoryId]
+      );
+      return result.rows.map(publicSetDefinition);
     }
   });
 }

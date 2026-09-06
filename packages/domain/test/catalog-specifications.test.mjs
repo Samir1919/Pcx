@@ -4,6 +4,7 @@ import {
   archiveCatalogRecord,
   assertRequiredSpecificationValues,
   assertUniqueModelSpecificationValues,
+  attributeGroupLabel,
   createAttributeSet,
   createAttributeSetItem,
   createModelSpecificationValue,
@@ -54,6 +55,13 @@ test("attribute sets and set items carry per-assignment required and sort order"
   assert.equal(item.sortOrder, 3);
   assert.throws(() => createAttributeSetItem({ setId: "set-1", definitionId: "spec-vram", required: "yes" }), /boolean/);
   assert.throws(() => createAttributeSetItem({ setId: "set-1", definitionId: "spec-vram", sortOrder: -1 }), /non-negative/);
+  assert.throws(() => createAttributeSetItem({ setId: "set-1", definitionId: "spec-vram", groupKey: "Bad Group" }), /slug/);
+  const grouped = createAttributeSetItem({ setId: "set-1", definitionId: "spec-vram", groupKey: "ram" });
+  assert.equal(grouped.groupKey, "ram");
+  assert.equal(createAttributeSetItem({ setId: "set-1", definitionId: "spec-vram" }).groupKey, null);
+  assert.equal(attributeGroupLabel("ram"), "RAM");
+  assert.equal(attributeGroupLabel("system_wattage"), "System Wattage");
+  assert.equal(attributeGroupLabel(null), null);
 });
 
 test("all supported scalar types are strict", () => {
