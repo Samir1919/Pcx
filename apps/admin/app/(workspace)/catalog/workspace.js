@@ -179,9 +179,7 @@ function CatalogEditModal({ active, record, categories, brands, busy, onClose, o
             <label className="readonlyField"><span>Data type (immutable)</span><code>{form.dataType}</code></label>
             <Field label="Display label" name="label" defaultValue={form.label} onChange={(e) => set("label", e.target.value)} required />
             <Field label="Unit (optional)" name="unit" defaultValue={form.unit ?? ""} onChange={(e) => set("unit", e.target.value)} />
-            <Field label="Sort order" name="sortOrder" type="number" min="0" defaultValue={form.sortOrder} onChange={(e) => set("sortOrder", e.target.value)} />
             <label className="check"><input type="checkbox" name="filterable" defaultChecked={form.filterable} onChange={(e) => set("filterable", e.target.checked)} /><span>Available as a catalog filter</span></label>
-            <label className="check"><input type="checkbox" name="required" defaultChecked={form.required} onChange={(e) => set("required", e.target.checked)} /><span>Required for models in this category</span></label>
           </>
         )}
 
@@ -203,9 +201,7 @@ function initialForm(active, record) {
       dataType: record.dataType,
       label: record.label ?? "",
       unit: record.unit ?? "",
-      sortOrder: record.sortOrder ?? 0,
-      filterable: record.filterable === true,
-      required: record.required === true
+      filterable: record.filterable === true
     };
   }
   return {
@@ -240,9 +236,7 @@ function buildChanges(active, form) {
   return {
     label: form.label,
     unit: form.unit ? String(form.unit) : null,
-    filterable: form.filterable === true,
-    required: form.required === true,
-    sortOrder: Number(form.sortOrder) || 0
+    filterable: form.filterable === true
   };
 }
 
@@ -252,7 +246,6 @@ export default function CatalogWorkspace() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
-  const [categoryFilter, setCategoryFilter] = useState("");
   const [modelsCursor, setModelsCursor] = useState(null);
   const [modelsNextCursor, setModelsNextCursor] = useState(null);
   const [editRecord, setEditRecord] = useState(null);
@@ -268,7 +261,7 @@ export default function CatalogWorkspace() {
         catalogApi.categories(),
         catalogApi.brands(),
         catalogApi.adminModels(),
-        catalogApi.definitions(categoryFilter)
+        catalogApi.definitions()
       ]);
       setData({ categories: categories.data, brands: brands.data, models: models.data, definitions: definitions.data });
       setAdminCategories((await catalogApi.adminCategories()).data);
@@ -280,7 +273,7 @@ export default function CatalogWorkspace() {
     } finally {
       setLoading(false);
     }
-  }, [categoryFilter]);
+  }, []);
 
   const loadModelsPage = useCallback(async (cursor) => {
     setLoading(true);
@@ -349,7 +342,7 @@ export default function CatalogWorkspace() {
       }
       if (active === "categories") await catalogApi.createCategory({ name: form.get("name"), slug: form.get("slug")?.trim() || slug(form.get("name")), sortOrder: Number(form.get("sortOrder") || 0) });
       if (active === "brands") await catalogApi.createBrand({ name: form.get("name"), slug: form.get("slug")?.trim() || slug(form.get("name")) });
-      if (active === "definitions") await catalogApi.createDefinition({ categoryId: form.get("categoryId"), key: form.get("key"), label: form.get("label"), dataType: form.get("dataType"), unit: form.get("unit") || null, filterable: form.get("filterable") === "on", required: form.get("required") === "on", sortOrder: Number(form.get("sortOrder") || 0) });
+      if (active === "definitions") await catalogApi.createDefinition({ key: form.get("key"), label: form.get("label"), dataType: form.get("dataType"), unit: form.get("unit") || null, filterable: form.get("filterable") === "on" });
       formElement.reset();
       setNotice({ kind: "success", message: "Catalog record saved." });
       await load();
@@ -456,13 +449,7 @@ export default function CatalogWorkspace() {
                 <h2>{resources.find((r) => r.key === active).label}</h2>
               </div>
               {active === "definitions" && (
-                <label className="filter">
-                  <span>Category</span>
-                  <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
-                    <option value="">All categories</option>
-                    {data.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </label>
+                <p className="eyebrow">GLOBAL ATTRIBUTES</p>
               )}
             </div>
             {loading ? (
@@ -489,7 +476,7 @@ export default function CatalogWorkspace() {
                             {active === "models"
                               ? `${names.brand[r.brandId] ?? "Unknown brand"} · ${names.category[r.categoryId] ?? "Unknown category"}`
                               : active === "definitions"
-                                ? `${names.category[r.categoryId] ?? "Unknown category"} · ${r.dataType}${r.unit ? ` · ${r.unit}` : ""}`
+                                ? `${r.dataType}${r.unit ? ` · ${r.unit}` : ""}`
                                 : r.parentId ? "Nested category" : "Catalog root"}
                           </td>
                           <td>
@@ -541,14 +528,11 @@ export default function CatalogWorkspace() {
               )}
               {active === "definitions" && (
                 <>
-                  <label><span>Category</span><select name="categoryId" required><option value="">Select category</option>{data.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
                   <Field label="Canonical key" name="key" pattern="[a-z][a-z0-9_]*" placeholder="memory_gb" required />
                   <Field label="Display label" name="label" required />
                   <label><span>Data type</span><select name="dataType" required><option>TEXT</option><option>NUMBER</option><option>BOOLEAN</option><option>JSON</option></select></label>
                   <Field label="Unit (optional)" name="unit" />
-                  <Field label="Sort order" name="sortOrder" type="number" min="0" defaultValue="0" />
                   <label className="check"><input type="checkbox" name="filterable" /><span>Available as a catalog filter</span></label>
-                  <label className="check"><input type="checkbox" name="required" /><span>Required for models in this category</span></label>
                 </>
               )}
               <button className="primary" disabled={busy || loading}>{busy ? "Saving…" : "Save record"}</button>

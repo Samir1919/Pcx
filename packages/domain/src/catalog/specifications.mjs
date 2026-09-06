@@ -64,40 +64,67 @@ function jsonClone(value) {
   }
 }
 
+// A specification definition is a global, reusable typed property. Assignment to
+// categories (and to build roles) happens through attribute sets, so `required`
+// and `sortOrder` are per-assignment facts (attribute_set_items), not part of the
+// definition. The key is globally unique.
 export function createSpecificationDefinition({
   id,
-  categoryId,
   key,
   label,
   dataType,
   unit,
   filterable = false,
-  required = false,
-  sortOrder = 0,
   createdAt = new Date()
 }) {
   const canonicalKey = requiredString(key, "key");
   if (!/^[a-z][a-z0-9_]*$/.test(canonicalKey)) throw new TypeError("key must be canonical lowercase snake_case");
   if (!supportedTypes.has(dataType)) throw new TypeError("unsupported specification dataType");
-  if (typeof filterable !== "boolean" || typeof required !== "boolean") throw new TypeError("filterable and required must be booleans");
-  if (!Number.isSafeInteger(sortOrder) || sortOrder < 0) throw new TypeError("sortOrder must be a non-negative integer");
+  if (typeof filterable !== "boolean") throw new TypeError("filterable must be a boolean");
   if (filterable && dataType === SpecificationDataType.JSON) throw new TypeError("JSON specifications cannot be filterable");
 
   const now = timestamp(createdAt, "createdAt");
   return Object.freeze({
     id: requiredString(id, "id"),
-    categoryId: requiredString(categoryId, "categoryId"),
     key: canonicalKey,
     label: requiredString(label, "label"),
     dataType,
     unit: optionalString(unit, "unit"),
     filterable,
-    required,
-    sortOrder,
     status: CatalogStatus.ACTIVE,
     createdAt: now,
     updatedAt: now,
     archivedAt: null
+  });
+}
+
+const setKeyPattern = /^[a-z][a-z0-9_-]*$/;
+
+// A reusable attribute set (a "part template"): a named group of global
+// definitions that can be assigned to categories and build components.
+export function createAttributeSet({ id, key, label, createdAt = new Date() }) {
+  const canonicalKey = requiredString(key, "key");
+  if (!setKeyPattern.test(canonicalKey)) throw new TypeError("attribute set key must be a canonical lowercase slug");
+  const now = timestamp(createdAt, "createdAt");
+  return Object.freeze({
+    id: requiredString(id, "id"),
+    key: canonicalKey,
+    label: requiredString(label, "label"),
+    status: CatalogStatus.ACTIVE,
+    createdAt: now,
+    updatedAt: now,
+    archivedAt: null
+  });
+}
+
+export function createAttributeSetItem({ setId, definitionId, required = false, sortOrder = 0 }) {
+  if (typeof required !== "boolean") throw new TypeError("required must be a boolean");
+  if (!Number.isSafeInteger(sortOrder) || sortOrder < 0) throw new TypeError("sortOrder must be a non-negative integer");
+  return Object.freeze({
+    setId: requiredString(setId, "setId"),
+    definitionId: requiredString(definitionId, "definitionId"),
+    required,
+    sortOrder
   });
 }
 
@@ -118,7 +145,6 @@ function typedValue(dataType, value) {
 export function createModelSpecificationValue({ id, productModel, definition, value, createdAt = new Date() }) {
   if (!productModel || typeof productModel !== "object") throw new TypeError("productModel is required");
   if (!definition || typeof definition !== "object") throw new TypeError("definition is required");
-  if (productModel.categoryId !== definition.categoryId) throw new TypeError("specification definition category does not match ProductModel");
   if (definition.status !== CatalogStatus.ACTIVE) throw new TypeError("specification definition must be active");
 
   return Object.freeze({

@@ -137,7 +137,7 @@ export function createPostgresListingRepository({ pool }) {
          FROM model_spec_values v
          JOIN spec_definitions d ON d.id = v.spec_definition_id AND d.status = 'ACTIVE'
          WHERE v.product_model_id::text = $1
-         ORDER BY d.sort_order, d.label, d.id`,
+         ORDER BY d.label, d.id`,
         [modelId]
       );
       return result.rows.map((row) => ({

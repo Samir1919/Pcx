@@ -21,16 +21,16 @@ test("catalog persistence enforces typed category alignment and deterministic pu
   try {
     await pool.query("DELETE FROM model_spec_values WHERE product_model_id IN ($1,$2,$3)", [modelA, modelB, archived]);
     await pool.query("DELETE FROM indicative_prices WHERE category_id IN ($1,$2) OR product_model_id IN ($3,$4,$5)", [categoryA, categoryB, modelA, modelB, archived]);
-    await pool.query("DELETE FROM spec_definitions WHERE category_id IN ($1,$2)", [categoryA, categoryB]);
+    await pool.query("DELETE FROM spec_definitions WHERE id IN ($1,$2)", [definitionA, definitionB]);
     await pool.query("DELETE FROM product_models WHERE id IN ($1,$2,$3)", [modelA, modelB, archived]);
     await pool.query("DELETE FROM brands WHERE id=$1", [brandId]);
     await pool.query("DELETE FROM categories WHERE id IN ($1,$2)", [categoryA, categoryB]);
     await pool.query("INSERT INTO categories(id,name,slug,status,sort_order) VALUES ($1,'GPU','gpu-test','ACTIVE',1),($2,'CPU','cpu-test','ACTIVE',2)", [categoryA, categoryB]);
     await pool.query("INSERT INTO brands(id,name,slug,status) VALUES ($1,'PCX Test','pcx-test','ACTIVE')", [brandId]);
     await pool.query("INSERT INTO product_models(id,category_id,brand_id,name,slug,model_code,search_aliases,status,archived_at) VALUES ($1,$4,$5,'Alpha','alpha-test','A1',ARRAY['first'],'ACTIVE',NULL),($2,$4,$5,'Beta','beta-test','B1',ARRAY['second'],'ACTIVE',NULL),($3,$4,$5,'Hidden','hidden-test',NULL,'{}','ARCHIVED',now())", [modelA, modelB, archived, categoryA, brandId]);
-    await pool.query("INSERT INTO spec_definitions(id,category_id,key,label,data_type,status) VALUES ($1,$3,'memory_gb','Memory','NUMBER','ACTIVE'),($2,$4,'socket','Socket','TEXT','ACTIVE')", [definitionA, definitionB, categoryA, categoryB]);
+    await pool.query("INSERT INTO spec_definitions(id,key,label,data_type,status) VALUES ($1,'memory_gb','Memory','NUMBER','ACTIVE'),($2,'socket_type','Socket Type','TEXT','ACTIVE')", [definitionA, definitionB]);
     await pool.query("INSERT INTO model_spec_values(id,product_model_id,spec_definition_id,category_id,data_type,value_number) VALUES ('74000000-0000-0000-0000-000000000001',$1,$2,$3,'NUMBER',8)", [modelA, definitionA, categoryA]);
-    await assert.rejects(pool.query("INSERT INTO model_spec_values(id,product_model_id,spec_definition_id,category_id,data_type,value_text) VALUES ('74000000-0000-0000-0000-000000000002',$1,$2,$3,'TEXT','bad')", [modelA, definitionB, categoryA]), (error) => error.code === "23503");
+    await assert.rejects(pool.query("INSERT INTO model_spec_values(id,product_model_id,spec_definition_id,category_id,data_type,value_text) VALUES ('74000000-0000-0000-0000-000000000002',$1,'73000000-0000-0000-0000-000000000999',$2,'TEXT','bad')", [modelA, categoryA]), (error) => error.code === "23503");
     await assert.rejects(pool.query("INSERT INTO model_spec_values(id,product_model_id,spec_definition_id,category_id,data_type,value_text) VALUES ('74000000-0000-0000-0000-000000000003',$1,$2,$3,'NUMBER','bad')", [modelA, definitionA, categoryA]), (error) => error.code === "23514");
 
     assert.deepEqual((await repository.listCategories()).filter(({ id }) => id === categoryA || id === categoryB).map(({ id }) => id).sort(), [categoryA, categoryB]);

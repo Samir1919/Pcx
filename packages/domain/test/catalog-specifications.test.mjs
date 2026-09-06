@@ -4,6 +4,8 @@ import {
   archiveCatalogRecord,
   assertRequiredSpecificationValues,
   assertUniqueModelSpecificationValues,
+  createAttributeSet,
+  createAttributeSetItem,
   createModelSpecificationValue,
   createProductModel,
   createSpecificationDefinition,
@@ -14,13 +16,11 @@ const createdAt = "2026-08-16T04:00:00.000Z";
 const model = createProductModel({ id: "model-1", categoryId: "gpu", brandId: "brand-1", name: "GPU 1", slug: "gpu-1", createdAt });
 const definition = (overrides = {}) => createSpecificationDefinition({
   id: "spec-vram",
-  categoryId: "gpu",
   key: "vram_gb",
   label: "VRAM",
   dataType: SpecificationDataType.NUMBER,
   unit: "GB",
   filterable: true,
-  required: true,
   createdAt,
   ...overrides
 });
@@ -36,13 +36,24 @@ test("specification definitions validate canonical schema metadata", () => {
   assert.throws(() => definition({ dataType: SpecificationDataType.JSON, filterable: true }), /cannot be filterable/);
 });
 
-test("model specification values enforce type and category", () => {
+test("model specification values enforce type and active status", () => {
   const numberValue = createModelSpecificationValue({ id: "value-1", productModel: model, definition: definition(), value: 12, createdAt });
   assert.equal(numberValue.value, 12);
   assert.throws(() => createModelSpecificationValue({ id: "value-2", productModel: model, definition: definition(), value: "12" }), /finite number/);
-  assert.throws(() => createModelSpecificationValue({ id: "value-3", productModel: model, definition: definition({ categoryId: "laptop" }), value: 12 }), /does not match/);
   const archived = archiveCatalogRecord(definition(), { archivedAt: "2026-08-16T05:00:00.000Z" });
   assert.throws(() => createModelSpecificationValue({ id: "value-4", productModel: model, definition: archived, value: 12 }), /must be active/);
+});
+
+test("attribute sets and set items carry per-assignment required and sort order", () => {
+  const set = createAttributeSet({ id: "set-1", key: "gpu", label: "GPU", createdAt });
+  assert.equal(set.key, "gpu");
+  assert.equal(Object.isFrozen(set), true);
+  assert.throws(() => createAttributeSet({ id: "set-2", key: "Bad Key", label: "GPU" }), /slug/);
+  const item = createAttributeSetItem({ setId: "set-1", definitionId: "spec-vram", required: true, sortOrder: 3 });
+  assert.equal(item.required, true);
+  assert.equal(item.sortOrder, 3);
+  assert.throws(() => createAttributeSetItem({ setId: "set-1", definitionId: "spec-vram", required: "yes" }), /boolean/);
+  assert.throws(() => createAttributeSetItem({ setId: "set-1", definitionId: "spec-vram", sortOrder: -1 }), /non-negative/);
 });
 
 test("all supported scalar types are strict", () => {
@@ -76,8 +87,8 @@ test("model specification sets reject duplicate definitions and mixed models", (
 });
 
 test("assertRequiredSpecificationValues enforces required completeness", () => {
-  const req = definition({ id: "req", key: "vram_gb", required: true });
-  const opt = definition({ id: "opt", key: "chipset", dataType: "TEXT", unit: null, required: false });
+  const req = { ...definition({ id: "req" }), required: true };
+  const opt = { ...definition({ id: "opt", key: "chipset", dataType: SpecificationDataType.TEXT, unit: null, filterable: false }), required: false };
   const value = createModelSpecificationValue({ id: "v1", productModel: model, definition: req, value: 12, createdAt });
   // All required present -> pass.
   assert.deepEqual(assertRequiredSpecificationValues([value], [req, opt]), [value]);

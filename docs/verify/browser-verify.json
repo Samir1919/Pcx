@@ -1,24 +1,20 @@
 {
-  "scope": "Product-model create/edit forms integrate category attribute values inline (Magento-style): selecting a category renders that category's attribute definitions as typed inputs in the same form and saves them atomically with the model",
+  "scope": "Global attribute definitions (spec_definitions detach from category; key globally unique) with reusable attribute sets: the admin Attributes tab lists global definitions and the model-specifications form renders attributes through the model's category sets",
   "headed": true,
   "tool": "Playwright MCP browser (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "Admin catalog product-model create/edit flow renders the selected category's attribute fields inline and saves them with the model; category change clears values and warns",
+    "subject": "Admin catalog Attributes tab shows global (category-agnostic) attribute definitions with merged duplicates appearing once, and the model-specifications page still renders the correct per-category attributes through attribute sets",
     "steps": [
-      "open-admin-catalog-product-models",
-      "select-category-in-create-form-renders-attribute-fields",
-      "submit-with-missing-required-attribute-blocks-with-error",
-      "fill-required-attribute-and-create-model",
-      "model-created-and-attribute-value-persisted",
-      "edit-modal-pre-fills-existing-attribute-values",
-      "change-category-clears-values-and-warns",
-      "attribute-fields-swap-to-new-category",
-      "fresh-load-no-new-console-errors"
+      "open-admin-catalog-attributes-tab",
+      "global-attribute-list-renders-without-category-names",
+      "merged-attributes-appear-once-socket-capacity_gb-form_factor-screen_size_in",
+      "create-form-shows-only-global-fields-no-category-sort-order-required",
+      "open-desktop-pc-model-specifications-renders-category-attributes-via-set"
     ]
   },
-  "notes": "The product-model create and edit forms now expose the selected category's attribute definitions as inline typed inputs (NUMBER/BOOLEAN/JSON/TEXT), matching Magento's product-form attribute pattern instead of a separate specifications page. Create: POST product model then PUT specifications (bulk setModelValues); a required attribute left empty is rejected client-side (\"Missing required attributes: …\") before creation, and server-side atomically via assertRequiredSpecificationValues. Edit: existing values are pre-filled; changing the category clears the values, shows a warning, and swaps to the new category's definitions. Verified headed end-to-end: selecting GPU rendered VRAM (GB)·required; an empty submit was blocked; filling 12 created the model with vram_gb=12 persisted (confirmed in DB); the edit modal pre-filled VRAM=12; changing to Laptop cleared it and swapped to Screen Size (in)·required. No new console errors (only the pre-existing unauthenticated /api/v1/me 401s).",
-  "ranAt": "2026-09-05T12:40:00.000Z"
+  "notes": "Migration 0052/0053 made spec_definitions global (dropped category_id/required/sort_order; key now globally unique) and seeded 9 reusable attribute_sets assigned to categories. Duplicate keys that were previously defined once per category (socket in CPU+Motherboard, capacity_gb in RAM+Storage, screen_size_in in Laptop+Monitor, form_factor in Motherboard+Storage) are merged into single global definitions and appear once in the Attributes list. The Attributes create form now exposes only key/label/dataType/unit/filterable (no category/sort-order/required). The Desktop PC model (PCX Gaming Tower) specifications page still renders its six attributes (cpu, gpu, ram_gb, storage, psu_wattage, motherboard) via the desktop-pc set. Verified headed with no new console errors.",
+  "ranAt": "2026-09-06T04:00:00.000Z"
 }
 
 
