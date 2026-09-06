@@ -5,6 +5,7 @@ import { catalogApi } from "../../../lib/catalog-api";
 import SellFlowPanel from "./sell-flow-panel";
 import QuoteConfigPanel from "./quote-config-panel";
 import ImportCsvPanel from "./import-csv-panel";
+import AttributeSetsPanel from "./attribute-sets-panel";
 
 const resources = [{ key: "categories", label: "Categories" }, { key: "brands", label: "Brands" }, { key: "models", label: "Product models" }, { key: "definitions", label: "Attributes" }];
 const plural = { categories: "categories", brands: "brands", models: "product-models", definitions: "attribute-definitions" };
@@ -242,7 +243,7 @@ function buildChanges(active, form) {
 
 export default function CatalogWorkspace() {
   const [active, setActive] = useState("categories");
-  const [data, setData] = useState({ categories: [], brands: [], models: [], definitions: [] });
+  const [data, setData] = useState({ categories: [], brands: [], models: [], definitions: [], sets: [] });
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
@@ -257,13 +258,14 @@ export default function CatalogWorkspace() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [categories, brands, models, definitions] = await Promise.all([
+      const [categories, brands, models, definitions, sets] = await Promise.all([
         catalogApi.categories(),
         catalogApi.brands(),
         catalogApi.adminModels(),
-        catalogApi.definitions()
+        catalogApi.definitions(),
+        catalogApi.attributeSets()
       ]);
-      setData({ categories: categories.data, brands: brands.data, models: models.data, definitions: definitions.data });
+      setData({ categories: categories.data, brands: brands.data, models: models.data, definitions: definitions.data, sets: sets.data });
       setAdminCategories((await catalogApi.adminCategories()).data);
       setModelsCursor(null);
       setModelsNextCursor(models.meta?.nextCursor ?? null);
@@ -424,6 +426,9 @@ export default function CatalogWorkspace() {
             {r.label}<span>{data[r.key].length}</span>
           </button>
         ))}
+        <button role="tab" aria-selected={active === "sets"} onClick={() => setActive("sets")}>
+          Attribute sets<span>{data.sets.length}</span>
+        </button>
         <button role="tab" aria-selected={active === "sellflow"} onClick={() => setActive("sellflow")}>
           Sell flow
         </button>
@@ -440,6 +445,8 @@ export default function CatalogWorkspace() {
         <QuoteConfigPanel />
       ) : active === "sellflow" ? (
         <SellFlowPanel categories={data.categories} />
+      ) : active === "sets" ? (
+        <AttributeSetsPanel categories={data.categories} definitions={data.definitions} onChanged={load} />
       ) : (
         <div className="grid">
           <section className="panel">

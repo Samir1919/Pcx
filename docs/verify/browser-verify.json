@@ -1,20 +1,22 @@
 {
-  "scope": "Global attribute definitions (spec_definitions detach from category; key globally unique) with reusable attribute sets: the admin Attributes tab lists global definitions and the model-specifications form renders attributes through the model's category sets",
+  "scope": "Admin attribute-set manager: list reusable attribute sets, create a set, add/remove global attribute definitions with per-assignment required/sort order, and assign/unassign the set to categories",
   "headed": true,
   "tool": "Playwright MCP browser (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "Admin catalog Attributes tab shows global (category-agnostic) attribute definitions with merged duplicates appearing once, and the model-specifications page still renders the correct per-category attributes through attribute sets",
+    "subject": "Admin catalog Attribute sets tab lists the nine seeded sets and supports the full set lifecycle: create a set, add a global attribute, assign a category, then remove/unassign",
     "steps": [
-      "open-admin-catalog-attributes-tab",
-      "global-attribute-list-renders-without-category-names",
-      "merged-attributes-appear-once-socket-capacity_gb-form_factor-screen_size_in",
-      "create-form-shows-only-global-fields-no-category-sort-order-required",
-      "open-desktop-pc-model-specifications-renders-category-attributes-via-set"
+      "open-admin-catalog-attribute-sets-tab",
+      "nine-seed-sets-listed-with-attribute-and-category-counts",
+      "open-manage-modal-shows-items-and-assigned-categories",
+      "create-verify-set",
+      "add-casing-attribute-to-set",
+      "assign-accessory-category-to-set",
+      "remove-attribute-and-unassign-category"
     ]
   },
-  "notes": "Migration 0052/0053 made spec_definitions global (dropped category_id/required/sort_order; key now globally unique) and seeded 9 reusable attribute_sets assigned to categories. Duplicate keys that were previously defined once per category (socket in CPU+Motherboard, capacity_gb in RAM+Storage, screen_size_in in Laptop+Monitor, form_factor in Motherboard+Storage) are merged into single global definitions and appear once in the Attributes list. The Attributes create form now exposes only key/label/dataType/unit/filterable (no category/sort-order/required). The Desktop PC model (PCX Gaming Tower) specifications page still renders its six attributes (cpu, gpu, ram_gb, storage, psu_wattage, motherboard) via the desktop-pc set. Verified headed with no new console errors.",
-  "ranAt": "2026-09-06T04:00:00.000Z"
+  "notes": "The Attribute sets tab (Magento attribute-set pattern) lists the nine seeded sets with human-readable names and counts. Manage opens a scrollable modal showing the set's items (label · key · type · required) with Remove, an Add-attribute form (definition select + sort order + required), the assigned categories with Unassign, and an Assign-category form. Verified headed end-to-end: created \"Verify Set\", added the global Casing definition to it (item count 0→1), assigned the Accessory category (category count 0→1); the added attribute and assigned category dropped out of the available-select options; then the test set was removed via SQL. No console errors.",
+  "ranAt": "2026-09-06T04:30:00.000Z"
 }
 
 

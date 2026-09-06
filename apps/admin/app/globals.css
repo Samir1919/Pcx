@@ -997,6 +997,56 @@ textarea:focus {
   background: var(--mint)
 }
 
+.setItemList {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  display: grid;
+  gap: var(--space-1)
+}
+
+.setItemList li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  border: 1px solid var(--table-border);
+  border-radius: var(--radius-sm)
+}
+
+.setItemList li > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0
+}
+
+.setItemList li strong {
+  font-size: 0.875rem
+}
+
+.setItemList li small {
+  color: var(--muted);
+  font-size: 0.75rem;
+  word-break: break-word
+}
+
+.inlineForm {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--field-basis), 1fr));
+  gap: var(--space-2);
+  align-items: end;
+  padding: var(--space-3);
+  margin: var(--space-3) 0;
+  border: 1px dashed var(--field-border);
+  border-radius: var(--radius-md)
+}
+
+.inlineForm .primary {
+  margin-top: 0
+}
+
 /* ------------------------------------------------------------------ */
 /* Auth surfaces                                                       */
 /* ------------------------------------------------------------------ */
