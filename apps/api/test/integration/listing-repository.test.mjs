@@ -20,7 +20,7 @@ test("listing repository persists draft, publishes with unique active constraint
   const relatedPrice = "9c000000-0000-4000-8000-000000000008";
   const desktopCategory = "80000000-0000-0000-0000-000000000001";
   const now = "2026-08-16T12:00:00.000Z";
-  const productModelId = "82000000-0000-0000-0000-000000000001"; // seeded catalog model
+  const productModelId = "82000000-0000-0000-0000-000000000026"; // seeded catalog model (PCX Gaming Tower, desktop)
   try {
     await pool.query("DELETE FROM listing_prices WHERE listing_id::text = $1", [listingId]);
     await pool.query("DELETE FROM listing_prices WHERE listing_id::text = $1", [second]);
@@ -64,7 +64,7 @@ test("listing repository persists draft, publishes with unique active constraint
     assert.equal(tokenized.records[0].pcx_item_id, "PCX-TEST-LIST");
 
     // Related listings: same category, excluding the current listing, with display names.
-    await pool.query("INSERT INTO inventory_items(id, pcx_item_id, product_model_id, status, received_at, created_at, updated_at) VALUES ($1, 'PCX-TEST-RELATED', $2, 'APPROVED', now(), now(), now())", [relatedItem, "82000000-0000-0000-0000-000000000002"]);
+    await pool.query("INSERT INTO inventory_items(id, pcx_item_id, product_model_id, status, received_at, created_at, updated_at) VALUES ($1, 'PCX-TEST-RELATED', $2, 'APPROVED', now(), now(), now())", [relatedItem, "82000000-0000-0000-0000-000000000025"]);
     await repository.createDraft({ id: relatedListing, inventoryItemId: relatedItem, publicSlug: "pcx-test-related", warrantyPolicyId: null, status: "DRAFT", publishedAt: null, createdAt: now });
     await repository.publish(relatedListing, "pcx-test-related", now);
     await repository.createPrice({ id: relatedPrice, listingId: relatedListing, price: 9000, validFrom: now, reason: null, setByUser: admin }, now);

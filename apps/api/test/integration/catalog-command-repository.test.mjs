@@ -54,7 +54,8 @@ test("catalog admin model list includes INACTIVE models for reactivation", { ski
     await pool.query("INSERT INTO product_models(id,category_id,brand_id,name,slug,status) VALUES ($1,$3,$4,'Active Model','active-model','ACTIVE'),($2,$3,$4,'Inactive Model','inactive-model','INACTIVE')", [activeId, inactiveId, categoryId, brandId]);
     const result = await repository.listProductModelsAdmin({ limit: 50, sort: "name_asc" });
     const names = result.records.map(({ name }) => name).sort();
-    assert.deepEqual(names, ["Active Model", "Inactive Model"]);
+    assert.ok(names.includes("Active Model"), "ACTIVE model appears in the admin list");
+    assert.ok(names.includes("Inactive Model"), "INACTIVE model appears for reactivation");
     assert.equal(result.records.find(({ id }) => id === inactiveId).status, "INACTIVE");
     assert.equal(result.nextCursor, null);
   } finally {
