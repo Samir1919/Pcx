@@ -188,12 +188,12 @@ test("create resolves selected specs from the picked product model server-side",
   ]);
 });
 
-test("create scopes build-component selected specs to each role's attribute set", async () => {
+test("create scopes build-component selected specs to each role's component category", async () => {
   const { service } = fixture({
     sellTaxonomyService: {
-      async getComponentAttributeSet(entryKey, role) {
-        if (role === "ram") return { attributeSetId: "ram-set", categoryId: "ram-cat" };
-        if (role === "cpu") return { attributeSetId: null, categoryId: "cpu-cat" };
+      async getComponentCategory(entryKey, role) {
+        if (role === "ram") return { categoryId: "ram-cat" };
+        if (role === "cpu") return { categoryId: "cpu-cat" };
         return null;
       }
     },
@@ -204,11 +204,10 @@ test("create scopes build-component selected specs to each role's attribute set"
           : [{ key: "socket", value: "LGA1700" }, { key: "cores", value: 6 }];
         return { id, name: id, specifications };
       },
-      async listAttributeSetDefinitionKeys(setId) {
-        return setId === "ram-set" ? ["capacity_gb", "speed_mhz"] : [];
-      },
-      async listCategoryAttributeSetDefinitionKeys(categoryId) {
-        return categoryId === "cpu-cat" ? ["socket", "cores"] : [];
+      async listCategoryDefinitionKeys(categoryId) {
+        return categoryId === "ram-cat" ? ["capacity_gb", "speed_mhz"]
+          : categoryId === "cpu-cat" ? ["socket", "cores"]
+          : [];
       }
     }
   });
@@ -224,8 +223,8 @@ test("create scopes build-component selected specs to each role's attribute set"
       { role: "cpu", productModelId: "cpu-model" }
     ]
   });
-  // ram role is overridden to the ram-set (capacity_gb + speed_mhz only) so the
-  // DDR4 "type" attribute is dropped; cpu role uses its category default set.
+  // ram role is scoped to its component category (capacity_gb + speed_mhz only)
+  // so the DDR4 "type" attribute is dropped; cpu role uses its category's keys.
   assert.deepEqual(result.selectedSpecs, [
     { key: "capacity_gb", value: 16 },
     { key: "speed_mhz", value: 3200 },

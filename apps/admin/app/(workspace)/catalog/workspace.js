@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { catalogApi } from "../../../lib/catalog-api";
 import ImportCsvPanel from "./import-csv-panel";
-import AttributeSetsPanel from "./attribute-sets-panel";
 
 const resources = [{ key: "categories", label: "Categories" }, { key: "brands", label: "Brands" }, { key: "models", label: "Product models" }, { key: "definitions", label: "Attributes" }];
 const plural = { categories: "categories", brands: "brands", models: "product-models", definitions: "attribute-definitions" };
@@ -256,7 +255,7 @@ function buildChanges(active, form) {
 
 export default function CatalogWorkspace() {
   const [active, setActive] = useState("categories");
-  const [data, setData] = useState({ categories: [], brands: [], models: [], definitions: [], sets: [] });
+  const [data, setData] = useState({ categories: [], brands: [], models: [], definitions: [] });
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
@@ -271,14 +270,13 @@ export default function CatalogWorkspace() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [categories, brands, models, definitions, sets] = await Promise.all([
+      const [categories, brands, models, definitions] = await Promise.all([
         catalogApi.categories(),
         catalogApi.brands(),
         catalogApi.adminModels(),
-        catalogApi.definitions(),
-        catalogApi.attributeSets()
+        catalogApi.definitions()
       ]);
-      setData({ categories: categories.data, brands: brands.data, models: models.data, definitions: definitions.data, sets: sets.data });
+      setData({ categories: categories.data, brands: brands.data, models: models.data, definitions: definitions.data });
       setAdminCategories((await catalogApi.adminCategories()).data);
       setModelsCursor(null);
       setModelsNextCursor(models.meta?.nextCursor ?? null);
@@ -357,7 +355,7 @@ export default function CatalogWorkspace() {
       }
       if (active === "categories") await catalogApi.createCategory({ name: form.get("name"), slug: form.get("slug")?.trim() || slug(form.get("name")), sortOrder: Number(form.get("sortOrder") || 0) });
       if (active === "brands") await catalogApi.createBrand({ name: form.get("name"), slug: form.get("slug")?.trim() || slug(form.get("name")) });
-      if (active === "definitions") await catalogApi.createDefinition({ key: form.get("key"), label: form.get("label"), dataType: form.get("dataType"), unit: form.get("unit") || null, filterable: form.get("filterable") === "on" });
+      if (active === "definitions") await catalogApi.createDefinition({ categoryId: form.get("categoryId"), key: form.get("key"), label: form.get("label"), dataType: form.get("dataType"), unit: form.get("unit") || null, filterable: form.get("filterable") === "on", required: form.get("required") === "on", sortOrder: Number(form.get("sortOrder") || 0) });
       formElement.reset();
       setNotice({ kind: "success", message: "Catalog record saved." });
       await load();
@@ -439,17 +437,12 @@ export default function CatalogWorkspace() {
             {r.label}<span>{data[r.key].length}</span>
           </button>
         ))}
-        <button role="tab" aria-selected={active === "sets"} onClick={() => setActive("sets")}>
-          Attribute sets<span>{data.sets.length}</span>
-        </button>
         <button role="tab" aria-selected={active === "import"} onClick={() => setActive("import")}>
           Import CSV
         </button>
       </div>
       {active === "import" ? (
         <ImportCsvPanel onImported={load} />
-      ) : active === "sets" ? (
-        <AttributeSetsPanel categories={data.categories} definitions={data.definitions} onChanged={load} />
       ) : (
         <div className="grid">
           <section className="panel">
@@ -538,10 +531,13 @@ export default function CatalogWorkspace() {
               )}
               {active === "definitions" && (
                 <>
+                  <label><span>Category</span><select name="categoryId" required><option value="">Select category</option>{data.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
                   <Field label="Canonical key" name="key" pattern="[a-z][a-z0-9_]*" placeholder="memory_gb" required />
                   <Field label="Display label" name="label" required />
                   <label><span>Data type</span><select name="dataType" required><option>TEXT</option><option>NUMBER</option><option>BOOLEAN</option><option>JSON</option></select></label>
                   <Field label="Unit (optional)" name="unit" />
+                  <Field label="Sort order" name="sortOrder" type="number" min="0" defaultValue="0" />
+                  <label className="check"><input type="checkbox" name="required" /><span>Required</span></label>
                   <label className="check"><input type="checkbox" name="filterable" /><span>Available as a catalog filter</span></label>
                 </>
               )}

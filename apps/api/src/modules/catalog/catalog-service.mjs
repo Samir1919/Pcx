@@ -44,14 +44,9 @@ export function createCatalogService({ repository }) {
         specifications: Object.freeze(specifications.map(toPublicSpecification))
       });
     },
-    async listAttributeSetDefinitionKeys(setId) {
-      if (typeof repository.listAttributeSetDefinitionKeys !== "function") return Object.freeze([]);
-      const keys = await repository.listAttributeSetDefinitionKeys(setId);
-      return Object.freeze(Array.isArray(keys) ? keys : []);
-    },
-    async listCategoryAttributeSetDefinitionKeys(categoryId) {
-      if (typeof repository.listCategoryAttributeSetDefinitionKeys !== "function") return Object.freeze([]);
-      const keys = await repository.listCategoryAttributeSetDefinitionKeys(categoryId);
+    async listCategoryDefinitionKeys(categoryId) {
+      if (typeof repository.listCategoryDefinitionKeys !== "function") return Object.freeze([]);
+      const keys = await repository.listCategoryDefinitionKeys(categoryId);
       return Object.freeze(Array.isArray(keys) ? keys : []);
     }
   });

@@ -25,7 +25,6 @@ export default function AcquisitionPage() {
   const [sellRequests, setSellRequests] = useState([]);
   const [selected, setSelected] = useState(null);
   const [categories, setCategories] = useState([]);
-  const [attributeSets, setAttributeSets] = useState([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -42,9 +41,8 @@ export default function AcquisitionPage() {
 
   const loadCatalog = useCallback(async () => {
     try {
-      const [cats, sets] = await Promise.all([catalogApi.categories(), catalogApi.attributeSets()]);
+      const [cats] = await Promise.all([catalogApi.categories()]);
       setCategories(cats.data ?? []);
-      setAttributeSets(sets.data ?? []);
     } catch {
       // Sell flow / Quotes degrade gracefully without the shared catalog lists.
     }
@@ -72,7 +70,7 @@ export default function AcquisitionPage() {
       </div>
 
       {tab === "sellflow" ? (
-        <SellFlowPanel categories={categories} attributeSets={attributeSets} />
+        <SellFlowPanel categories={categories} />
       ) : tab === "quotes" ? (
         <QuoteConfigPanel />
       ) : (

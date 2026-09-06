@@ -4,9 +4,6 @@ import {
   archiveCatalogRecord,
   assertRequiredSpecificationValues,
   assertUniqueModelSpecificationValues,
-  attributeGroupLabel,
-  createAttributeSet,
-  createAttributeSetItem,
   createModelSpecificationValue,
   createProductModel,
   createSpecificationDefinition,
@@ -17,6 +14,7 @@ const createdAt = "2026-08-16T04:00:00.000Z";
 const model = createProductModel({ id: "model-1", categoryId: "gpu", brandId: "brand-1", name: "GPU 1", slug: "gpu-1", createdAt });
 const definition = (overrides = {}) => createSpecificationDefinition({
   id: "spec-vram",
+  categoryId: "gpu",
   key: "vram_gb",
   label: "VRAM",
   dataType: SpecificationDataType.NUMBER,
@@ -45,23 +43,15 @@ test("model specification values enforce type and active status", () => {
   assert.throws(() => createModelSpecificationValue({ id: "value-4", productModel: model, definition: archived, value: 12 }), /must be active/);
 });
 
-test("attribute sets and set items carry per-assignment required and sort order", () => {
-  const set = createAttributeSet({ id: "set-1", key: "gpu", label: "GPU", createdAt });
-  assert.equal(set.key, "gpu");
-  assert.equal(Object.isFrozen(set), true);
-  assert.throws(() => createAttributeSet({ id: "set-2", key: "Bad Key", label: "GPU" }), /slug/);
-  const item = createAttributeSetItem({ setId: "set-1", definitionId: "spec-vram", required: true, sortOrder: 3 });
-  assert.equal(item.required, true);
-  assert.equal(item.sortOrder, 3);
-  assert.throws(() => createAttributeSetItem({ setId: "set-1", definitionId: "spec-vram", required: "yes" }), /boolean/);
-  assert.throws(() => createAttributeSetItem({ setId: "set-1", definitionId: "spec-vram", sortOrder: -1 }), /non-negative/);
-  assert.throws(() => createAttributeSetItem({ setId: "set-1", definitionId: "spec-vram", groupKey: "Bad Group" }), /slug/);
-  const grouped = createAttributeSetItem({ setId: "set-1", definitionId: "spec-vram", groupKey: "ram" });
-  assert.equal(grouped.groupKey, "ram");
-  assert.equal(createAttributeSetItem({ setId: "set-1", definitionId: "spec-vram" }).groupKey, null);
-  assert.equal(attributeGroupLabel("ram"), "RAM");
-  assert.equal(attributeGroupLabel("system_wattage"), "System Wattage");
-  assert.equal(attributeGroupLabel(null), null);
+test("specification definition is scoped to a category and validates required/sortOrder", () => {
+  const spec = definition();
+  assert.equal(spec.key, "vram_gb");
+  assert.equal(spec.categoryId, "gpu");
+  assert.equal(spec.required, false);
+  assert.equal(spec.sortOrder, 0);
+  assert.throws(() => definition({ categoryId: "" }), /categoryId/);
+  assert.throws(() => definition({ required: "yes" }), /boolean/);
+  assert.throws(() => definition({ sortOrder: -1 }), /non-negative/);
 });
 
 test("all supported scalar types are strict", () => {

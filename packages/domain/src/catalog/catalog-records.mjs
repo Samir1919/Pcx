@@ -84,10 +84,13 @@ export function createProductModel(input) {
   }
 
   const base = catalogBase(input);
+  const modelKind = input.modelKind ?? "PART";
+  if (modelKind !== "PART" && modelKind !== "BUILD") throw new TypeError("modelKind must be PART or BUILD");
   return Object.freeze({
     ...base,
     categoryId: requiredString(input.categoryId, "categoryId"),
     brandId: requiredString(input.brandId, "brandId"),
+    modelKind,
     modelCode: optionalString(input.modelCode, "modelCode"),
     searchAliases: normalizedAliases(input.searchAliases)
   });

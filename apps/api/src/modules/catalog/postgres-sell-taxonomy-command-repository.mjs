@@ -72,7 +72,6 @@ export function createPostgresSellTaxonomyCommandRepository({ pool }) {
         if (patch.categoryId !== undefined) sets.push(`category_id=${add(patch.categoryId)}`);
         if (patch.required !== undefined) sets.push(`required=${add(patch.required)}`);
         if (patch.sortOrder !== undefined) sets.push(`sort_order=${add(patch.sortOrder)}`);
-        if (patch.attributeSetId !== undefined) sets.push(`attribute_set_id=${add(patch.attributeSetId)}`);
         if (sets.length === 0) return false;
         sets.push(`updated_at=${add(updatedAt)}`);
         const result = await client.query(
@@ -88,10 +87,10 @@ export function createPostgresSellTaxonomyCommandRepository({ pool }) {
     async createComponent(component, updatedAt, auditEvent) {
       return transaction(pool, async (client) => {
         const result = await client.query(
-          `INSERT INTO sell_build_components(id, entry_key, role, category_id, required, sort_order, attribute_set_id, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)
+          `INSERT INTO sell_build_components(id, entry_key, role, category_id, required, sort_order, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
            RETURNING id`,
-          [component.id, component.entryKey, component.role, component.categoryId, component.required, component.sortOrder, component.attributeSetId, updatedAt]
+          [component.id, component.entryKey, component.role, component.categoryId, component.required, component.sortOrder, updatedAt]
         );
         await audit(client, auditEvent);
         return result.rows[0].id;

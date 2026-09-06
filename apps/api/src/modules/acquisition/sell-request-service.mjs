@@ -77,18 +77,15 @@ export function createSellRequestService({ authService, repository, indicativePr
         return [];
       }
     }
-    // Resolve the role's definition keys, or null when no scoping is available.
+    // Resolve the role's component-category definition keys, or null when no
+    // scoping is available.
     async function roleKeys(entryKey, role) {
-      if (!sellTaxonomyService || typeof sellTaxonomyService.getComponentAttributeSet !== "function") return null;
+      if (!sellTaxonomyService || typeof sellTaxonomyService.getComponentCategory !== "function") return null;
       try {
-        const config = await sellTaxonomyService.getComponentAttributeSet(entryKey, role);
+        const config = await sellTaxonomyService.getComponentCategory(entryKey, role);
         if (!config) return null;
-        if (config.attributeSetId) {
-          if (typeof catalogService.listAttributeSetDefinitionKeys !== "function") return null;
-          return new Set(await catalogService.listAttributeSetDefinitionKeys(config.attributeSetId));
-        }
-        if (typeof catalogService.listCategoryAttributeSetDefinitionKeys !== "function") return null;
-        return new Set(await catalogService.listCategoryAttributeSetDefinitionKeys(config.categoryId));
+        if (typeof catalogService.listCategoryDefinitionKeys !== "function") return null;
+        return new Set(await catalogService.listCategoryDefinitionKeys(config.categoryId));
       } catch {
         return null;
       }

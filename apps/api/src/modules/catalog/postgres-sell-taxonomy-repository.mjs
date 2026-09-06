@@ -34,7 +34,7 @@ export function createPostgresSellTaxonomyRepository({ pool }) {
       }));
 
       const componentsResult = await pool.query(
-        `SELECT sbc.id AS component_id, sbc.entry_key, sbc.role, sbc.required, sbc.sort_order, sbc.attribute_set_id,
+        `SELECT sbc.id AS component_id, sbc.entry_key, sbc.role, sbc.required, sbc.sort_order,
                 c.id AS category_id, c.name, c.slug
          FROM sell_build_components sbc
          JOIN categories c ON c.id = sbc.category_id AND c.status = 'ACTIVE'
@@ -49,7 +49,6 @@ export function createPostgresSellTaxonomyRepository({ pool }) {
           role: row.role,
           required: row.required,
           sortOrder: row.sort_order,
-          attributeSetId: row.attribute_set_id ?? null,
           category: Object.freeze({ id: row.category_id, name: row.name, slug: row.slug })
         }));
       }
@@ -70,16 +69,16 @@ export function createPostgresSellTaxonomyRepository({ pool }) {
 
       return entries.map((e) => Object.freeze(e));
     },
-    // Resolve a build role's attribute-set override (or its component category
-    // for the default) so the seller-declared selected specs can be scoped to
-    // the role's reusable set. Returns null for an unknown role.
-    async findComponentAttributeSet(entryKey, role) {
+    // Resolve a build role's component category so the seller-declared selected
+    // specs can be scoped to that category's definitions. Returns null for an
+    // unknown role.
+    async findComponentCategory(entryKey, role) {
       const result = await pool.query(
-        "SELECT attribute_set_id, category_id FROM sell_build_components WHERE entry_key = $1 AND role = $2",
+        "SELECT category_id FROM sell_build_components WHERE entry_key = $1 AND role = $2",
         [entryKey, role]
       );
       const row = result.rows[0];
-      return row ? Object.freeze({ attributeSetId: row.attribute_set_id ?? null, categoryId: row.category_id }) : null;
+      return row ? Object.freeze({ categoryId: row.category_id }) : null;
     }
   });
 }

@@ -64,17 +64,19 @@ function jsonClone(value) {
   }
 }
 
-// A specification definition is a global, reusable typed property. Assignment to
-// categories (and to build roles) happens through attribute sets, so `required`
-// and `sortOrder` are per-assignment facts (attribute_set_items), not part of the
-// definition. The key is globally unique.
+// A specification definition is a typed property scoped to one category. The key
+// is unique within its category (UNIQUE(category_id, key)); `required` and
+// `sortOrder` are per-category facts on the definition itself (DATABASE_ERD §4).
 export function createSpecificationDefinition({
   id,
+  categoryId,
   key,
   label,
   dataType,
   unit,
   filterable = false,
+  required = false,
+  sortOrder = 0,
   createdAt = new Date()
 }) {
   const canonicalKey = requiredString(key, "key");
@@ -82,63 +84,25 @@ export function createSpecificationDefinition({
   if (!supportedTypes.has(dataType)) throw new TypeError("unsupported specification dataType");
   if (typeof filterable !== "boolean") throw new TypeError("filterable must be a boolean");
   if (filterable && dataType === SpecificationDataType.JSON) throw new TypeError("JSON specifications cannot be filterable");
+  if (typeof required !== "boolean") throw new TypeError("required must be a boolean");
+  if (!Number.isSafeInteger(sortOrder) || sortOrder < 0) throw new TypeError("sortOrder must be a non-negative integer");
 
   const now = timestamp(createdAt, "createdAt");
   return Object.freeze({
     id: requiredString(id, "id"),
+    categoryId: requiredString(categoryId, "categoryId"),
     key: canonicalKey,
     label: requiredString(label, "label"),
     dataType,
     unit: optionalString(unit, "unit"),
     filterable,
-    status: CatalogStatus.ACTIVE,
-    createdAt: now,
-    updatedAt: now,
-    archivedAt: null
-  });
-}
-
-const setKeyPattern = /^[a-z][a-z0-9_-]*$/;
-
-// A reusable attribute set (a "part template"): a named group of global
-// definitions that can be assigned to categories and build components.
-export function createAttributeSet({ id, key, label, createdAt = new Date() }) {
-  const canonicalKey = requiredString(key, "key");
-  if (!setKeyPattern.test(canonicalKey)) throw new TypeError("attribute set key must be a canonical lowercase slug");
-  const now = timestamp(createdAt, "createdAt");
-  return Object.freeze({
-    id: requiredString(id, "id"),
-    key: canonicalKey,
-    label: requiredString(label, "label"),
-    status: CatalogStatus.ACTIVE,
-    createdAt: now,
-    updatedAt: now,
-    archivedAt: null
-  });
-}
-
-export function createAttributeSetItem({ setId, definitionId, required = false, sortOrder = 0, groupKey = null }) {
-  if (typeof required !== "boolean") throw new TypeError("required must be a boolean");
-  if (!Number.isSafeInteger(sortOrder) || sortOrder < 0) throw new TypeError("sortOrder must be a non-negative integer");
-  const canonicalGroupKey = (groupKey == null || groupKey === "") ? null : groupKey;
-  if (canonicalGroupKey != null && !/^[a-z][a-z0-9_-]*$/.test(canonicalGroupKey)) throw new TypeError("groupKey must be a canonical lowercase slug");
-  return Object.freeze({
-    setId: requiredString(setId, "setId"),
-    definitionId: requiredString(definitionId, "definitionId"),
     required,
     sortOrder,
-    groupKey: canonicalGroupKey
+    status: CatalogStatus.ACTIVE,
+    createdAt: now,
+    updatedAt: now,
+    archivedAt: null
   });
-}
-
-// Display label for a set-item group key. Generic formatter (never a per-group
-// map): short keys are treated as acronyms, longer keys are title-cased.
-export function attributeGroupLabel(groupKey) {
-  if (!groupKey || typeof groupKey !== "string") return null;
-  if (groupKey.length <= 3) return groupKey.toUpperCase();
-  return groupKey.split(/[_-]+/).filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
 }
 
 function typedValue(dataType, value) {

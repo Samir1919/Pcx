@@ -22,7 +22,7 @@ function iconEmoji(key) { return ICON_EMOJI[key] ?? "📦"; }
 
 function Banner({ notice, onClose }) { if (!notice) return null; return <div className={`banner ${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}><span>{notice.message}</span><button type="button" onClick={onClose} aria-label="Dismiss message">×</button></div>; }
 
-export default function SellFlowPanel({ categories, attributeSets = [] }) {
+export default function SellFlowPanel({ categories }) {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -121,7 +121,6 @@ export default function SellFlowPanel({ categories, attributeSets = [] }) {
       await sellTaxonomyApi.createComponent(entryKey, {
         role: form.get("role"),
         categoryId: form.get("categoryId"),
-        attributeSetId: form.get("attributeSetId") || null,
         required: form.get("required") === "on",
         sortOrder: Number(form.get("sortOrder") || 0)
       });
@@ -264,7 +263,7 @@ export default function SellFlowPanel({ categories, attributeSets = [] }) {
                 <>
                   <div className="tableWrap entryTable">
                     <table>
-                      <thead><tr><th>Role</th><th>Component category</th><th>Attribute set</th><th>Required</th><th>Order</th><th aria-label="Actions"></th></tr></thead>
+                      <thead><tr><th>Role</th><th>Component category</th><th>Required</th><th>Order</th><th aria-label="Actions"></th></tr></thead>
                       <tbody>
                         {entry.components.length === 0
                           ? <tr><td colSpan="6"><span className="state">No build roles yet. Add one below.</span></td></tr>
@@ -276,12 +275,6 @@ export default function SellFlowPanel({ categories, attributeSets = [] }) {
                               <td>
                                 <select value={component.category.id} disabled={busy} onChange={(e) => patchComponent(entry.entryKey, component.role, { categoryId: e.target.value })}>
                                   {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
-                              </td>
-                              <td>
-                                <select value={component.attributeSetId ?? ""} disabled={busy} onChange={(e) => patchComponent(entry.entryKey, component.role, { attributeSetId: e.target.value || null })}>
-                                  <option value="">Category default</option>
-                                  {attributeSets.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
                                 </select>
                               </td>
                               <td><label className="check"><input type="checkbox" checked={component.required} disabled={busy} onChange={(e) => patchComponent(entry.entryKey, component.role, { required: e.target.checked })} /></label></td>
@@ -298,7 +291,6 @@ export default function SellFlowPanel({ categories, attributeSets = [] }) {
                     <p className="eyebrow">ADD BUILD ROLE</p>
                     <label><span>Role</span><input name="role" required pattern="[a-z][a-z0-9-]*" maxLength="40" placeholder="e.g. panel" /></label>
                     <label><span>Component category</span><select name="categoryId" required><option value="">Select category</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
-                    <label><span>Attribute set (optional)</span><select name="attributeSetId"><option value="">Category default</option>{attributeSets.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}</select></label>
                     <label><span>Sort order</span><input name="sortOrder" type="number" min="0" defaultValue="0" /></label>
                     <label className="check"><input name="required" type="checkbox" /><span>Required</span></label>
                     <button className="primary" disabled={busy}>Add role</button>

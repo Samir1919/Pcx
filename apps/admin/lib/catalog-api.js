@@ -23,12 +23,5 @@ export const catalogApi = Object.freeze({
   archive: (resource, id) => apiRequest(`/api/v1/admin/${resource}/${encodeURIComponent(id)}`, { method: "DELETE" }),
   remove: (resource, id) => apiRequest(`/api/v1/admin/${resource}/${encodeURIComponent(id)}?purge=1`, { method: "DELETE" }),
   setModelValue: (modelId, definitionId, value) => apiRequest(`/api/v1/admin/product-models/${encodeURIComponent(modelId)}/specifications/${encodeURIComponent(definitionId)}`, { method: "PUT", body: { value } }),
-  setModelValues: (modelId, values) => apiRequest(`/api/v1/admin/product-models/${encodeURIComponent(modelId)}/specifications`, { method: "PUT", body: { values } }),
-  attributeSets: () => apiRequest("/api/v1/admin/attribute-sets"),
-  createAttributeSet: (body) => apiRequest("/api/v1/admin/attribute-sets", { method: "POST", body }),
-  addAttributeSetItem: (setId, body) => apiRequest(`/api/v1/admin/attribute-sets/${encodeURIComponent(setId)}/items`, { method: "POST", body }),
-  removeAttributeSetItem: (setId, definitionId) => apiRequest(`/api/v1/admin/attribute-sets/${encodeURIComponent(setId)}/items/${encodeURIComponent(definitionId)}`, { method: "DELETE" }),
-  assignAttributeSetToCategory: (setId, categoryId) => apiRequest(`/api/v1/admin/attribute-sets/${encodeURIComponent(setId)}/categories/${encodeURIComponent(categoryId)}`, { method: "PUT" }),
-  unassignAttributeSetFromCategory: (setId, categoryId) => apiRequest(`/api/v1/admin/attribute-sets/${encodeURIComponent(setId)}/categories/${encodeURIComponent(categoryId)}`, { method: "DELETE" }),
-  archiveAttributeSet: (setId) => apiRequest(`/api/v1/admin/attribute-sets/${encodeURIComponent(setId)}`, { method: "DELETE" })
+  setModelValues: (modelId, values) => apiRequest(`/api/v1/admin/product-models/${encodeURIComponent(modelId)}/specifications`, { method: "PUT", body: { values } })
 });
