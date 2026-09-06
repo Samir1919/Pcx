@@ -1,20 +1,20 @@
 {
-  "scope": "Full-stack logic continuation of global/reusable attribute sets: server (definition-key resolution + selected-specs scoping), admin (Attributes, Attribute sets, Sell flow attribute-set override), and customer web (passport specifications) verified together in a headed browser",
+  "scope": "Dynamic attribute grouping across the single-product edit form and the customer build flow: attribute_set_items.group_key drives labeled fieldset groups (admin product-model edit), and each build component renders as a labeled group with its resolved attribute definitions (customer sell flow).",
   "headed": true,
   "tool": "Playwright MCP browser (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "A build role's attribute-set override is now consumed server-side: the seller-declared selected specs for each build component are scoped to the role's reusable set (explicit override, else the component category's set). Admin surfaces render the global attribute sets and the Sell flow Attribute-set column; the storefront passport still renders typed specifications.",
+    "subject": "Attributes render in data-driven labeled groups instead of one flat list: the admin Desktop PC edit modal shows Processor/RAM/Storage/GPU/Power groups, and the customer Desktop PC build flow shows each component (CPU/Motherboard/RAM/Storage/PSU/GPU) as its own group with its attribute definitions, then a complete build selection enables the review step.",
     "steps": [
-      "admin-catalog-attributes-tab-lists-global-definitions",
-      "admin-attribute-sets-tab-lists-nine-seed-sets",
-      "admin-sell-flow-tab-renders-attribute-set-column-with-category-default",
-      "assign-attribute-set-to-a-build-role-persists",
-      "storefront-passport-renders-typed-specifications"
+      "admin-catalog-product-models-open-desktop-pc-edit",
+      "desktop-pc-edit-modal-renders-grouped-fieldsets-processor-ram-storage-gpu-power",
+      "storefront-sell-desktop-pc-renders-grouped-component-fieldsets-with-attribute-lists",
+      "select-cpu-motherboard-ram-storage-models",
+      "review-selling-options-button-enabled"
     ]
   },
-  "notes": "Closed the logic-continuation gap: sell_build_components.attribute_set_id (Option 3 override) was previously stored + editable but never consumed. It is now consumed in sellRequestService.resolveSelectedSpecs — each build component's picked-model specs are filtered to its role's reusable set (attribute_set_id override, else the component category's assigned set) via new public catalog reads listAttributeSetDefinitionKeys/listCategoryAttributeSetDefinitionKeys and sellTaxonomyService.getComponentAttributeSet. A new unit test proves the scoping (a ram role overridden to a partial set drops the out-of-set type attribute; a cpu role keeps its category-default attributes). Admin UI (Attributes, Attribute sets, Sell flow column) and the storefront passport (VRAM 12 GB) render correctly headed. 729 tests pass (3 pre-existing shared-DB integration failures unrelated to this change).",
-  "ranAt": "2026-09-06T05:00:00.000Z"
+  "notes": "Grouping is assembled server-side (catalog service listAttributeSetDefinitions/listCategoryAttributeSetDefinitions + sell-taxonomy service enrichEntries) and consumed by both admin and web — no component name is hardcoded in the UI. RAM Capacity (GB) and Storage Capacity (GB) are visually separated by their component groups.",
+  "ranAt": "2026-09-06T09:25:00.000Z"
 }
 
 
