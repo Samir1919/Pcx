@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { catalogApi } from "../../../lib/catalog-api";
 import ImportCsvPanel from "./import-csv-panel";
+import BuildPanel from "./build-panel";
 
 const resources = [{ key: "categories", label: "Categories" }, { key: "brands", label: "Brands" }, { key: "models", label: "Product models" }, { key: "definitions", label: "Attributes" }];
 const plural = { categories: "categories", brands: "brands", models: "product-models", definitions: "attribute-definitions" };
@@ -437,12 +438,17 @@ export default function CatalogWorkspace() {
             {r.label}<span>{data[r.key].length}</span>
           </button>
         ))}
+        <button role="tab" aria-selected={active === "builds"} onClick={() => setActive("builds")}>
+          PC builds
+        </button>
         <button role="tab" aria-selected={active === "import"} onClick={() => setActive("import")}>
           Import CSV
         </button>
       </div>
       {active === "import" ? (
         <ImportCsvPanel onImported={load} />
+      ) : active === "builds" ? (
+        <BuildPanel brands={data.brands} onChanged={load} />
       ) : (
         <div className="grid">
           <section className="panel">

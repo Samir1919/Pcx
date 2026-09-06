@@ -138,5 +138,37 @@ export function createPostgresCatalogCommandRepository({ pool }) {
     const rows = result.rows.slice(0, limit);
     return { records: rows.map(adminModel), nextCursor: hasNext ? encodeAdminCursor(rows.at(-1), sort) : null };
   }
-  return Object.freeze({ create, find, update, archive, setStatus, listCategories, listProductModelsAdmin, remove });
+  // Atomically create a build (composite ProductModel): the build model itself,
+  // any inline-created component parts with their typed spec values, and the
+  // product_model_components links — all-or-nothing in one transaction.
+  async function createBuild(build, links, newParts, auditEvent) {
+    return transaction(pool, async (client) => {
+      await client.query(
+        "INSERT INTO product_models(id,category_id,brand_id,name,slug,model_code,search_aliases,status,model_kind,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'BUILD',$9,$9)",
+        [build.id, build.categoryId, build.brandId, build.name, build.slug, build.modelCode, build.searchAliases, build.status, build.createdAt]
+      );
+      for (const part of newParts) {
+        await client.query(
+          "INSERT INTO product_models(id,category_id,brand_id,name,slug,model_code,search_aliases,status,model_kind,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'PART',$9,$9)",
+          [part.model.id, part.model.categoryId, part.model.brandId, part.model.name, part.model.slug, part.model.modelCode, part.model.searchAliases, part.model.status, part.model.createdAt]
+        );
+        for (const spec of part.specs) {
+          const values = { TEXT: [spec.value, null, null, null], NUMBER: [null, spec.value, null, null], BOOLEAN: [null, null, spec.value, null], JSON: [null, null, null, JSON.stringify(spec.value)] }[spec.dataType];
+          await client.query(
+            "INSERT INTO model_spec_values(id,product_model_id,spec_definition_id,category_id,data_type,value_text,value_number,value_boolean,value_json,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$10)",
+            [spec.id, spec.productModelId, spec.specificationDefinitionId, part.model.categoryId, spec.dataType, ...values, spec.createdAt]
+          );
+        }
+      }
+      for (const link of links) {
+        await client.query(
+          "INSERT INTO product_model_components(id,product_model_id,component_model_id,quantity,sort_order) VALUES ($1,$2,$3,$4,$5)",
+          [link.id, link.productModelId, link.componentModelId, link.quantity, link.sortOrder]
+        );
+      }
+      await audit(client, auditEvent);
+      return build;
+    });
+  }
+  return Object.freeze({ create, find, update, archive, setStatus, listCategories, listProductModelsAdmin, remove, createBuild });
 }

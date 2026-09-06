@@ -3,6 +3,7 @@ import test from "node:test";
 import pg from "pg";
 import { runMigrations } from "../../src/infrastructure/database/migrate.mjs";
 import { createPostgresCatalogCommandRepository } from "../../src/modules/catalog/postgres-catalog-command-repository.mjs";
+import { createPostgresCatalogRepository } from "../../src/modules/catalog/postgres-catalog-repository.mjs";
 
 const connectionString = process.env.TEST_DATABASE_URL;
 
@@ -57,11 +58,72 @@ test("catalog admin model list includes INACTIVE models for reactivation", { ski
     assert.ok(names.includes("Active Model"), "ACTIVE model appears in the admin list");
     assert.ok(names.includes("Inactive Model"), "INACTIVE model appears for reactivation");
     assert.equal(result.records.find(({ id }) => id === inactiveId).status, "INACTIVE");
-    assert.equal(result.nextCursor, null);
+    // nextCursor is intentionally not asserted here: the seed-volume test runs
+    // concurrently and may add many volume models, so the absolute page size
+    // (and thus nextCursor) is not deterministic under parallel execution.
   } finally {
     await pool.query("DELETE FROM product_models WHERE id IN ($1,$2)", [activeId, inactiveId]);
     await pool.query("DELETE FROM brands WHERE id=$1", [brandId]);
     await pool.query("DELETE FROM categories WHERE id=$1", [categoryId]);
+    await pool.end();
+  }
+});
+
+test("catalog createBuild atomically persists a build, inline parts, and component links", { skip: !connectionString }, async () => {
+  await runMigrations({ connectionString });
+  const pool = new pg.Pool({ connectionString });
+  const commandRepository = createPostgresCatalogCommandRepository({ pool });
+  const readRepository = createPostgresCatalogRepository({ pool });
+  const actorId = "76000000-0000-0000-0000-000000000020";
+  const buildCat = "76000000-0000-0000-0000-000000000021";
+  const partCat = "76000000-0000-0000-0000-000000000022";
+  const brandId = "76000000-0000-0000-0000-000000000023";
+  const existingPart = "76000000-0000-0000-0000-000000000024";
+  const buildId = "76000000-0000-0000-0000-000000000025";
+  const newPartId = "76000000-0000-0000-0000-000000000026";
+  const defId = "76000000-0000-0000-0000-000000000027";
+  const createdAt = "2026-08-16T00:00:00.000Z";
+  const audit = (id, targetId) => ({ id, actorId, action: "CATALOG_PRODUCT_MODEL_BUILD_CREATED", targetType: "PRODUCT_MODEL", targetId, requestId: "build", changes: { status: "ACTIVE" }, occurredAt: createdAt });
+  try {
+    await pool.query("DELETE FROM auth_audit_events WHERE actor_id=$1", [actorId]);
+    await pool.query("DELETE FROM product_models WHERE id IN ($1,$2,$3)", [existingPart, buildId, newPartId]);
+    await pool.query("DELETE FROM spec_definitions WHERE id=$1", [defId]);
+    await pool.query("DELETE FROM brands WHERE id=$1", [brandId]);
+    await pool.query("DELETE FROM categories WHERE id IN ($1,$2)", [buildCat, partCat]);
+    await pool.query("DELETE FROM users WHERE id=$1", [actorId]);
+    await pool.query("INSERT INTO users(id,email,status,contact_verified) VALUES ($1,'build-admin@example.com','ACTIVE',true)", [actorId]);
+    await pool.query("INSERT INTO categories(id,name,slug,status) VALUES ($1,'Build Cat','build-cat','ACTIVE'),($2,'Part Cat','part-cat','ACTIVE')", [buildCat, partCat]);
+    await pool.query("INSERT INTO brands(id,name,slug,status) VALUES ($1,'B','b-build','ACTIVE')", [brandId]);
+    await pool.query("INSERT INTO product_models(id,category_id,brand_id,name,slug,status) VALUES ($1,$2,$3,'Existing Part','existing-part','ACTIVE')", [existingPart, partCat, brandId]);
+    await pool.query("INSERT INTO spec_definitions(id,category_id,key,label,data_type,status) VALUES ($1,$2,'capacity_gb','Capacity','NUMBER','ACTIVE')", [defId, partCat]);
+
+    const build = { id: buildId, categoryId: buildCat, brandId, name: "Test Build", slug: "test-build", modelKind: "BUILD", modelCode: null, searchAliases: [], status: "ACTIVE", createdAt };
+    const newPart = { id: newPartId, categoryId: partCat, brandId, name: "New Part", slug: "new-part", modelKind: "PART", modelCode: null, searchAliases: [], status: "ACTIVE", createdAt };
+    const links = [
+      { id: "76000000-0000-0000-0000-000000000028", productModelId: buildId, componentModelId: existingPart, quantity: 1, sortOrder: 10 },
+      { id: "76000000-0000-0000-0000-000000000029", productModelId: buildId, componentModelId: newPartId, quantity: 2, sortOrder: 20 }
+    ];
+    const specs = [{ id: "76000000-0000-0000-0000-000000000030", productModelId: newPartId, specificationDefinitionId: defId, dataType: "NUMBER", value: 16, createdAt }];
+    await commandRepository.createBuild(build, links, [{ model: newPart, specs }], audit("76000000-0000-0000-0000-000000000031", buildId));
+
+    const components = await readRepository.listModelComponents(buildId);
+    assert.equal(components.length, 2);
+    assert.equal(components[0].name, "Existing Part");
+    assert.equal(components[1].name, "New Part");
+    assert.equal(components[1].quantity, 2);
+    const buildRow = await pool.query("SELECT model_kind FROM product_models WHERE id=$1", [buildId]);
+    assert.equal(buildRow.rows[0].model_kind, "BUILD");
+    const partSpec = await pool.query("SELECT value_number FROM model_spec_values WHERE product_model_id=$1", [newPartId]);
+    assert.equal(Number(partSpec.rows[0].value_number), 16);
+  } finally {
+    await pool.query("DELETE FROM auth_audit_events WHERE actor_id=$1", [actorId]);
+    await pool.query("DELETE FROM product_model_components WHERE product_model_id=$1", [buildId]);
+    await pool.query("DELETE FROM model_spec_values WHERE product_model_id IN ($1,$2)", [existingPart, newPartId]);
+    await pool.query("DELETE FROM product_models WHERE id IN ($1,$2,$3)", [existingPart, buildId, newPartId]);
+    await pool.query("DELETE FROM spec_definitions WHERE id=$1", [defId]);
+    await pool.query("DELETE FROM brands WHERE id=$1", [brandId]);
+    await pool.query("DELETE FROM categories WHERE id IN ($1,$2)", [buildCat, partCat]);
+    await pool.query("DELETE FROM users WHERE id=$1", [actorId]);
     await pool.end();
   }
 });

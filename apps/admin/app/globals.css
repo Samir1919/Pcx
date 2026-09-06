@@ -797,6 +797,39 @@ textarea:focus {
 }
 
 /* ------------------------------------------------------------------ */
+/* Build configurator (full-PC build create)                           */
+/* ------------------------------------------------------------------ */
+.buildSlots {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+}
+
+.buildSlot {
+  align-content: start;
+}
+
+.slotMode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  grid-column: 1 / -1;
+}
+
+.slotMode label {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-1);
+  font-weight: 500;
+  min-height: var(--touch-target);
+}
+
+.slotMode input {
+  accent-color: var(--green);
+}
+
+/* ------------------------------------------------------------------ */
 /* Modal dialog (inline edit/publish actions)                          */
 /* ------------------------------------------------------------------ */
 

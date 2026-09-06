@@ -55,6 +55,24 @@ export default function ProductModelPage() {
           <div className="card model">
             <h1>{model.name}</h1>
             <div className="meta">{brandName} · {categoryName}{model.modelCode ? ` · ${model.modelCode}` : ""}</div>
+            {model.components && model.components.length > 0 ? (
+              <>
+                <h2 className="specTitle">Included components</h2>
+                <table className="specTable">
+                  <tbody>
+                    {model.components.map((component) => (
+                      <tr key={component.componentModelId}>
+                        <th scope="row">{component.categoryName}</th>
+                        <td>
+                          <a href={`/model/${component.componentModelId}`}>{component.name}</a>
+                          {component.quantity > 1 ? ` × ${component.quantity}` : ""}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            ) : null}
             <h2 className="specTitle">Specifications</h2>
             {(!model.specifications || model.specifications.length === 0) ? (
               <p className="state">No specifications published for this model yet.</p>

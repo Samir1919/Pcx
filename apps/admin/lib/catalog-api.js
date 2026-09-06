@@ -16,6 +16,7 @@ export const catalogApi = Object.freeze({
   createCategory: (body) => apiRequest("/api/v1/admin/categories", { method: "POST", body }),
   createBrand: (body) => apiRequest("/api/v1/admin/brands", { method: "POST", body }),
   createModel: (body) => apiRequest("/api/v1/admin/product-models", { method: "POST", body }),
+  createBuild: (body) => apiRequest("/api/v1/admin/product-model-builds", { method: "POST", body }),
   createDefinition: (body) => apiRequest("/api/v1/admin/attribute-definitions", { method: "POST", body }),
   importCsv: (csv) => apiRequest("/api/v1/admin/catalog/import", { method: "POST", body: { csv } }),
   update: (resource, id, body) => apiRequest(`/api/v1/admin/${resource}/${encodeURIComponent(id)}`, { method: "PATCH", body }),

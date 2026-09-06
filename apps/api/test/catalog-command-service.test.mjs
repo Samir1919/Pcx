@@ -118,3 +118,62 @@ test("catalog listProductModels returns admin models (active + inactive) and map
   });
   await assert.rejects(bad.listProductModels("access", { limit: 999 }), (e) => e.code === "invalid_input");
 });
+
+test("catalog createProductModelBuild atomically links existing and inline parts to a BUILD", async () => {
+  let created = null;
+  const service = createCatalogCommandService({
+    authService: { async authenticateAccess() { return { userId: "a", status: "ACTIVE", roles: ["ADMIN"] }; } },
+    repository: {
+      create() {}, update() {}, archive() {}, setStatus() {}, listCategories() {}, remove() {},
+      async find(kind, id) { if (kind === "product_model" && id === "existing-cpu") return { id: "existing-cpu", categoryId: "cat-cpu", status: "ACTIVE" }; return null; },
+      async createBuild(build, links, newParts, event) { created = { build, links, newParts, event }; return build; }
+    },
+    buildRoles: async (categoryId) => categoryId === "cat-desktop"
+      ? [{ role: "processor", componentCategoryId: "cat-cpu", required: true, sortOrder: 10 }, { role: "ram", componentCategoryId: "cat-ram", required: true, sortOrder: 20 }]
+      : [],
+    listDefinitions: async ({ categoryId }) => categoryId === "cat-ram" ? [{ id: "def-capacity", key: "capacity_gb", label: "Capacity", dataType: "NUMBER", unit: "GB", status: "ACTIVE", required: true }] : [],
+    id: (() => { let n = 0; return () => `id-${++n}`; })(),
+    clock: () => new Date("2026-08-16T00:00:00.000Z")
+  });
+  const result = await service.createProductModelBuild("access", {
+    name: "Gaming Tower", brandId: "brand", categoryId: "cat-desktop",
+    components: [
+      { role: "processor", mode: "existing", productModelId: "existing-cpu" },
+      { role: "ram", mode: "new", name: "Vengeance 16GB", brandId: "brand", quantity: 2, specs: [{ definitionId: "def-capacity", value: 16 }] }
+    ]
+  });
+  assert.equal(result.modelKind, "BUILD");
+  assert.equal(result.slug, "gaming-tower");
+  assert.equal(created.build.modelKind, "BUILD");
+  assert.equal(created.links.length, 2);
+  assert.equal(created.links[0].componentModelId, "existing-cpu");
+  assert.equal(created.links[1].quantity, 2);
+  assert.equal(created.newParts.length, 1);
+  assert.equal(created.newParts[0].model.categoryId, "cat-ram");
+  assert.equal(created.newParts[0].specs.length, 1);
+  assert.equal(created.event.action, "CATALOG_PRODUCT_MODEL_BUILD_CREATED");
+});
+
+test("catalog createProductModelBuild rejects wrong-category parts, unknown roles, and non-admins", async () => {
+  const service = createCatalogCommandService({
+    authService: { async authenticateAccess() { return { userId: "a", status: "ACTIVE", roles: ["ADMIN"] }; } },
+    repository: {
+      create() {}, update() {}, archive() {}, setStatus() {}, listCategories() {}, remove() {},
+      async find(kind, id) { return { id, categoryId: "cat-gpu", status: "ACTIVE" }; },
+      async createBuild() { return {}; }
+    },
+    buildRoles: async () => [{ role: "processor", componentCategoryId: "cat-cpu", required: true, sortOrder: 10 }],
+    listDefinitions: async () => [],
+    id: () => "id-x",
+    clock: () => new Date("2026-08-16T00:00:00.000Z")
+  });
+  await assert.rejects(service.createProductModelBuild("access", { name: "X", brandId: "b", categoryId: "desktop", components: [{ role: "processor", mode: "existing", productModelId: "gpu-model" }] }), (e) => e.code === "invalid_reference");
+  await assert.rejects(service.createProductModelBuild("access", { name: "X", brandId: "b", categoryId: "desktop", components: [{ role: "nope", mode: "new", name: "Part" }] }), (e) => e.code === "invalid_input");
+
+  const customer = createCatalogCommandService({
+    authService: { async authenticateAccess() { return { userId: "u", status: "ACTIVE", roles: ["CUSTOMER"] }; } },
+    repository: { create() {}, find() {}, update() {}, archive() {}, setStatus() {}, listCategories() {}, remove() {} },
+    buildRoles: async () => [], listDefinitions: async () => [], id: () => "id", clock: () => new Date()
+  });
+  await assert.rejects(customer.createProductModelBuild("access", { name: "X", brandId: "b", categoryId: "c", components: [] }), (e) => e.code === "forbidden");
+});

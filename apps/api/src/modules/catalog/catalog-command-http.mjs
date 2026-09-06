@@ -31,6 +31,18 @@ export async function handleCatalogCommandRequest(request,response,{ catalogComm
   const url=new URL(request.url,"http://pcx.local"), prefix="/api/v1/admin/";
   if(!url.pathname.startsWith(prefix)) return false;
   const parts=url.pathname.slice(prefix.length).split("/");
+  // Atomic full-PC build create: POST /api/v1/admin/product-model-builds
+  if(parts.length===1 && parts[0]==="product-model-builds"){
+    if(request.method!=="POST"){send(response,405,failure("METHOD_NOT_ALLOWED","Method not allowed",requestId));return true;}
+    if(!catalogCommandService){send(response,503,failure("CATALOG_ADMIN_UNAVAILABLE","Catalog administration is temporarily unavailable",requestId));return true;}
+    if(url.searchParams.size>0){send(response,400,failure("INVALID_REQUEST","Query parameters are not supported",requestId));return true;}
+    const parsed=cookies(request);
+    try{
+      security(request,allowedOrigins,parsed);
+      send(response,201,{data:await catalogCommandService.createProductModelBuild(parsed.pcx_access,await body(request),{requestId})});
+    }catch(error){const [status,code,message]=mapped(error);send(response,status,failure(code,message,requestId));}
+    return true;
+  }
   const kind=paths.get(parts[0]);
   if(!kind) return false;
   // Admin list of categories and product models (includes INACTIVE so they can

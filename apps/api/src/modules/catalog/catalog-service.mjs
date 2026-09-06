@@ -39,9 +39,14 @@ export function createCatalogService({ repository }) {
         ? await repository.listModelSpecifications(id)
         : [];
       if (!Array.isArray(specifications)) throw new TypeError("catalog repository specification result must be an array");
+      const components = typeof repository.listModelComponents === "function"
+        ? await repository.listModelComponents(id)
+        : [];
+      if (!Array.isArray(components)) throw new TypeError("catalog repository component result must be an array");
       return Object.freeze({
         ...toPublicProductModel(record),
-        specifications: Object.freeze(specifications.map(toPublicSpecification))
+        specifications: Object.freeze(specifications.map(toPublicSpecification)),
+        components: Object.freeze(components)
       });
     },
     async listCategoryDefinitionKeys(categoryId) {

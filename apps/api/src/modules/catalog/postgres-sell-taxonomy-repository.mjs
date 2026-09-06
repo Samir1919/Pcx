@@ -79,6 +79,20 @@ export function createPostgresSellTaxonomyRepository({ pool }) {
       );
       const row = result.rows[0];
       return row ? Object.freeze({ categoryId: row.category_id }) : null;
+    },
+    // Resolve a build category's component roles (role -> component category)
+    // from the sell-flow build template. Used by the catalog build-create flow to
+    // know which slots a build offers and which category each slot accepts.
+    async listBuildRoles(categoryId) {
+      const result = await pool.query(
+        `SELECT sbc.role, sbc.category_id AS component_category_id, sbc.required, sbc.sort_order
+         FROM sell_entry_config sec
+         JOIN sell_build_components sbc ON sbc.entry_key = sec.entry_key
+         WHERE sec.category_id::text = $1
+         ORDER BY sbc.sort_order, sbc.role`,
+        [categoryId]
+      );
+      return result.rows.map((row) => Object.freeze({ role: row.role, componentCategoryId: row.component_category_id, required: row.required, sortOrder: row.sort_order }));
     }
   });
 }

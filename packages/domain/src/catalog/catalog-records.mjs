@@ -115,3 +115,21 @@ export function setCatalogStatus(record, status, { updatedAt = new Date() } = {}
   const updated = timestamp(updatedAt, "updatedAt");
   return Object.freeze({ ...record, status, updatedAt: updated, archivedAt: null });
 }
+
+// A build (composite ProductModel) component link: a build references a
+// component part ProductModel with a quantity. This is descriptive metadata
+// only — the part is still its own ProductModel and a build is still one
+// physical unit (one InventoryItem) with one lifecycle identity.
+export function createProductModelComponent({ id, productModelId, componentModelId, quantity = 1, sortOrder = 0, createdAt = new Date() }) {
+  if (productModelId === componentModelId) throw new TypeError("a build cannot contain itself as a component");
+  if (!Number.isSafeInteger(quantity) || quantity < 1) throw new TypeError("quantity must be a positive integer");
+  if (!Number.isSafeInteger(sortOrder) || sortOrder < 0) throw new TypeError("sortOrder must be a non-negative integer");
+  return Object.freeze({
+    id: requiredString(id, "id"),
+    productModelId: requiredString(productModelId, "productModelId"),
+    componentModelId: requiredString(componentModelId, "componentModelId"),
+    quantity,
+    sortOrder,
+    createdAt: timestamp(createdAt, "createdAt")
+  });
+}

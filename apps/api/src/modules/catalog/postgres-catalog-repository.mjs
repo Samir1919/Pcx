@@ -81,6 +81,27 @@ export function createPostgresCatalogRepository({ pool }) {
               : row.value_json
       }));
     },
+    // Component parts of a build (composite ProductModel). Server-derived, so
+    // the storefront renders a build's composition from the DB — never from
+    // client-typed values.
+    async listModelComponents(modelId) {
+      const result = await pool.query(
+        `SELECT pmc.component_model_id, pm.name, pm.slug, pmc.quantity, pmc.sort_order, pm.category_id, c.name AS category_name
+         FROM product_model_components pmc
+         JOIN product_models pm ON pm.id = pmc.component_model_id AND pm.status = 'ACTIVE'
+         JOIN categories c ON c.id = pm.category_id
+         WHERE pmc.product_model_id::text = $1
+         ORDER BY pmc.sort_order, pm.name`, [modelId]);
+      return result.rows.map((row) => Object.freeze({
+        componentModelId: row.component_model_id,
+        name: row.name,
+        slug: row.slug,
+        quantity: row.quantity,
+        sortOrder: row.sort_order,
+        categoryId: row.category_id,
+        categoryName: row.category_name
+      }));
+    },
     // Active definition keys for a category (per-category spec model). Used to
     // scope a build component's seller-declared selected specs to its category.
     async listCategoryDefinitionKeys(categoryId) {

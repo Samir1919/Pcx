@@ -1,15 +1,34 @@
 import { randomUUID } from "node:crypto";
-import { createBrand, createCategory, createProductModel, hasPermission, Permission, setCatalogStatus } from "@pcx/domain";
+import { assertRequiredSpecificationValues, createBrand, createCategory, createModelSpecificationValue, createProductModel, createProductModelComponent, hasPermission, Permission, setCatalogStatus } from "@pcx/domain";
 
 export class CatalogCommandError extends Error { constructor(code) { super(code); this.name = "CatalogCommandError"; this.code = code; } }
 
 const fields = Object.freeze({
   category: new Set(["parentId", "name", "slug", "sortOrder"]),
   brand: new Set(["name", "slug"]),
-  product_model: new Set(["categoryId", "brandId", "name", "slug", "modelCode", "searchAliases"])
+  product_model: new Set(["categoryId", "brandId", "name", "slug", "modelCode", "searchAliases"]),
+  product_model_build: new Set(["categoryId", "brandId", "name", "slug", "modelCode", "searchAliases", "components"])
 });
 
-export function createCatalogCommandService({ authService, repository, id = randomUUID, clock = () => new Date() }) {
+const componentFields = new Set(["role", "mode", "productModelId", "name", "brandId", "modelCode", "quantity", "sortOrder", "specs"]);
+
+function slugify(value) {
+  const slug = String(value ?? "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  if (!slug) throw new CatalogCommandError("invalid_input");
+  return slug;
+}
+
+function componentInput(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new CatalogCommandError("invalid_input");
+  for (const key of Object.keys(value)) if (!componentFields.has(key)) throw new CatalogCommandError("invalid_input");
+  if (typeof value.role !== "string" || !value.role) throw new CatalogCommandError("invalid_input");
+  if (value.mode !== "existing" && value.mode !== "new") throw new CatalogCommandError("invalid_input");
+  if (value.mode === "existing" && typeof value.productModelId !== "string") throw new CatalogCommandError("invalid_input");
+  if (value.mode === "new" && (typeof value.name !== "string" || !value.name.trim())) throw new CatalogCommandError("invalid_input");
+  return value;
+}
+
+export function createCatalogCommandService({ authService, repository, buildRoles = null, listDefinitions = null, id = randomUUID, clock = () => new Date() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
   if (!repository || ["create","find","update","archive","setStatus","listCategories","remove"].some((method) => typeof repository[method] !== "function")) throw new TypeError("catalog command repository is required");
 
@@ -42,10 +61,77 @@ export function createCatalogCommandService({ authService, repository, id = rand
       throw error;
     }
   }
+  // Validate a new inline part's specs against its component category's
+  // per-category definitions and build typed model-spec value records.
+  async function buildSpecRecords(part, specsInput) {
+    if (typeof listDefinitions !== "function") return [];
+    let definitions;
+    try { definitions = await listDefinitions({ categoryId: part.categoryId }); } catch { definitions = []; }
+    if (!Array.isArray(definitions)) definitions = [];
+    const byId = new Map(definitions.map((definition) => [definition.id, definition]));
+    const records = [];
+    for (const item of specsInput) {
+      if (!item || typeof item !== "object" || Array.isArray(item) || typeof item.definitionId !== "string" || !Object.hasOwn(item, "value")) throw new CatalogCommandError("invalid_input");
+      const definition = byId.get(item.definitionId);
+      if (!definition) throw new CatalogCommandError("invalid_reference");
+      records.push(createModelSpecificationValue({ id: id(), productModel: part, definition, value: item.value, createdAt: part.createdAt }));
+    }
+    try { assertRequiredSpecificationValues(records, definitions); } catch { throw new CatalogCommandError("invalid_input"); }
+    return records;
+  }
   return Object.freeze({
     createCategory(access, value, context) { return create("category", access, value, context); },
     createBrand(access, value, context) { return create("brand", access, value, context); },
     createProductModel(access, value, context) { return create("product_model", access, value, context); },
+    // Atomic build create: the build (composite ProductModel), any inline-created
+    // component parts (with typed specs), and the product_model_components links
+    // are all created in one server transaction. Each component slot either
+    // references an existing part or creates a new one, and the server resolves
+    // the role's component category from the build template (never the client).
+    async createProductModelBuild(access, value, context = {}) {
+      const identity = await actor(access);
+      const now = clock();
+      const header = input("product_model_build", value);
+      if (!Array.isArray(header.components) || header.components.length === 0) throw new CatalogCommandError("invalid_input");
+      if (typeof buildRoles !== "function") throw new CatalogCommandError("invalid_reference");
+      let roles;
+      try { roles = await buildRoles(header.categoryId); } catch { throw new CatalogCommandError("invalid_reference"); }
+      if (!Array.isArray(roles) || roles.length === 0) throw new CatalogCommandError("invalid_reference");
+      const roleByKey = new Map(roles.map((role) => [role.role, role]));
+      const buildId = id();
+      const links = [];
+      const newParts = [];
+      const slug = header.slug ?? slugify(header.name);
+      for (const raw of header.components) {
+        const component = componentInput(raw);
+        const role = roleByKey.get(component.role);
+        if (!role) throw new CatalogCommandError("invalid_input");
+        const quantity = Number.isSafeInteger(component.quantity) && component.quantity > 0 ? component.quantity : 1;
+        const sortOrder = Number.isSafeInteger(component.sortOrder) && component.sortOrder >= 0 ? component.sortOrder : links.length;
+        if (component.mode === "existing") {
+          const existing = await repository.find("product_model", component.productModelId);
+          if (!existing || existing.status !== "ACTIVE" || existing.categoryId !== role.componentCategoryId) throw new CatalogCommandError("invalid_reference");
+          links.push(createProductModelComponent({ id: id(), productModelId: buildId, componentModelId: existing.id, quantity, sortOrder, createdAt: now }));
+        } else if (component.mode === "new") {
+          const part = createProductModel({ id: id(), categoryId: role.componentCategoryId, brandId: component.brandId, name: component.name, slug: slugify(component.name), modelCode: component.modelCode ?? null, searchAliases: component.searchAliases ?? [], createdAt: now });
+          const specs = await buildSpecRecords(part, component.specs ?? []);
+          newParts.push({ model: part, specs });
+          links.push(createProductModelComponent({ id: id(), productModelId: buildId, componentModelId: part.id, quantity, sortOrder, createdAt: now }));
+        } else {
+          throw new CatalogCommandError("invalid_input");
+        }
+      }
+      const build = createProductModel({ id: buildId, categoryId: header.categoryId, brandId: header.brandId, name: header.name, slug, modelKind: "BUILD", modelCode: header.modelCode ?? null, searchAliases: header.searchAliases ?? [], createdAt: now });
+      try {
+        return await repository.createBuild(build, links, newParts, event(identity, "product_model", buildId, context.requestId, "CATALOG_PRODUCT_MODEL_BUILD_CREATED", now.toISOString()));
+      } catch (error) {
+        if (error instanceof CatalogCommandError) throw error;
+        if (error?.code === "23503") throw new CatalogCommandError("invalid_reference");
+        if (error?.code === "23505") throw new CatalogCommandError("conflict");
+        if (error instanceof TypeError) throw new CatalogCommandError("invalid_input");
+        throw error;
+      }
+    },
     async update(accessCredential, kind, targetId, patch, context = {}) {
       if (!fields[kind] || typeof targetId !== "string" || !targetId) throw new CatalogCommandError("not_found");
       const identity = await actor(accessCredential);
