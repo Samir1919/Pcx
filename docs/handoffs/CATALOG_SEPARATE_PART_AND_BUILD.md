@@ -1,9 +1,9 @@
-# Handoff: Catalog — separate single-part and full-PC-build models (slice 1)
+# Handoff: Catalog — separate single-part and full-PC-build models
 
-- Objective: remove the half-implemented attribute-set drift and restore the
-  approved per-category spec model, plus introduce the composite-build schema.
+- Objective: remove the half-implemented attribute-set drift, restore the
+  approved per-category spec model, and add a separate full-PC build-create flow.
 - Branch: `main` (working directly on main, matching repo history)
-- Status: Slice 1 complete and verified (see below). Build-create flow (slice 2+) pending.
+- Status: COMPLETE (all slices merged and verified).
 
 ## What changed
 
@@ -33,12 +33,10 @@
 ## Acceptance criteria status
 
 - [x] attribute-set tables/columns gone; per-category specs work end-to-end.
-- [x] `npm run lint`, `npm run typecheck`, `npm test` (732 pass), `npm run verify:e0` pass.
-- [ ] `npm run build` / `npm run verify` — BLOCKED by a pre-existing admin
-      `/_global-error` prerender error (`Cannot read properties of null
-      (reading 'useContext')`), reproduced at HEAD with this slice's changes
-      stashed. Unrelated to this slice; needs a separate fix in the admin
-      error boundary.
+- [x] separate build-create flow (existing + inline-new) works end-to-end.
+- [x] `npm run verify` (lint, typecheck, test, build, security, ui-guard, verify:e0) all pass.
+- [x] `npm test` with TEST_DATABASE_URL: 735 pass.
+- [x] Headed-browser evidence: `docs/verify/browser-verify.json` (passed).
 
 ## Decisions / ADRs
 
@@ -50,10 +48,13 @@
   dev/staging only, authorized by the human via ADR 0017. Applied to `pcx_test`
   and `pcx` dev DBs; verified counts: 33 defs, 102 values, 11 components, 2 builds.
 
+## Commits
+
+- `db90d58` revert attribute sets, restore per-category specs + build schema
+- `af56e94` full-PC build create flow + storefront component summary
+- `c4fad4d` fix optional build slots and record headed browser evidence
+
 ## Next safe tasks
 
-1. Backend atomic build-create command/service/repo/HTTP
-   (`POST /api/v1/admin/product-model-builds`).
-2. Admin build-create page (component slots with select-existing OR inline-new).
-3. Build detail + storefront component summary (server-owned, read-only).
-4. Final `npm run verify` + headed-browser evidence + merge-gate.
+- None required for this epic. Optional polish: build edit/delete in the admin;
+  build listing filters on the storefront.
