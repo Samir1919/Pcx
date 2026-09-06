@@ -820,12 +820,18 @@ textarea:focus {
 .slotMode label {
   flex-direction: row;
   align-items: center;
-  gap: var(--space-1);
-  font-weight: 500;
+  gap: var(--space-2);
   min-height: var(--touch-target);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
 }
 
 .slotMode input {
+  width: 1.0625rem;
+  height: 1.0625rem;
+  margin: 0;
   accent-color: var(--green);
 }
 
