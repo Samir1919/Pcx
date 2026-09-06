@@ -18,7 +18,7 @@ test("spec commands persist typed values and actor audits atomically",{skip:!con
     const record={id:definition,key:"capacity_test_gb",label:"Capacity",dataType:"NUMBER",unit:"GB",filterable:true,status:"ACTIVE",createdAt:now};
     await repo.createDefinition(record,event("76000000-0000-4000-8000-000000000007","CREATE",definition)); assert.equal((await repo.findDefinition(definition)).dataType,"NUMBER");
     await repo.createAttributeSet({id:setId,key:"spec-set",label:"Spec Set",status:"ACTIVE",createdAt:now},event("76000000-0000-4000-8000-000000000011","CREATE",setId));
-    await repo.addAttributeSetItem(setId,definition,false,1,event("76000000-0000-4000-8000-000000000012","ITEM",setId));
+    await repo.addAttributeSetItem(setId,definition,false,1,"ram",event("76000000-0000-4000-8000-000000000012","ITEM",setId));
     await repo.assignAttributeSetToCategory(category,setId,event("76000000-0000-4000-8000-000000000013","ASSIGN",setId));
     assert.deepEqual((await repo.listDefinitions({categoryId:category})).map(({id})=>id),[definition]);
     let saved=await repo.upsertValue({id:value,productModelId:model,specificationDefinitionId:definition,dataType:"NUMBER",value:256,createdAt:now},category,event("76000000-0000-4000-8000-000000000008","UPSERT",value)); assert.equal(saved.value,256);

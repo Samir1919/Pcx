@@ -66,7 +66,8 @@ export default function AttributeSetsPanel({ categories, definitions, onChanged 
       await catalogApi.addAttributeSetItem(setId, {
         definitionId: form.get("definitionId"),
         required: form.get("required") === "on",
-        sortOrder: Number(form.get("sortOrder") || 0)
+        sortOrder: Number(form.get("sortOrder") || 0),
+        groupKey: form.get("groupKey") || null
       });
       setNotice({ kind: "success", message: "Attribute added to the set." });
       await refreshManaging(setId);
@@ -197,7 +198,7 @@ export default function AttributeSetsPanel({ categories, definitions, onChanged 
                   <li key={item.definitionId}>
                     <div>
                       <strong>{item.label}</strong>
-                      <small>{item.key} · {item.dataType}{item.unit ? ` · ${item.unit}` : ""}{item.required ? " · required" : ""}</small>
+                      <small>{item.key} · {item.dataType}{item.unit ? ` · ${item.unit}` : ""}{item.required ? " · required" : ""}{item.group?.label ? ` · ${item.group.label}` : ""}</small>
                     </div>
                     <button type="button" className="danger" disabled={busy} onClick={() => removeItem(manage.id, item.definitionId)}>Remove</button>
                   </li>
@@ -213,6 +214,7 @@ export default function AttributeSetsPanel({ categories, definitions, onChanged 
                 </select>
               </label>
               <label><span>Sort order</span><input name="sortOrder" type="number" min="0" defaultValue="0" /></label>
+              <label><span>Group (optional)</span><input name="groupKey" type="text" placeholder="e.g. ram" pattern="[a-z][a-z0-9_-]*" title="Lowercase slug, e.g. ram" /></label>
               <label className="check"><input type="checkbox" name="required" /><span>Required</span></label>
               <button className="primary" disabled={busy || availableDefinitions.length === 0}>{busy ? "Saving…" : "Add attribute"}</button>
             </form>

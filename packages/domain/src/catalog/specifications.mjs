@@ -120,13 +120,14 @@ export function createAttributeSet({ id, key, label, createdAt = new Date() }) {
 export function createAttributeSetItem({ setId, definitionId, required = false, sortOrder = 0, groupKey = null }) {
   if (typeof required !== "boolean") throw new TypeError("required must be a boolean");
   if (!Number.isSafeInteger(sortOrder) || sortOrder < 0) throw new TypeError("sortOrder must be a non-negative integer");
-  if (groupKey != null && !/^[a-z][a-z0-9_-]*$/.test(groupKey)) throw new TypeError("groupKey must be a canonical lowercase slug");
+  const canonicalGroupKey = (groupKey == null || groupKey === "") ? null : groupKey;
+  if (canonicalGroupKey != null && !/^[a-z][a-z0-9_-]*$/.test(canonicalGroupKey)) throw new TypeError("groupKey must be a canonical lowercase slug");
   return Object.freeze({
     setId: requiredString(setId, "setId"),
     definitionId: requiredString(definitionId, "definitionId"),
     required,
     sortOrder,
-    groupKey: groupKey ?? null
+    groupKey: canonicalGroupKey
   });
 }
 
