@@ -1,22 +1,20 @@
 {
-  "scope": "Admin attribute-set manager: list reusable attribute sets, create a set, add/remove global attribute definitions with per-assignment required/sort order, and assign/unassign the set to categories",
+  "scope": "Attribute-set lifecycle: archive an attribute set, and assign a reusable attribute set to a sell-flow build role (Option 3 — build component references a part template directly, overriding the category default)",
   "headed": true,
   "tool": "Playwright MCP browser (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "Admin catalog Attribute sets tab lists the nine seeded sets and supports the full set lifecycle: create a set, add a global attribute, assign a category, then remove/unassign",
+    "subject": "Admin catalog Attribute sets tab exposes an Archive action, and the Sell flow panel adds an Attribute-set column (and create-form field) so a build role can be pinned to a specific reusable set instead of its category default",
     "steps": [
-      "open-admin-catalog-attribute-sets-tab",
-      "nine-seed-sets-listed-with-attribute-and-category-counts",
-      "open-manage-modal-shows-items-and-assigned-categories",
-      "create-verify-set",
-      "add-casing-attribute-to-set",
-      "assign-accessory-category-to-set",
-      "remove-attribute-and-unassign-category"
+      "open-admin-catalog-sell-flow-tab",
+      "build-components-table-renders-attribute-set-column-with-category-default",
+      "assign-cpu-set-to-desktop-pc-cpu-role",
+      "assignment-persists-server-side",
+      "attribute-sets-tab-renders-archive-action"
     ]
   },
-  "notes": "The Attribute sets tab (Magento attribute-set pattern) lists the nine seeded sets with human-readable names and counts. Manage opens a scrollable modal showing the set's items (label · key · type · required) with Remove, an Add-attribute form (definition select + sort order + required), the assigned categories with Unassign, and an Assign-category form. Verified headed end-to-end: created \"Verify Set\", added the global Casing definition to it (item count 0→1), assigned the Accessory category (category count 0→1); the added attribute and assigned category dropped out of the available-select options; then the test set was removed via SQL. No console errors.",
-  "ranAt": "2026-09-06T04:30:00.000Z"
+  "notes": "Migration 0054 adds sell_build_components.attribute_set_id (nullable FK to attribute_sets). The sell-flow BUILD table now shows an Attribute-set column (defaulting to \"Category default\" = inherit the component category's set) and the Add-build-role form exposes an optional Attribute-set select. Selecting the CPU set for the Desktop PC cpu role persisted server-side (verified in sell_build_components), then reverted to keep the seed clean. Attribute sets also gained a DELETE /admin/attribute-sets/:id archive action surfaced as an Archive button. No console errors.",
+  "ranAt": "2026-09-06T04:45:00.000Z"
 }
 
 

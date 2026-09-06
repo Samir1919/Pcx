@@ -7,8 +7,8 @@ export class SellTaxonomyError extends Error {
 
 const entryFields = new Set(["iconKey", "iconMediaId", "hint", "sortOrder", "isActive"]);
 const createFields = new Set(["categoryId", "kind", "iconKey", "hint", "sortOrder", "isActive"]);
-const componentFields = new Set(["role", "categoryId", "required", "sortOrder"]);
-const createComponentFields = new Set(["role", "categoryId", "required", "sortOrder"]);
+const componentFields = new Set(["role", "categoryId", "required", "sortOrder", "attributeSetId"]);
+const createComponentFields = new Set(["role", "categoryId", "required", "sortOrder", "attributeSetId"]);
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function exact(input, allowed) {
@@ -81,6 +81,10 @@ function normalizeComponent(input) {
     if (!Number.isSafeInteger(value.sortOrder) || Number(value.sortOrder) < 0) throw new SellTaxonomyError("invalid_input");
     patch.sortOrder = Number(value.sortOrder);
   }
+  if (value.attributeSetId !== undefined) {
+    if (value.attributeSetId !== null && (typeof value.attributeSetId !== "string" || !uuidPattern.test(value.attributeSetId))) throw new SellTaxonomyError("invalid_input");
+    patch.attributeSetId = value.attributeSetId;
+  }
   if (Object.keys(patch).length === 0) throw new SellTaxonomyError("invalid_input");
   return patch;
 }
@@ -102,6 +106,12 @@ function normalizeCreateComponent(input) {
     record.sortOrder = Number(value.sortOrder);
   } else {
     record.sortOrder = 0;
+  }
+  if (value.attributeSetId !== undefined) {
+    if (value.attributeSetId !== null && (typeof value.attributeSetId !== "string" || !uuidPattern.test(value.attributeSetId))) throw new SellTaxonomyError("invalid_input");
+    record.attributeSetId = value.attributeSetId;
+  } else {
+    record.attributeSetId = null;
   }
   return record;
 }
@@ -263,7 +273,7 @@ export function createSellTaxonomyService({ authService, readRepository, command
       try { key = parseSellEntryKey(entryKey); } catch { throw new SellTaxonomyError("invalid_input"); }
       const value = normalizeCreateComponent(input);
       const now = clock().toISOString();
-      const component = createSellBuildComponent({ id: id(), entryKey: key, role: value.role, categoryId: value.categoryId, required: value.required, sortOrder: value.sortOrder, createdAt: now });
+      const component = createSellBuildComponent({ id: id(), entryKey: key, role: value.role, categoryId: value.categoryId, required: value.required, sortOrder: value.sortOrder, attributeSetId: value.attributeSetId, createdAt: now });
       try {
         await commandRepository.createComponent(component, now, event(identity, "SELL_BUILD_COMPONENT", `${key}:${component.role}`, context.requestId, "SELL_BUILD_COMPONENT_CREATED", component, now));
       } catch (error) {

@@ -444,7 +444,7 @@ export default function CatalogWorkspace() {
       ) : active === "quotes" ? (
         <QuoteConfigPanel />
       ) : active === "sellflow" ? (
-        <SellFlowPanel categories={data.categories} />
+        <SellFlowPanel categories={data.categories} attributeSets={data.sets} />
       ) : active === "sets" ? (
         <AttributeSetsPanel categories={data.categories} definitions={data.definitions} onChanged={load} />
       ) : (

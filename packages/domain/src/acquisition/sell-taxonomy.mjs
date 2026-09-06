@@ -104,7 +104,7 @@ export function createSellEntryConfig({ id, entryKey, categoryId, kind, iconKey,
   });
 }
 
-export function createSellBuildComponent({ id, entryKey, role, categoryId, required = false, sortOrder = 0, createdAt = new Date() }) {
+export function createSellBuildComponent({ id, entryKey, role, categoryId, required = false, sortOrder = 0, attributeSetId = null, createdAt = new Date() }) {
   const now = createdAt instanceof Date ? createdAt.toISOString() : requiredString(createdAt, "createdAt");
   return Object.freeze({
     id: requiredString(id, "id"),
@@ -113,6 +113,7 @@ export function createSellBuildComponent({ id, entryKey, role, categoryId, requi
     categoryId: requiredString(categoryId, "categoryId"),
     required: boolean(required, "required"),
     sortOrder: nonNegativeInteger(sortOrder, "sortOrder"),
+    attributeSetId: optionalUuid(attributeSetId, "attributeSetId"),
     createdAt: now,
     updatedAt: now
   });

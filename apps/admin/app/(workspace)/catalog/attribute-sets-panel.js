@@ -117,6 +117,22 @@ export default function AttributeSetsPanel({ categories, definitions, onChanged 
     }
   }
 
+  async function archiveSet(setId, label) {
+    if (!window.confirm(`Archive the "${label}" attribute set? Historical references will be preserved.`)) return;
+    setBusy(true);
+    try {
+      await catalogApi.archiveAttributeSet(setId);
+      setNotice({ kind: "success", message: "Attribute set archived." });
+      setManaging(null);
+      await load();
+      if (onChanged) onChanged();
+    } catch (error) {
+      setNotice({ kind: "error", message: error.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const manage = managing && sets.find((s) => s.id === managing.id);
   const availableDefinitions = manage ? definitions.filter((d) => !manage.items.some((i) => i.definitionId === d.id)) : [];
   const availableCategories = manage ? categories.filter((c) => !manage.categoryIds.includes(c.id)) : [];
@@ -146,7 +162,7 @@ export default function AttributeSetsPanel({ categories, definitions, onChanged 
                     <td><small>{s.key}</small></td>
                     <td>{s.items.length}</td>
                     <td>{s.categoryIds.length}</td>
-                    <td><div className="actions"><button type="button" disabled={busy} onClick={() => setManaging(s)}>Manage</button></div></td>
+                    <td><div className="actions"><button type="button" disabled={busy} onClick={() => setManaging(s)}>Manage</button><button className="danger" type="button" disabled={busy} onClick={() => archiveSet(s.id, s.label)}>Archive</button></div></td>
                   </tr>
                 ))}
               </tbody>

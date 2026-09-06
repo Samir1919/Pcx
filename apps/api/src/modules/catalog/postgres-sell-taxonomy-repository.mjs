@@ -34,7 +34,7 @@ export function createPostgresSellTaxonomyRepository({ pool }) {
       }));
 
       const componentsResult = await pool.query(
-        `SELECT sbc.id AS component_id, sbc.entry_key, sbc.role, sbc.required, sbc.sort_order,
+        `SELECT sbc.id AS component_id, sbc.entry_key, sbc.role, sbc.required, sbc.sort_order, sbc.attribute_set_id,
                 c.id AS category_id, c.name, c.slug
          FROM sell_build_components sbc
          JOIN categories c ON c.id = sbc.category_id AND c.status = 'ACTIVE'
@@ -49,6 +49,7 @@ export function createPostgresSellTaxonomyRepository({ pool }) {
           role: row.role,
           required: row.required,
           sortOrder: row.sort_order,
+          attributeSetId: row.attribute_set_id ?? null,
           category: Object.freeze({ id: row.category_id, name: row.name, slug: row.slug })
         }));
       }
