@@ -816,6 +816,8 @@ textarea:focus {
   position: relative;
   width: 100%;
   max-width: 28rem;
+  max-height: min(88vh, 56.25rem);
+  overflow-y: auto;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius-2xl);
