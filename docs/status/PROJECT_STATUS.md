@@ -176,6 +176,12 @@ Re-verified 2026-09-01: several "remaining" items were confirmed complete and mo
 - `npm test` (735), `lint`, `typecheck`, `build`, `security`, `verify:e0`, `ui-guard`, `npm run verify` all green.
 - Handoff: `docs/handoffs/CATALOG_SEPARATE_PART_AND_BUILD.md`.
 
+## Component compatibility (2026-09-07)
+
+- ~~**Data-driven component compatibility**~~ — **COMPLETE 2026-09-07** (migration `0060_component_compatibility.sql`, ADR 0018): `reference_values` (shared socket/memory_type vocabulary) + `compatibility_rules` (EQUALS between two category spec attributes) tables with admin CRUD; `spec_definitions` gains a `SELECT` data type + `reference_key`; CPU/Motherboard `socket` and CPU/Motherboard/RAM `memory_type` are now SELECT. The full-PC build create evaluates every active rule server-side and rejects incompatible builds (422 `CATALOG_COMPATIBILITY_CONFLICT`); the admin configurator shows a live compatibility banner and renders SELECT specs as dropdowns — all generic/data-driven (a new socket or RAM type is added as a reference value, no code change). Admin "Compatibility" tab added.
+- `npm run verify` green; `npm test` (TEST_DATABASE_URL) 738 pass; headed-browser evidence updated (`docs/verify/browser-verify.json`).
+- Handoff: `docs/handoffs/CATALOG_SEPARATE_PART_AND_BUILD.md`.
+
 ## Update rule
 
 Every material merge must update this file when it changes:

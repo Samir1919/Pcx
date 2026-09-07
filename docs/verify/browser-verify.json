@@ -1,19 +1,19 @@
 {
-  "scope": "Full-PC build create flow in the admin Catalog workspace (new PC builds tab with a slot-based configurator) and the storefront model page component summary. The admin catalog also returns to per-category Attributes after the attribute-set removal.",
+  "scope": "Component compatibility system in the admin Catalog workspace: a new Compatibility tab (admin CRUD for shared reference values and EQUALS rules), SELECT spec data type with reference-key dropdowns in the full-PC build configurator, a live compatibility banner, and server-side rejection of incompatible builds.",
   "headed": true,
   "tool": "Playwright MCP browser (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "Signed in as the demo admin, opened the Catalog workspace PC builds tab, created a full PC build whose component slots mix 'select existing' parts (CPU/Motherboard/RAM/Storage) and an 'add new part' inline entry (a custom GPU with a typed VRAM spec), saved it atomically, and verified the storefront model page renders the build's server-derived Included components summary.",
+    "subject": "Signed in as the demo admin, opened the Catalog Compatibility tab (renders the seeded reference values socket/memory_type and the three EQUALS rules), then in the PC builds tab picked an incompatible CPU (LGA1700) + motherboard (AM4) and confirmed the live banner and the server-side rejection (build not created), then corrected the CPU to AM4 and confirmed the build saved.",
     "steps": [
       "admin-login-mfa",
-      "admin-catalog-renders-per-category-attributes-and-pc-builds-tab",
-      "admin-build-form-renders-component-slots-with-select-existing-or-add-new",
-      "admin-build-save-mixes-existing-parts-and-inline-new-part",
-      "storefront-model-page-renders-included-components"
+      "admin-catalog-compatibility-tab-renders-reference-values-and-rules",
+      "admin-build-incompatible-cpu-motherboard-shows-banner-and-is-rejected",
+      "admin-build-compatible-saves"
     ]
   },
-  "notes": "Verified headed against the local dev stack (admin :3001, web :3000, api :4000). The backend POST /api/v1/admin/product-model-builds atomically created the BUILD model, the inline part (with typed spec value), and the product_model_components links; GET /api/v1/product-models/:id returned the components array rendered read-only on the storefront. Test rows created during the click-through were deleted afterward.",
-  "ranAt": "2026-09-06T12:05:00.000Z"
+  "notes": "Verified headed against the local dev stack (admin :3001, api :4000). The compatibility rules and reference values are data-driven (admin CRUD via POST/DELETE /api/v1/admin/reference-values and /api/v1/admin/compatibility-rules); the client evaluates the rules generically (no hardcoded pairs) and the server re-validates on save (422 CATALOG_COMPATIBILITY_CONFLICT).",
+  "ranAt": "2026-09-07T02:40:00.000Z"
 }
+
 

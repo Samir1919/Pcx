@@ -17,6 +17,8 @@ import { createCatalogCommandService } from "../catalog/catalog-command-service.
 import { createCatalogImportService } from "../catalog/catalog-import-service.mjs";
 import { createPostgresCatalogSpecCommandRepository } from "../catalog/postgres-catalog-spec-command-repository.mjs";
 import { createCatalogSpecCommandService } from "../catalog/catalog-spec-command-service.mjs";
+import { createPostgresCompatibilityRepository } from "../catalog/postgres-compatibility-repository.mjs";
+import { createCompatibilityService } from "../catalog/compatibility-service.mjs";
 import { createPostgresSellRequestRepository } from "../acquisition/postgres-sell-request-repository.mjs";
 import { createSellRequestService } from "../acquisition/sell-request-service.mjs";
 import { createPostgresAcquisitionRepository } from "../acquisition/postgres-acquisition-repository.mjs";
@@ -183,14 +185,18 @@ export function createAuthRuntime({ pool, allowedOrigins, adminOrigins, abuseCon
   });
   const userAdminService = createUserAdminService({ authService, repository: createUserAdminRepository({ pool }) });
   const addressService = createAddressService({ authService, repository: createPostgresAddressRepository({ pool }) });
-  const catalogService = createCatalogService({ repository: createPostgresCatalogRepository({ pool }) });
+  const catalogReadRepository = createPostgresCatalogRepository({ pool });
+  const catalogService = createCatalogService({ repository: catalogReadRepository });
   const catalogSpecCommandRepository = createPostgresCatalogSpecCommandRepository({ pool });
   const sellTaxonomyReadRepository = createPostgresSellTaxonomyRepository({ pool });
+  const compatibilityService = createCompatibilityService({ authService, repository: createPostgresCompatibilityRepository({ pool }) });
   const catalogCommandService = createCatalogCommandService({
     authService,
     repository: createPostgresCatalogCommandRepository({ pool }),
     buildRoles: (categoryId) => sellTaxonomyReadRepository.listBuildRoles(categoryId),
-    listDefinitions: (filters) => catalogSpecCommandRepository.listDefinitions(filters)
+    listDefinitions: (filters) => catalogSpecCommandRepository.listDefinitions(filters),
+    listModelSpecifications: (modelId) => catalogReadRepository.listModelSpecifications(modelId),
+    checkCompatibility: (components) => compatibilityService.check(components)
   });
   const catalogSpecCommandService = createCatalogSpecCommandService({ authService, repository: catalogSpecCommandRepository });
   const indicativePriceService = createIndicativePriceService({ authService, repository: createPostgresIndicativePriceRepository({ pool }) });
@@ -277,6 +283,7 @@ export function createAuthRuntime({ pool, allowedOrigins, adminOrigins, abuseCon
     catalogCommandService,
     catalogImportService,
     catalogSpecCommandService,
+    compatibilityService,
     sellRequestService,
     acquisitionService,
     inventoryService,

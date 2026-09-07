@@ -28,7 +28,7 @@ function componentInput(value) {
   return value;
 }
 
-export function createCatalogCommandService({ authService, repository, buildRoles = null, listDefinitions = null, id = randomUUID, clock = () => new Date() }) {
+export function createCatalogCommandService({ authService, repository, buildRoles = null, listDefinitions = null, listModelSpecifications = null, checkCompatibility = null, id = randomUUID, clock = () => new Date() }) {
   if (!authService || typeof authService.authenticateAccess !== "function") throw new TypeError("authService.authenticateAccess is required");
   if (!repository || ["create","find","update","archive","setStatus","listCategories","remove"].some((method) => typeof repository[method] !== "function")) throw new TypeError("catalog command repository is required");
 
@@ -64,7 +64,7 @@ export function createCatalogCommandService({ authService, repository, buildRole
   // Validate a new inline part's specs against its component category's
   // per-category definitions and build typed model-spec value records.
   async function buildSpecRecords(part, specsInput) {
-    if (typeof listDefinitions !== "function") return [];
+    if (typeof listDefinitions !== "function") return { records: [], definitions: [] };
     let definitions;
     try { definitions = await listDefinitions({ categoryId: part.categoryId }); } catch { definitions = []; }
     if (!Array.isArray(definitions)) definitions = [];
@@ -77,7 +77,7 @@ export function createCatalogCommandService({ authService, repository, buildRole
       records.push(createModelSpecificationValue({ id: id(), productModel: part, definition, value: item.value, createdAt: part.createdAt }));
     }
     try { assertRequiredSpecificationValues(records, definitions); } catch { throw new CatalogCommandError("invalid_input"); }
-    return records;
+    return { records, definitions };
   }
   return Object.freeze({
     createCategory(access, value, context) { return create("category", access, value, context); },
@@ -101,6 +101,7 @@ export function createCatalogCommandService({ authService, repository, buildRole
       const buildId = id();
       const links = [];
       const newParts = [];
+      const compatibilityComponents = [];
       const slug = header.slug ?? slugify(header.name);
       for (const raw of header.components) {
         const component = componentInput(raw);
@@ -111,14 +112,29 @@ export function createCatalogCommandService({ authService, repository, buildRole
         if (component.mode === "existing") {
           const existing = await repository.find("product_model", component.productModelId);
           if (!existing || existing.status !== "ACTIVE" || existing.categoryId !== role.componentCategoryId) throw new CatalogCommandError("invalid_reference");
+          const existingSpecs = typeof listModelSpecifications === "function" ? await listModelSpecifications(existing.id) : [];
+          const specMap = Object.fromEntries((Array.isArray(existingSpecs) ? existingSpecs : []).filter((s) => s?.value != null).map((s) => [s.key, s.value]));
+          compatibilityComponents.push({ categoryId: existing.categoryId, specs: specMap });
           links.push(createProductModelComponent({ id: id(), productModelId: buildId, componentModelId: existing.id, quantity, sortOrder, createdAt: now }));
         } else if (component.mode === "new") {
           const part = createProductModel({ id: id(), categoryId: role.componentCategoryId, brandId: component.brandId, name: component.name, slug: slugify(component.name), modelCode: component.modelCode ?? null, searchAliases: component.searchAliases ?? [], createdAt: now });
-          const specs = await buildSpecRecords(part, component.specs ?? []);
+          const { records: specs, definitions } = await buildSpecRecords(part, component.specs ?? []);
+          const keyById = new Map(definitions.map((definition) => [definition.id, definition.key]));
+          const specMap = Object.fromEntries(specs.filter((s) => s?.value != null).map((s) => [keyById.get(s.specificationDefinitionId), s.value]).filter(([key]) => key));
+          compatibilityComponents.push({ categoryId: part.categoryId, specs: specMap });
           newParts.push({ model: part, specs });
           links.push(createProductModelComponent({ id: id(), productModelId: buildId, componentModelId: part.id, quantity, sortOrder, createdAt: now }));
         } else {
           throw new CatalogCommandError("invalid_input");
+        }
+      }
+      if (typeof checkCompatibility === "function") {
+        const result = await checkCompatibility(compatibilityComponents);
+        const requiredViolations = (result?.violations ?? []).filter((v) => v.required);
+        if (requiredViolations.length > 0) {
+          const error = new CatalogCommandError("compatibility_conflict");
+          error.violations = requiredViolations;
+          throw error;
         }
       }
       const build = createProductModel({ id: buildId, categoryId: header.categoryId, brandId: header.brandId, name: header.name, slug, modelKind: "BUILD", modelCode: header.modelCode ?? null, searchAliases: header.searchAliases ?? [], createdAt: now });

@@ -24,7 +24,7 @@ test("launch catalog seeds are complete, idempotent, safe, and queryable at real
     for (const slug of ["desktop-pc", "pc-parts", "laptop", "laptop-parts", "monitor", "accessory"]) assert.equal(parentBySlug[slug], null, `${slug} should stay at catalog root`);
     assert.equal((await pool.query("SELECT count(*)::int count FROM brands WHERE id::text LIKE '81000000-%'")).rows[0].count, 16);
     assert.equal((await pool.query("SELECT count(*)::int count FROM product_models WHERE id::text LIKE '82000000-%'")).rows[0].count, 27);
-    assert.equal((await pool.query("SELECT count(*)::int count FROM spec_definitions WHERE id::text LIKE '83000000-%'")).rows[0].count, 33);
+    assert.equal((await pool.query("SELECT count(*)::int count FROM spec_definitions WHERE id::text LIKE '83000000-%'")).rows[0].count, 35);
     assert.equal((await pool.query("SELECT count(*)::int count FROM model_spec_values WHERE id::text LIKE '84000000-%'")).rows[0].count, 102);
     assert.equal((await pool.query("SELECT count(*)::int count FROM product_model_components WHERE id::text LIKE '85000000-%'")).rows[0].count, 11);
     assert.equal((await pool.query("SELECT count(*)::int count FROM product_models WHERE id::text LIKE '82000000-%' AND model_kind='BUILD'")).rows[0].count, 2);

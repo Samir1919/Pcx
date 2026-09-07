@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { catalogApi } from "../../../lib/catalog-api";
 import ImportCsvPanel from "./import-csv-panel";
 import BuildPanel from "./build-panel";
+import CompatibilityPanel from "./compatibility-panel";
 
 const resources = [{ key: "categories", label: "Categories" }, { key: "brands", label: "Brands" }, { key: "models", label: "Product models" }, { key: "definitions", label: "Attributes" }];
 const plural = { categories: "categories", brands: "brands", models: "product-models", definitions: "attribute-definitions" };
@@ -356,7 +357,7 @@ export default function CatalogWorkspace() {
       }
       if (active === "categories") await catalogApi.createCategory({ name: form.get("name"), slug: form.get("slug")?.trim() || slug(form.get("name")), sortOrder: Number(form.get("sortOrder") || 0) });
       if (active === "brands") await catalogApi.createBrand({ name: form.get("name"), slug: form.get("slug")?.trim() || slug(form.get("name")) });
-      if (active === "definitions") await catalogApi.createDefinition({ categoryId: form.get("categoryId"), key: form.get("key"), label: form.get("label"), dataType: form.get("dataType"), unit: form.get("unit") || null, filterable: form.get("filterable") === "on", required: form.get("required") === "on", sortOrder: Number(form.get("sortOrder") || 0) });
+      if (active === "definitions") await catalogApi.createDefinition({ categoryId: form.get("categoryId"), key: form.get("key"), label: form.get("label"), dataType: form.get("dataType"), unit: form.get("unit") || null, filterable: form.get("filterable") === "on", required: form.get("required") === "on", sortOrder: Number(form.get("sortOrder") || 0), referenceKey: form.get("referenceKey") || null });
       formElement.reset();
       setNotice({ kind: "success", message: "Catalog record saved." });
       await load();
@@ -441,6 +442,9 @@ export default function CatalogWorkspace() {
         <button role="tab" aria-selected={active === "builds"} onClick={() => setActive("builds")}>
           PC builds
         </button>
+        <button role="tab" aria-selected={active === "compatibility"} onClick={() => setActive("compatibility")}>
+          Compatibility
+        </button>
         <button role="tab" aria-selected={active === "import"} onClick={() => setActive("import")}>
           Import CSV
         </button>
@@ -449,6 +453,8 @@ export default function CatalogWorkspace() {
         <ImportCsvPanel onImported={load} />
       ) : active === "builds" ? (
         <BuildPanel brands={data.brands} onChanged={load} />
+      ) : active === "compatibility" ? (
+        <CompatibilityPanel categories={data.categories} definitions={data.definitions} onChanged={load} />
       ) : (
         <div className="grid">
           <section className="panel">
@@ -540,7 +546,8 @@ export default function CatalogWorkspace() {
                   <label><span>Category</span><select name="categoryId" required><option value="">Select category</option>{data.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
                   <Field label="Canonical key" name="key" pattern="[a-z][a-z0-9_]*" placeholder="memory_gb" required />
                   <Field label="Display label" name="label" required />
-                  <label><span>Data type</span><select name="dataType" required><option>TEXT</option><option>NUMBER</option><option>BOOLEAN</option><option>JSON</option></select></label>
+                  <label><span>Data type</span><select name="dataType" required><option>TEXT</option><option>NUMBER</option><option>BOOLEAN</option><option>JSON</option><option>SELECT</option></select></label>
+                  <Field label="Reference key (for SELECT, e.g. socket)" name="referenceKey" pattern="[a-z][a-z0-9_]*" />
                   <Field label="Unit (optional)" name="unit" />
                   <Field label="Sort order" name="sortOrder" type="number" min="0" defaultValue="0" />
                   <label className="check"><input type="checkbox" name="required" /><span>Required</span></label>

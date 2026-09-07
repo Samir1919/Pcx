@@ -75,7 +75,7 @@ export function createPostgresCatalogRepository({ pool }) {
         label: row.label,
         dataType: row.data_type,
         unit: row.unit,
-        value: row.data_type === "TEXT" ? row.value_text
+        value: row.data_type === "TEXT" || row.data_type === "SELECT" ? row.value_text
           : row.data_type === "NUMBER" ? Number(row.value_number)
             : row.data_type === "BOOLEAN" ? row.value_boolean
               : row.value_json

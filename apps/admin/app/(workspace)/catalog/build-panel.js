@@ -36,6 +36,9 @@ export default function BuildPanel({ brands, onChanged }) {
   const [models, setModels] = useState({});
   const [defs, setDefs] = useState({});
   const [modes, setModes] = useState({});
+  const [referenceValues, setReferenceValues] = useState([]);
+  const [rules, setRules] = useState([]);
+  const [pickedSpecs, setPickedSpecs] = useState({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
@@ -43,8 +46,10 @@ export default function BuildPanel({ brands, onChanged }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const payload = await sellTaxonomyApi.list();
+      const [payload, refs, ruleList] = await Promise.all([sellTaxonomyApi.list(), catalogApi.referenceValues(), catalogApi.compatibilityRules()]);
       setEntries((payload.data ?? []).filter((entry) => entry.kind === "BUILD"));
+      setReferenceValues(refs.data ?? []);
+      setRules(ruleList.data ?? []);
       setNotice(null);
     } catch (error) {
       setNotice({ kind: "error", message: error.status === 401 ? "Sign in to manage builds." : error.message });
@@ -55,6 +60,43 @@ export default function BuildPanel({ brands, onChanged }) {
   useEffect(() => { load(); }, [load]);
 
   const entry = useMemo(() => entries.find((e) => e.category?.id === categoryId) ?? null, [entries, categoryId]);
+
+  const referenceValuesByKey = useMemo(() => {
+    const map = {};
+    for (const value of referenceValues) { if (!map[value.key]) map[value.key] = []; map[value.key].push(value); }
+    return map;
+  }, [referenceValues]);
+
+  // Generic (data-driven) compatibility check over the already-picked specs.
+  const violations = useMemo(() => {
+    const out = [];
+    for (const rule of rules) {
+      const source = pickedSpecs[rule.sourceCategoryId];
+      const target = pickedSpecs[rule.targetCategoryId];
+      if (!source || !target) continue;
+      const sourceValue = source[rule.sourceKey];
+      const targetValue = target[rule.targetKey];
+      if (sourceValue == null || sourceValue === "" || targetValue == null || targetValue === "") continue;
+      if (sourceValue !== targetValue) out.push({ ...rule, sourceValue, targetValue });
+    }
+    return out;
+  }, [rules, pickedSpecs]);
+
+  function handleExistingSelect(categoryId, modelId) {
+    if (!modelId) { setPickedSpecs((prev) => { const next = { ...prev }; delete next[categoryId]; return next; }); return; }
+    catalogApi.model(modelId).then((result) => {
+      const specMap = Object.fromEntries((result?.data?.specifications ?? []).filter((s) => s.value != null).map((s) => [s.key, s.value]));
+      setPickedSpecs((prev) => ({ ...prev, [categoryId]: specMap }));
+    }).catch(() => {});
+  }
+
+  function handleNewSpecChange(categoryId, key, value) {
+    setPickedSpecs((prev) => {
+      const specs = { ...(prev[categoryId] ?? {}) };
+      if (value == null || value === "") delete specs[key]; else specs[key] = value;
+      return { ...prev, [categoryId]: specs };
+    });
+  }
 
   async function ensureModels(categoryId) {
     if (!categoryId || models[categoryId]) return;
@@ -147,6 +189,12 @@ export default function BuildPanel({ brands, onChanged }) {
             <label><span>Brand</span><select name="brandId" required><option value="">Select brand</option>{brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
             <label><span>Build type</span><select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} required><option value="">Select build type</option>{entries.map((e) => <option key={e.entryKey} value={e.category.id}>{e.category.name}</option>)}</select></label>
 
+            {violations.length > 0 && (
+              <div className="banner error" role="alert">
+                <span>Incompatible components — {violations.map((v) => v.reason).join(" · ")}</span>
+              </div>
+            )}
+
             {entry && (
               <div className="buildSlots">
                 {entry.components.map((component) => {
@@ -161,7 +209,7 @@ export default function BuildPanel({ brands, onChanged }) {
                         <label><input type="radio" name={`mode:${role}`} checked={mode === "new"} onChange={() => setMode(role, "new")} />Add new part</label>
                       </div>
                       {mode === "existing" ? (
-                        <label><span>Part model</span><select name={`model:${role}`} required={component.required}><option value="">Select part</option>{(models[component.category?.id] ?? []).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
+                        <label><span>Part model</span><select name={`model:${role}`} required={component.required} onChange={(e) => handleExistingSelect(component.category?.id, e.target.value)}><option value="">Select part</option>{(models[component.category?.id] ?? []).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
                       ) : (
                         <>
                           <Field label="Part name" name={`name:${role}`} required maxLength="160" />
@@ -170,11 +218,13 @@ export default function BuildPanel({ brands, onChanged }) {
                             <label key={definition.id}>
                               <span>{definition.label}{definition.unit ? ` (${definition.unit})` : ""}{definition.required ? " · required" : ""}</span>
                               {definition.dataType === "BOOLEAN" ? (
-                                <select name={`spec:${role}:${definition.id}`}><option value="">—</option><option value="true">True</option><option value="false">False</option></select>
+                                <select name={`spec:${role}:${definition.id}`} onChange={(e) => handleNewSpecChange(component.category?.id, definition.key, e.target.value === "" ? undefined : e.target.value === "true")}><option value="">—</option><option value="true">True</option><option value="false">False</option></select>
+                              ) : definition.dataType === "SELECT" ? (
+                                <select name={`spec:${role}:${definition.id}`} required={definition.required} onChange={(e) => handleNewSpecChange(component.category?.id, definition.key, e.target.value || undefined)}><option value="">Select {definition.label.toLowerCase()}</option>{(referenceValuesByKey[definition.referenceKey] ?? []).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
                               ) : definition.dataType === "JSON" ? (
-                                <textarea name={`spec:${role}:${definition.id}`} placeholder='{"key":"value"}' />
+                                <textarea name={`spec:${role}:${definition.id}`} placeholder='{"key":"value"}' onChange={(e) => handleNewSpecChange(component.category?.id, definition.key, e.target.value || undefined)} />
                               ) : (
-                                <input name={`spec:${role}:${definition.id}`} type={definition.dataType === "NUMBER" ? "number" : "text"} step={definition.dataType === "NUMBER" ? "any" : undefined} />
+                                <input name={`spec:${role}:${definition.id}`} type={definition.dataType === "NUMBER" ? "number" : "text"} step={definition.dataType === "NUMBER" ? "any" : undefined} onChange={(e) => handleNewSpecChange(component.category?.id, definition.key, e.target.value || undefined)} />
                               )}
                             </label>
                           ))}

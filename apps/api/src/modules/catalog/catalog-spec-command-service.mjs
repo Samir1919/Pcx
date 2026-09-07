@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { assertRequiredSpecificationValues, createModelSpecificationValue, createSpecificationDefinition, hasPermission, Permission } from "@pcx/domain";
 
 export class CatalogSpecCommandError extends Error { constructor(code) { super(code); this.name="CatalogSpecCommandError"; this.code=code; } }
-const createFields=new Set(["categoryId","key","label","dataType","unit","filterable","required","sortOrder"]);
+const createFields=new Set(["categoryId","key","label","dataType","unit","filterable","required","sortOrder","referenceKey"]);
 const updateFields=new Set(["label","unit","filterable"]);
 function exact(value, allowed){if(!value||typeof value!=="object"||Array.isArray(value))throw new CatalogSpecCommandError("invalid_input");for(const key of Object.keys(value))if(!allowed.has(key))throw new CatalogSpecCommandError("invalid_input");return value;}
 

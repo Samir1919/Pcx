@@ -4,7 +4,8 @@ export const SpecificationDataType = Object.freeze({
   TEXT: "TEXT",
   NUMBER: "NUMBER",
   BOOLEAN: "BOOLEAN",
-  JSON: "JSON"
+  JSON: "JSON",
+  SELECT: "SELECT"
 });
 
 const supportedTypes = new Set(Object.values(SpecificationDataType));
@@ -77,6 +78,7 @@ export function createSpecificationDefinition({
   filterable = false,
   required = false,
   sortOrder = 0,
+  referenceKey = null,
   createdAt = new Date()
 }) {
   const canonicalKey = requiredString(key, "key");
@@ -86,6 +88,10 @@ export function createSpecificationDefinition({
   if (filterable && dataType === SpecificationDataType.JSON) throw new TypeError("JSON specifications cannot be filterable");
   if (typeof required !== "boolean") throw new TypeError("required must be a boolean");
   if (!Number.isSafeInteger(sortOrder) || sortOrder < 0) throw new TypeError("sortOrder must be a non-negative integer");
+  const canonicalReferenceKey = referenceKey == null || referenceKey === "" ? null : requiredString(referenceKey, "referenceKey");
+  if (canonicalReferenceKey != null && !/^[a-z][a-z0-9_]*$/.test(canonicalReferenceKey)) throw new TypeError("referenceKey must be canonical lowercase snake_case");
+  if (dataType === SpecificationDataType.SELECT && canonicalReferenceKey == null) throw new TypeError("SELECT specifications require a referenceKey");
+  if (dataType !== SpecificationDataType.SELECT && canonicalReferenceKey != null) throw new TypeError("only SELECT specifications may set a referenceKey");
 
   const now = timestamp(createdAt, "createdAt");
   return Object.freeze({
@@ -98,6 +104,7 @@ export function createSpecificationDefinition({
     filterable,
     required,
     sortOrder,
+    referenceKey: canonicalReferenceKey,
     status: CatalogStatus.ACTIVE,
     createdAt: now,
     updatedAt: now,
@@ -107,6 +114,7 @@ export function createSpecificationDefinition({
 
 function typedValue(dataType, value) {
   if (dataType === SpecificationDataType.TEXT) return requiredString(value, "value");
+  if (dataType === SpecificationDataType.SELECT) return requiredString(value, "value");
   if (dataType === SpecificationDataType.NUMBER) {
     if (typeof value !== "number" || !Number.isFinite(value)) throw new TypeError("value must be a finite number");
     return value;
