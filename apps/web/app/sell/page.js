@@ -81,6 +81,8 @@ function SellFlow() {
   const [taxonomyError, setTaxonomyError] = useState(null);
   const [partModels, setPartModels] = useState([]);
   const [buildModels, setBuildModels] = useState({});
+  const [compatibilityRules, setCompatibilityRules] = useState([]);
+  const [pickedSpecs, setPickedSpecs] = useState({});
   // Contact fallbacks are only shown when the authenticated identity lacks that
   // field; when present, the server always reuses the identity value.
   const [fallbackName, setFallbackName] = useState("");
@@ -193,6 +195,49 @@ function SellFlow() {
       .catch(() => { if (active) setPartModels([]); });
     return () => { active = false; };
   }, [partCategoryId, partEntry]);
+
+  // Load compatibility rules (data-driven) and the selected models' specs so a
+  // full-system build can surface an incompatible-parts warning.
+  useEffect(() => {
+    let active = true;
+    storefrontApi.compatibilityRules()
+      .then((r) => { if (active) setCompatibilityRules(r.data ?? []); })
+      .catch(() => { if (active) setCompatibilityRules([]); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!build) { setPickedSpecs({}); return; }
+    let active = true;
+    (async () => {
+      const specs = {};
+      await Promise.all(build.roles.map(async (role) => {
+        const modelId = selections[role.role];
+        if (!modelId) return;
+        try {
+          const r = await storefrontApi.productModel(modelId);
+          const specMap = Object.fromEntries((r?.data?.specifications ?? []).filter((s) => s.value != null).map((s) => [s.key, s.value]));
+          if (r?.data?.categoryId) specs[r.data.categoryId] = specMap;
+        } catch { /* ignore */ }
+      }));
+      if (active) setPickedSpecs(specs);
+    })();
+    return () => { active = false; };
+  }, [build, selections]);
+
+  const compatibilityIssues = useMemo(() => {
+    const out = [];
+    for (const rule of compatibilityRules) {
+      const source = pickedSpecs[rule.sourceCategoryId];
+      const target = pickedSpecs[rule.targetCategoryId];
+      if (!source || !target) continue;
+      const sourceValue = source[rule.sourceKey];
+      const targetValue = target[rule.targetKey];
+      if (sourceValue == null || sourceValue === "" || targetValue == null || targetValue === "") continue;
+      if (sourceValue !== targetValue) out.push(rule);
+    }
+    return out;
+  }, [compatibilityRules, pickedSpecs]);
 
   // Live indicative quote: part mode resolves one range; build mode aggregates components.
   useEffect(() => {
@@ -415,6 +460,12 @@ function SellFlow() {
                 </select>
               </label>
             ))}
+
+            {compatibilityIssues.length > 0 && (
+              <div className="banner error" role="alert">
+                <span>Some parts may not be compatible — {compatibilityIssues.map((r) => r.reason).join(" · ")}</span>
+              </div>
+            )}
 
             {partEntry && (
               <>

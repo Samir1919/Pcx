@@ -4,16 +4,17 @@
   "tool": "Playwright MCP browser (headed)",
   "result": "passed",
   "businessFlow": {
-    "subject": "Signed in as the demo admin, opened the Catalog Compatibility tab (renders the seeded reference values socket/memory_type and the three EQUALS rules), then in the PC builds tab picked an incompatible CPU (LGA1700) + motherboard (AM4) and confirmed the live banner and the server-side rejection (build not created), then corrected the CPU to AM4 and confirmed the build saved.",
+    "subject": "Signed in as the demo admin, opened the Catalog Compatibility tab (renders the seeded reference values socket/memory_type and the three EQUALS rules), then in the PC builds tab picked an incompatible CPU (LGA1700) + motherboard (AM4) and confirmed the live banner and the server-side rejection (build not created), then corrected the CPU to AM4 and confirmed the build saved. Also verified the customer /sell build wizard surfaces the same incompatible-parts warning for a mismatched CPU + motherboard.",
     "steps": [
       "admin-login-mfa",
       "admin-catalog-compatibility-tab-renders-reference-values-and-rules",
       "admin-build-incompatible-cpu-motherboard-shows-banner-and-is-rejected",
-      "admin-build-compatible-saves"
+      "admin-build-compatible-saves",
+      "web-sell-build-shows-incompatible-parts-warning"
     ]
   },
-  "notes": "Verified headed against the local dev stack (admin :3001, api :4000). The compatibility rules and reference values are data-driven (admin CRUD via POST/DELETE /api/v1/admin/reference-values and /api/v1/admin/compatibility-rules); the client evaluates the rules generically (no hardcoded pairs) and the server re-validates on save (422 CATALOG_COMPATIBILITY_CONFLICT).",
-  "ranAt": "2026-09-07T02:40:00.000Z"
+  "notes": "Verified headed against the local dev stack (admin :3001, web :3000, api :4000). The compatibility rules and reference values are data-driven (admin CRUD via POST/DELETE /api/v1/admin/reference-values and /api/v1/admin/compatibility-rules); the client evaluates the rules generically (no hardcoded pairs) and the server re-validates on save (422 CATALOG_COMPATIBILITY_CONFLICT). The customer sell build surfaces the same rules as a warning (seller declaration is not a hard block).",
+  "ranAt": "2026-09-07T02:55:00.000Z"
 }
 
 
